@@ -7,4 +7,4 @@ Multi-hop Bypass is the implementation of the power efficient algorithm by Shen 
 Hybrid bypass is a new algorithm that examines power efficiency in compination with low latency and uses two queues for serving traffic. 
 
 [id1]: ## "spam proof e-mail address, type it yourself"
-For assistance feel free to contact me at [delistaνrοu(α)υοm.edυ.gr][id1]
+For assistance feel free to contact me at [delistaνrου(α)υοm.edυ.gr][id1]
