@@ -8,3 +8,5 @@ Hybrid bypass is a new algorithm that examines power efficiency in compination w
 
 [id1]: ## "spam proof e-mail address, type it yourself"
 For assistance feel free to contact me at [delistaνrου(α)υοm.edυ.gr][id1]
+
+Current version 0.193
