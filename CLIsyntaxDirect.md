@@ -1,6 +1,6 @@
 | Command line arguments | Value                             | Configuration file sections | Meaning                                               | Command example |
 |------------------------|-----------------------------------|-----------------------------|-------------------------------------------------------|-----------------|
-| argv[0]                | &lt;program name>                    |                             | (program name)                                        | python codeDirectBypassQueuesRWA.py N6L8_ShnTckr_a.txt 0 testexperiment detailreport gensave lamda.txt pdfout 1 keepreport Desktop C:\\SimLight Uniform Classic1Q |
+| argv[0]                | &lt;program name>                    |                             | (program name)                                        | python codeDirectBypassQueuesRWA.py N6L8_ShnTckr_a.txt 0 testexperiment detailreport gensave lamda.txt pdfout 1 keepreport Desktop .\SimLight Uniform Classic1Q |
 | argv[1]                | &lt;network>                         | [Nets_start]...[Nets_end]   | (network)                                             |                 |
 | argv[2]                | &lt;X index>                         | [X]                         | (X index)                                             |                 |
 | argv[3]                | &lt;experiment name for csv file>    | [Name]                      | (experiment name for csv file)                        |                 |
