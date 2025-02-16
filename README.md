@@ -6,7 +6,9 @@ Multi-hop Bypass is the implementation of the power efficient algorithm by Shen 
 
 Hybrid bypass is a new algorithm that examines power efficiency in compination with low latency and uses two queues for serving traffic. 
 
+Information about the command line parameters and example configurations in [CLIsyntaxDirect.md](./CLIsyntaxDirect.md), [CLIsyntaxMultihop.md](./CLIsyntaxMultihop.md), [CLIsyntaxHybrid.md](./CLIsyntaxHybrid.md).
+
 [id1]: ## "spam proof e-mail address, type it yourself"
 For assistance feel free to contact me at [delistaνrου(α)υοm.edυ.gr][id1]
 
-Current version 0.193
+This repository holds a snap shop of the stable version 0.193, while development actively continues.
