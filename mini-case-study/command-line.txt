@@ -1,3 +1,3 @@
-python codeDirectBypass.py N6L8_ShnTckr_a.txt 2 caseforpaper detailreport load case_lamda1Q.txt nopdf 1 keepreport Desktop . Uniform Classic1Q
-python codeMultiHopBypass.py N6L8_ShnTckr_a.txt 2 caseforpaper detailreport load case_lamda1Q.txt nopdf 1 keepreport Desktop . Uniform Classic1Q
-python codeHybridBypass.py N6L8_ShnTckr_a.txt 2 caseforpaper detailreport load case_lamda2Q.txt nopdf 2 keepreport Desktop . Uniform Hybrid2Q
+python codeDirectBypass.py N6L8_ShnTckr_a.txt 2 caseforpaper detailreport load case_demands1Q.txt nopdf 1 keepreport Desktop . Uniform Classic1Q
+python codeMultiHopBypass.py N6L8_ShnTckr_a.txt 2 caseforpaper detailreport load case_demands1Q.txt nopdf 1 keepreport Desktop . Uniform Classic1Q
+python codeHybridBypass.py N6L8_ShnTckr_a.txt 2 caseforpaper detailreport load case_demands2Q.txt nopdf 2 keepreport Desktop . Uniform Hybrid2Q
