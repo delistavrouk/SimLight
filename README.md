@@ -11,4 +11,4 @@ Information about the command line parameters and example configurations in [CLI
 [id1]: ## "spam proof e-mail address, type it yourself"
 For assistance feel free to contact me at [delistaνrου(α)υοm.edυ.gr][id1]
 
-This repository holds a snap shot of the stable version 0.193, while development actively continues.
+This repository holds a snapshot of the stable version 0.193, while development actively continues.
