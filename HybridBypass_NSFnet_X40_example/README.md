@@ -1,4 +1,4 @@
-The file "_open-this_Alg_HybridBypass_Net-Shen_Tucker_b_N14L21_X-40.html" has the output of the simulator.
+The file "Alg_<algorithm, etc.>.html" has the output of the simulator.
 
 It's better to download the folder and open the above file.
 
