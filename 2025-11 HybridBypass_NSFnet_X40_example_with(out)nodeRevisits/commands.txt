@@ -1,0 +1,3 @@
+python codeHybridBypass_v02.0.py N14L21_NSFnet_AllWavConv.txt 8 testRevisits detailreport load 2Qlambda.txt nopdf 2 keepreport Desktop C:\simNoRevisits Uniform Hybrid2Q -1  16  40 30  100 50 noCheck -1.0 -1.0
+
+python codeHybridBypass_v02.0.py N14L21_NSFnet_AllWavConv.txt 8 testRevisits detailreport load 2Qlambda.txt nopdf 2 keepreport Desktop C:\simNoRevisits Uniform Hybrid2Q -1  16  40 30  100 50 CheckForRevisits -1.0 -1.0
