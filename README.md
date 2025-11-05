@@ -8,7 +8,8 @@ Hybrid bypass is a new algorithm that examines power efficiency in compination w
 
 Use the config.txt file to set runtime configuration and number of execution repetitions.
 Then run on the command line: python utilCLIrunner_v2.py
-##Information about the command line parameters and example configurations in [CLIsyntaxDirect.md](./CLIsyntaxDirect.md), [CLIsyntaxMultihop.md](./CLIsyntaxMultihop.md), [CLIsyntaxHybrid.md](./CLIsyntaxHybrid.md).
+
+<!--##Information about the command line parameters and example configurations in [CLIsyntaxDirect.md](./CLIsyntaxDirect.md), [CLIsyntaxMultihop.md](./CLIsyntaxMultihop.md), [CLIsyntaxHybrid.md](./CLIsyntaxHybrid.md).-->
 
 [id1]: ## "spam proof e-mail address, type it yourself"
 For assistance feel free to contact me at [delistaνrου(α)υοm.edυ.gr][id1]
