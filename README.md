@@ -17,9 +17,9 @@ For assistance feel free to contact me at [delistaνrου(α)υοm.edυ.gr][id1]
 This repository holds a snapshot of the stable version 0.193, while development actively continues.
 
 Updated in November 2025 to...
-	-apply traffic blocking due to constraints (limited resources, wavelength continuity, hard latency cap)
-	-simulate the presence or absence of wavelength converters on network nodes
-	-realize variable traffic splits between the two input traffic queues
-	-penalize node revisits on traffic grooming
-	-support variable number of fibers per link, wavelength numbers per fiber, wavelength channel capacities
+- apply traffic blocking due to constraints (limited resources, wavelength continuity, hard latency cap)
+- simulate the presence or absence of wavelength converters on network nodes
+- realize variable traffic splits between the two input traffic queues
+- penalize node revisits on traffic grooming
+- support variable number of fibers per link, wavelength numbers per fiber, wavelength channel capacities
 	
