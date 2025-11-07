@@ -1,4 +1,3 @@
-## ComparePower6nodes_octave.m  (Octave-only, no yyaxis/uistack)
 
 close all; clf;
 
@@ -14,11 +13,9 @@ mDeliDevY = [03.180;06.740;006.850;007.200;007.850;NaN];
 x = 1:6;
 labels = {"20","40","60","80","100","120"};
 
-## --- Axis 1 (bottom): BARS, right y-axis (background) -------------------
 axBars = axes();  % create first, so it stays at the back
 hold(axBars, "on");
 
-% Two light bar series side-by-side
 bh1 = bar(axBars, x-0.15, dDeliDevY, 0.3, "FaceColor", [0.85 0.85 0.85], "EdgeColor", "none");
 bh2 = bar(axBars, x+0.15, mDeliDevY, 0.3, "FaceColor", [0.70 0.80 1.00], "EdgeColor", "none");
 
@@ -31,7 +28,6 @@ xlabel(axBars, "Traffic demand (Gbps / node pair)");
 
 grid(axBars, "on");  % grid from bars axis (optional)
 
-## --- Axis 2 (top): LINES, left y-axis (foreground, transparent) ---------
 pos = get(axBars, "Position");
 axLines = axes("Position", pos, "Color", "none");  % transparent background
 hold(axLines, "on");
@@ -46,16 +42,13 @@ ylim(axLines, [30 220]);
 set(axLines, "XTick", x, "XTickLabel", labels);  % keep ticks aligned
 
 ylabel(axLines, "Average power consumption (kWatt)");
-% Do NOT set xlabel on the top axis (keeps one x-label from axBars)
 
 grid(axLines, "on");
 set(axLines, "YMinorTick", "on");
 set(axLines, "YMinorGrid", "on");
 
-## --- Title & Legend (attach to top axis so it sits above) ---------------
 title(axLines, "Power vs. Deviation");
 
-% Build a combined legend using handles from both axes, displayed on top axis
 legend(axLines, [ph1 ph2 ph3 ph4 bh1 bh2], ...
   {"Direct Bypass [our simulator]", ...
    "Direct Bypass [Shen & Tucker]", ...
@@ -65,7 +58,5 @@ legend(axLines, [ph1 ph2 ph3 ph4 bh1 bh2], ...
    "Multi-hop Bypass deviation"}, ...
   "Location", "southeast");
 
-## --- Keep axes perfectly synced on resize --------------------------------
-% (Octave usually keeps same 'Position', but if you tweak, reapply:)
 set(axLines, "Position", get(axBars, "Position"));
 

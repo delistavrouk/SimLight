@@ -1,18 +1,11 @@
 figureName = 'refreshFig.8_5b-latency-deteriorate-Multihop-vs-Direct';   % <- change per figure
 graphics_toolkit('qt');
 
-% ---- Set figure appearance ----
 set(gcf, 'Color', 'w');                     % white background
-%set(gca, 'FontSize', 14, 'LineWidth', 1.0);
 box on;
 grid on;
 
-## ComparePower6nodes_labels_final.m
 close all; clf;
-%figure(1, 'position',[100,100,720,540]);
-
-% LatRelDeterMhp2DrcSingleQ3nets.m
-% LatRelDeterMhp2DrcSingleQ3nets.png
 
 relSingleQueueMultihop2Direct6n = [20, 26.841; 40, 18.335; 60, 13.428; 80, 11.014; 100, 8.088; 120, 8.062]
 relSingleQueueMultihop2Direct14n = [20, 45.969; 40, 32.391; 60, 23.938; 80, 19.065; 100, 16.353; 120, 12.918]
@@ -47,7 +40,6 @@ xticks([1 2 3 4 5 6]);
 xticklabels(labels);
 
 
-% Set the y-axis with minor gridlines
 set(gca, 'YMinorTick', 'on'); % Turn on minor ticks
 set(gca, 'YGrid', 'on');      % Enable grid for the y-axis
 set(gca, 'YMinorGrid', 'on'); % Enable minor gridlines
@@ -61,6 +53,6 @@ ylabel('Latency deterioration (%)');
 
 legend('USnet', 'NSFnet', 'STnet', 'Location', 'northeast');
 
-% High-resolution TIFF (Elsevier standard for print)
+
 print([figureName '.png'], '-dpng', '-r600');
 fprintf('Done! Exported %s.png at 600 DPI.\n', figureName);

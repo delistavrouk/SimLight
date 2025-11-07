@@ -1,19 +1,5 @@
-## ComparePower6nodes_octave_fixed_with_errorbars_3curves.m
-## -------------------------------------------------------------------------
-## Plot latency (left y-axis) and blocking rate (right y-axis)
-## for 3 traffic splits, each with confidence intervals (T error bars).
-## Works in pure GNU Octave (no yyaxis).
-## -------------------------------------------------------------------------
-
 close all; clf;
 
-## --- Local helper function ----------------------------------------------
-## Draw T-shaped vertical error bars with the same color as the main curve.
-## Returns handle to the main line (for legend use).
-##
-## Usage:
-##   h = terrorbar(x, y, ci, style, cap, color)
-##
 function h = terrorbar(x, y, ci, style, cap, color)
   if nargin < 6, color = 'k'; end
   h = plot(x, y, style, 'LineWidth', 1.2, 'MarkerSize', 6, ...
@@ -55,7 +41,6 @@ ciBlckTRperc50_50split = [0.31436566356135 0.396030833324874 0.328131384205189];
 x = 1:3;
 labels = {"100", "200", "400"};
 
-## --- Axis 1: Bars (right y-axis) ----------------------------------------
 axBars = axes();
 hold(axBars, "on");
 
@@ -112,7 +97,7 @@ ylabel(axBars, "Traffic demands blocking rate (%)");
 xlabel(axBars, "λ capacity (Gbps)");
 grid(axBars, "on");
 
-## --- Axis 2: Lines (left y-axis, transparent foreground) ----------------
+
 pos = get(axBars, "Position");
 axLines = axes("Position", pos, "Color", "none");
 hold(axLines, "on");
@@ -130,7 +115,7 @@ grid(axLines, "on");
 set(axLines, "YMinorTick", "on");
 set(axLines, "YMinorGrid", "on");
 
-## --- Title & Legend -----------------------------------------------------
+
 %title(axLines, "Hybrid Bypass, NSFnet, 1 fiber/link, 40 λ/fiber, Traffic load 400G, No λ converters, Varying traffic splits");
 
 hleg = legend(axLines, [ph1 ph2 ph3 bh1 bh2 bh3], ...
@@ -146,7 +131,7 @@ pos = get(hleg, "position");
 pos(2) = pos(2) - 0.05;
 set(hleg, "position", pos);
 
-## Keep axes perfectly synced
+
 set(axLines, "Position", get(axBars, "Position"));
 linkaxes([axBars axLines], "x");
 

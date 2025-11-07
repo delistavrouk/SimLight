@@ -37,7 +37,6 @@ xticks([1 2 3 4 5 6]);
 
 xticklabels(labels);
 
-% Set the y-axis with minor gridlines
 set(gca, 'YMinorTick', 'on'); % Turn on minor ticks
 set(gca, 'YGrid', 'on');      % Enable grid for the y-axis
 set(gca, 'YMinorGrid', 'on'); % Enable minor gridlines

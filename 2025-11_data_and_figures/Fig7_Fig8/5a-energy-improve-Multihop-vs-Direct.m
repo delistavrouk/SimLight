@@ -1,15 +1,11 @@
 figureName = 'refreshFig.8_5a-energy-improve-Multihop-vs-Direct';   % <- change per figure
 graphics_toolkit('qt');
 
-% ---- Set figure appearance ----
 set(gcf, 'Color', 'w');                     % white background
-%set(gca, 'FontSize', 14, 'LineWidth', 1.0);
 box on;
 grid on;
 
-## ComparePower6nodes_labels_final.m
 close all; clf;
-%figure(1, 'position',[100,100,720,540]);
 
 x = [1, 2, 3, 4, 5, 6];  % x-axis data points
 
@@ -31,7 +27,6 @@ plot( x, relOurMtoD24nY, 'k:d', x, relOurMtoD14nY, 'k--s', x, relOurMtoD6nY, 'k-
 xlim([1, 6]);
 
 ylim([3.5 16.5])
-% Set the y-axis with minor gridlines
 set(gca, 'YMinorTick', 'on'); % Turn on minor ticks
 set(gca, 'YGrid', 'on');      % Enable grid for the y-axis
 set(gca, 'YMinorGrid', 'on'); % Enable minor gridlines
@@ -47,6 +42,5 @@ ylabel('Power improvement (%)');
 
 legend('USnet', 'NSFnet', 'STnet', 'Location', 'northeast');
 
-% High-resolution TIFF (Elsevier standard for print)
 print([figureName '.png'], '-dpng', '-r600');
 fprintf('Done! Exported %s.png at 600 DPI.\n', figureName);

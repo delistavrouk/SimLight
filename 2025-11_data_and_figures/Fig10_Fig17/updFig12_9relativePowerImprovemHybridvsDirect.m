@@ -1,25 +1,18 @@
 graphics_toolkit('qt');
 
-% ---- Set figure appearance ----
 set(gcf, 'Color', 'w');                     % white background
 set(gca, 'FontSize', 14, 'LineWidth', 1.0);
 box on;
 grid on;
 
-## ComparePower6nodes_labels_final.m
 close all; clf; clear; clc;
 figure(1, 'position',[100,100,700,700]);
 
-%close all; clear; clc;
-%graphics_toolkit('gnuplot')
-%graphics_toolkit('qt')
-%graphics_toolkit('fltk')
 
 %figure('position', [100, 100, 1200, 800])  % Larger figure = finer detail
 set(gca, 'FontSize', 14, 'LineWidth', 1.0)
 
 
-% Data
 % positive means that the Direct is better, negative means that the Hybrid is better
 STnet  = [0.027540324 0.005828307 -0.017099364 0.015330958 0.007661705 0.000805351]; %Hybrid vs Direct
 %STnet  = [-0.026802183 -0.005794535 0.017396839 -0.015099468 -0.007603449 -0.000804703]; %Direct vs Hybrid

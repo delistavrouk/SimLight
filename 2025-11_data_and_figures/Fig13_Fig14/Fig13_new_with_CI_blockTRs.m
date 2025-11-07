@@ -1,30 +1,5 @@
-## ComparePower6nodes_octave_fixed_with_errorbars.m
-## -------------------------------------------------------------------------
-## Draws latency and blocking rate comparison for hybrid bypass networks.
-## Includes confidence interval (T error bars) for both lines and bars.
-##
-## Works in pure GNU Octave (no yyaxis).
-## -------------------------------------------------------------------------
-
 close all; clf;
 
-## --- Local helper function ----------------------------------------------
-## Draw T-shaped vertical error bars with the same color as the main curve.
-## Returns handle(s) to the plotted line and error bar lines.
-##
-## Usage:
-##   h = terrorbar(x, y, ci, style, cap, color)
-##
-## Inputs:
-##   x, y     : data points
-##   ci       : half-length of confidence interval (±ci)
-##   style    : line style string (e.g. 'k-o')
-##   cap      : half-width of horizontal caps on error bars
-##   color    : color spec (default 'k')
-##
-## Output:
-##   h        : handle to the main plot line (for legend use)
-##
 function h = terrorbar(x, y, ci, style, cap, color)
   if nargin < 6, color = 'k'; end
   h = plot(x, y, style, 'LineWidth', 1.2, 'MarkerSize', 6, ...
@@ -52,7 +27,6 @@ ciBlckLPpercNoWavConv = [0.374032510951154 0.432504818447427 0.278152264247316];
 x = 1:3;
 labels = {"1", "2", "4"};
 
-## --- Axis 1: Bars (right y-axis) ----------------------------------------
 axBars = axes();
 hold(axBars, "on");
 
@@ -65,7 +39,6 @@ bh1 = bar(axBars, x1, BlckLPpercWithWavConv, barWidth, ...
 bh2 = bar(axBars, x2, BlckLPpercNoWavConv, barWidth, ...
           "FaceColor", "#cccccc", "EdgeColor", "k");
 
-## Add T error bars for blocking rate (using lighter gray/blue)
 for i = 1:numel(x)
   % With λ converters (gray)
   line([x1(i) x1(i)], [BlckLPpercWithWavConv(i)-ciBlckLPpercWithWavConv(i), ...
@@ -96,7 +69,6 @@ ylabel(axBars, "Traffic demands blocking rate (%)");
 xlabel(axBars, "Number of fibers / link");
 grid(axBars, "on");
 
-## --- Axis 2: Lines (left y-axis, transparent foreground) ----------------
 pos = get(axBars, "Position");
 axLines = axes("Position", pos, "Color", "none");
 hold(axLines, "on");
@@ -113,7 +85,6 @@ grid(axLines, "on");
 set(axLines, "YMinorTick", "on");
 set(axLines, "YMinorGrid", "on");
 
-## --- Title & Legend -----------------------------------------------------
 %title(axLines, "Hybrid Bypass, NSFnet, λ capct 100Gbps, 40 λ/fiber, Traff. load 400G, Q_{HP}:50%, Q_{LP}:50%");
 
 hleg = legend(axLines, [ph1 ph2 bh1 bh2], ...
