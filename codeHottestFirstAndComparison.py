@@ -12,9 +12,9 @@
 #                                   argv[0]          argv[1]                   argv[2]   argv[3]                        argv[4]           argv[5]                            argv[6]                       argv[7]                       argv[8]            argv[9]                            argv[10]               argv[11]                                                      argv[12]       argv[13]              argv[14]          argv[15]                        argv[16]
 # Configuration file sections                        [Nets_start]...[Nets_end] [X]       [Name]                         [Printout]        [Lamda]                            [LamdaTextFile]               [PDFout]                      [Queues]           [KeepEveryNthReport]               [ComputerName]         [ProgramFolder]                                               [Distribution] [Strategy]
 #
-# command line example for Heaviest First And Comparison algorithm
+# command line example for Hottest First And Comparison algorithm
 #
-# PS C:\SimLight> python codeHeaviestFirstAndComparison.v02.measurelatencyNewAndOldFormula.py N6L8_ShnTckr_a.txt 0 _HfaC detailreport gensave lambda.txt nopdf 1 keepreport Desktop C:\\SimLight Uniform HeaviestFirstAndComparison -1 4 40
+# PS C:\SimLight> python codeHottestFirstAndComparison.v01.measurelatencyNewAndOldFormula.py N6L8_ShnTckr_a.txt 0 _HfaC detailreport gensave lambda.txt nopdf 1 keepreport Desktop C:\\SimLight Uniform HottestFirstAndComparison -1 4 40
 #
 # dependencies
 
@@ -47,7 +47,7 @@ import numpy # type: ignore
 import time
 import timeit
 from datetime import datetime
-from codeGusLibQueues_v3 import *
+from codeGusLibQueues import *
 from random import randrange
 import platform
 import uuid
@@ -87,10 +87,10 @@ sys.stderr = errlog
 
 #set the name of the algorithm
 if sys.argv[8] == "1":
-    Algorithm = "HeaviestAndComparison"
+    Algorithm = "HottestAndComparison"
 elif sys.argv[8] == "2":
     Algorithm = "NotApplicable"
-    error("HeaviestAndComparison has been asked to run using one (1) queue,",7)
+    error("HottestAndComparison has been asked to run using one (1) queue,",7)
 else:
     error("No parameter for the number of Queues",8)
 
@@ -348,7 +348,7 @@ stdoutOriginal, sys.stdout, graphsPath = Log2path(appDir, "Alg_"+alg+"_Net-"+net
 #SOP
 if (GlobalSOP==True) :
     sys.stdout.reconfigure(encoding='utf-8')
-    htmlhead("Heaviest First And Comparison", lenQs, sys.argv[12])
+    htmlhead("Hottest First And Comparison", lenQs, sys.argv[12])
 
     print ("<table class='table1c'>")
     print ("<tr><th colspan='2'>Simulator output details</th></tr>")
@@ -429,7 +429,7 @@ for i in range(lenQs):
 if lenQs==1:
     aggregatedTReqs = TReqsForQueue[0]
 else:
-    print("<div>Error: Heaviest First And Comparison Designed for 1 queue") # Program designed for 1 or 2 queues so far.")
+    print("<div>Error: Hottest First And Comparison Designed for 1 queue") # Program designed for 1 or 2 queues so far.")
     exit(1)
 
 sortTrafficRequestsDescending(aggregatedTReqs)
@@ -514,7 +514,7 @@ LightpathReuses = [0] #how many reuses of lightpaths - if a lightpath is reused 
 
 # new, serving two traffic request queues
 if lenQs==2:
-    print("<div>Heaviest and Comparison runs only for one queue!</div>")
+    print("<div>Hottest and Comparison runs only for one queue!</div>")
     exit(1)
 else:
     startingstep = 1
@@ -522,13 +522,13 @@ else:
     s="Virtual topology graph after processing request "
     VTgraph = graph_new(s, True)
     
-    #route Q0 using heaviest and comparison
+    #route Q0 using Hottest and comparison
     Q=0
 
     # 30-9-2025
     # startingstep = routeAllTrafficRequestsOfOneQueueOverVirtualTopologyHeaviestFirstAndComparison(startingstep, VTgraph, N, TReqsForQueue[Q], Q, vT,vTL,vTfreeCap,maxGbpsPerWavelength,VTfinal, ReqRouteInfo, graphsPath, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VirtLinkIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals)
 
-    # Heaviest First and Comparison for one queue
+    # Hottest First and Comparison for one queue
 
     # data
 
@@ -552,9 +552,14 @@ else:
 
     # start 
     
-    print("<li>Routing traffic requests of single queue using Heaviest First and Comparison algorithm</li>")
+    print("<li>Routing traffic requests of single queue using Hottest First and Comparison algorithm</li>")
     
     TReqs = TReqsForQueue[Q]
+
+    #1-10-2025
+    # sort traffic requests by hottest first (traffic demand of a request / shortest hop distance of the request)
+    TReqs = sortTrafficRequestsByHottestAndComparison(TReqs, N, Nt, NmC)
+
     G = {}
 
     print("<li>virtual topology G is ", G)
@@ -760,7 +765,7 @@ else:
     wUaverage, fUaverage = calculatePhysicalLinkStatisticsAndPowerParameters(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection)
     PowerIP, PowerTransponders, PowerEDFAs, G2PowerTotal = evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, Di, Er, Et, Ee, B)
 
-    schedulingstrategy = sys.argv[13] if sys.argv[13]!=None else "HeaviestAndComparison"
+    schedulingstrategy = sys.argv[13] if sys.argv[13]!=None else "HottestAndComparison"
 
     vT = G
     VirtualLinkTotals = GvirtualLinkTotals
@@ -1013,7 +1018,8 @@ txtProcess = str(roundatdecimals(ProcessTime, 3))
 txtLightpaths = str(lightpaths)
 txtReusedLightpaths = str(reused)
 txtPercentReusedLightpaths = str(roundatdecimals(PercentReusedLightpaths,1))
-txtAverageLightpathReuses = str(roundatdecimals(AverageLightpathReuses,3))
+#txtAverageLightpathReuses = str(roundatdecimals(AverageLightpathReuses,3))
+txtAverageLightpathReuses = str(roundatdecimals(AverageLightpathReuses,3)) if isinstance(AverageLightpathReuses, float) else AverageLightpathReuses
 #txtLightpathReuses = str(LightpathReuses[0])
 #txtLightpathReuses = str(reuses)
 txtLatencyTotal = "-" #str(LatencyTotal)
@@ -1428,7 +1434,8 @@ if sys.argv[9] == "removereport":
     removeTree(graphsPath)
 
 if sys.argv[9] == "keepDBonly":
-    keep_and_rename_file(UUID, graphsPath, "lightbase.db")
+    #keep_and_rename_file(UUID, graphsPath, "lightbase.db")
+    keep_and_rename_file(UUID, graphsPath, "Alg_"+alg+"_Net-"+netName+"_X-"+str(X[xi])+".db")
 
 
 #close the error log

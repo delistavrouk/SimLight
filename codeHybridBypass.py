@@ -5,16 +5,14 @@
 
 # usage: python <program name> <network> <X index> <experiment name for csv file>
 # command line parameters example
-# PS C:\STDMB> python               codeHybrid.py    N4L5_GRNetSubnet.txt      0         testexperiment                 detailreport      gensave                            lamda.txt                     pdfout                        1                  keepreport                         HomePC                 SimLight                                                      Uniform        Q0_75_Q1_25           2                 4                               40
-# <prompt>     <python interpreter> <program name>   <network>                 <X index> <experiment name for csv file> <global printout> <save lamda matrix to text file>   <filename for lamda matrix>   <save web page to pdf or not> <number of Queues> <keep or not detailreport, if any> <name of the computer> <program folder under the root (Win) or home (Lin) directory> <distribution> <scheduling strategy> <fibers per link> <wavelength channels per fiber> <wavelngth channel capacity in Gbps>
-#                                                                                                                       basicreport       load                                                             nopdf                         2                  removepreport                                                                                                           Poisson        Q0nextQ1    
+# PS C:\STDMB> python               codeHybrid.py    N4L5_GRNetSubnet.txt      0         testexperiment                 detailreport      gensave                            lamda.txt                     pdfout                        1                  keepreport                         HomePC                 SimLight                                                      Uniform        Q0_75_Q1_25           2                 4                               40                                   30                                   100                                  10                            CheckForRevisits
+# <prompt>     <python interpreter> <program name>   <network>                 <X index> <experiment name for csv file> <global printout> <save lamda matrix to text file>   <filename for lamda matrix>   <save web page to pdf or not> <number of Queues> <keep or not detailreport, if any> <name of the computer> <program folder under the root (Win) or home (Lin) directory> <distribution> <scheduling strategy> <fibers per link> <wavelength channels per fiber> <wavelngth channel capacity in Gbps> <Latency of router port in microsec> <Latency of transponder in microsec> <percent of traffic for Q_HP> <check for revisits or not> <hard latency cap Q_HP> <hard latency cap Q_LP>
+#                                                                                                                       basicreport       load                                                             nopdf                         2                  removepreport                                                                                                           Poisson        Q0nextQ1                                                                                                                                                                                                             NoCheckForRevisits
 #                                                                                                                       <no printout>     <load lamda matrix from text file>                                                                                                                                                                                                                       Q1nextQ0
-#                                   argv[0]          argv[1]                   argv[2]   argv[3]                        argv[4]           argv[5]                            argv[6]                       argv[7]                       argv[8]            argv[9]                            argv[10]               argv[11]                                                      argv[12]       argv[13]              argv[14]          argv[15]                        argv[16]
+#                                   argv[0]          argv[1]                   argv[2]   argv[3]                        argv[4]           argv[5]                            argv[6]                       argv[7]                       argv[8]            argv[9]                            argv[10]               argv[11]                                                      argv[12]       argv[13]              argv[14]          argv[15]                        argv[16]                             argv[17]                             argv[18]                             argv[19]                      argv[20]                    argv[21]                argv[22]                            
 # Configuration file sections                        [Nets_start]...[Nets_end] [X]       [Name]                         [Printout]        [Lamda]                            [LamdaTextFile]               [PDFout]                      [Queues]           [KeepEveryNthReport]               [ComputerName]         [ProgramFolder]                                               [Distribution] [Strategy]
 #
-# command line example for Heaviest First And Comparison algorithm
-#
-# PS C:\SimLight> python codeHeaviestFirstAndComparison.v02.measurelatencyNewAndOldFormula.py N6L8_ShnTckr_a.txt 0 _HfaC detailreport gensave lambda.txt nopdf 1 keepreport Desktop C:\\SimLight Uniform HeaviestFirstAndComparison -1 4 40
+# PS C:\SimLight> python .\codeHybridBypass.py N4L5_GRNetSubnet.txt 0 test detailreport gensave lambda.txt nopdf 2 keepreport Desktop C:\\SimLight Uniform HybridBypass2Q 2 
 #
 # dependencies
 
@@ -47,7 +45,7 @@ import numpy # type: ignore
 import time
 import timeit
 from datetime import datetime
-from codeGusLibQueues_v3 import *
+from codeGusLibQueues import *
 from random import randrange
 import platform
 import uuid
@@ -87,10 +85,10 @@ sys.stderr = errlog
 
 #set the name of the algorithm
 if sys.argv[8] == "1":
-    Algorithm = "HeaviestAndComparison"
-elif sys.argv[8] == "2":
     Algorithm = "NotApplicable"
-    error("HeaviestAndComparison has been asked to run using one (1) queue,",7)
+    error("Hybrid Bypass has been asked to run using one (1) queue,",7)
+elif sys.argv[8] == "2":
+    Algorithm = "HybridBypass"
 else:
     error("No parameter for the number of Queues",8)
 
@@ -117,6 +115,7 @@ if (sys.argv[4]=="detailreport"):
 else:
     GlobalSOP = False
 SetGlobalPrintout(GlobalSOP)
+
 UUID = str(uuid.uuid4())
 SetGlobalCurrentRunUUID(UUID)
 
@@ -133,11 +132,25 @@ if (GlobalSOP==True) :
 
 start_processtime = timeit.default_timer()
 
+#netName, N, L, Nm, Dist = readData(sys.argv[1])
 netName, N, L, Nm, Dist, HasWavConv = readData(sys.argv[1]) # read network definition from text file
+
 
 # first command line parameter is the text file with the network definition 
 # example of a network text file:
 
+'''
+[Name]
+GRNet_N4L5
+[N]
+SYR,SAM,RHO,HER
+[L]
+0,1 1,2 2,3 3,0 1,3
+[Nm]
+0:1,3 1:0,2,3 2:1,3 3:0,2,1
+[Dist]
+182.0,270.0,341.0,251.0,300.0
+'''
 
 if sys.argv[8] == "1":
     QueueNames = ["Single"]
@@ -225,7 +238,6 @@ G = (N, L)
 #VTobj = VirtualTopology("VT")
 
 # VT: [i, j] => Logical/Virtual Link from node i to node j.
-# VT is the old virtual topology structure
 # The index of item [i, j] is the id of the logical/virtual link.
 VT=[]
 
@@ -250,16 +262,6 @@ VirtualLinkTReqs = {} # = {(s,d,id):[(que1,req1,cap1,"New"), (que2,req2,cap2,"Gr
 #OLD vTfreeCap={}   # VTFreeCapacities = {node:[free capacity to 1st neighbour, free capacity to 2nd neighbour, ...], ...}
 ReqRouteInfo = {}   # req = {(queue, request number): [link and free capacity, ...], ...}   how request is routed; which links it uses and their capacity
 #vLinkData # vLinkData = [request number, (src, dst of virtual link 1), case (new/groom), capacity used]
-
-
-#Since 2024-Aug I use the following 3 dictionaries to keep information related to routing
-#print("<li>Virtual Link IDs = {(s,d):[0,1,2,...],...}")
-#printVLids(VirtualLinkIDs)
-#print("<li>Virtual Link Traffic Requests = {(s,d,i):[(que,req,cap,type),...],...}")
-#printVLTReqs(VirtualLinkTReq)
-#print("<li>Virtual Link Totals = {(s,d,i):[caputil, capfree, num_of_TReqs],...}")
-#printVLTotals(VirtualLinkTotals)
-
 
 # Wmn: L:x => Link number L has a number of x used wavelengths between node m and n.
 Wmn = {}
@@ -291,6 +293,7 @@ El = {}
 
 # SigmaLamda_id: total data traffic from low end routers at node i
 SigmaLamda_id = {}
+
 
 # Di: number of ports that are used to aggregate the data traffic from low end routers at node i
 Di = {}
@@ -334,7 +337,7 @@ LatencyTimeUnit4csv = "microsec"
 
 LatRouterPort = float(sys.argv[17])   # 30 # microsecond
 LatTransponder = float(sys.argv[18])  # 100 # microsecond
-LatEDFA = 100 / 1000.0 # nanosecond
+LatEDFA = 100 / 1000.0 # nanoseconds expressed as microseconds
 LatFiberKilometer = 5 # microsecond
 
 #main program's execution starts here #################################################################################################################
@@ -348,7 +351,7 @@ stdoutOriginal, sys.stdout, graphsPath = Log2path(appDir, "Alg_"+alg+"_Net-"+net
 #SOP
 if (GlobalSOP==True) :
     sys.stdout.reconfigure(encoding='utf-8')
-    htmlhead("Heaviest First And Comparison", lenQs, sys.argv[12])
+    htmlhead("Hybrid Bypass", lenQs, sys.argv[12])
 
     print ("<table class='table1c'>")
     print ("<tr><th colspan='2'>Simulator output details</th></tr>")
@@ -417,19 +420,49 @@ if sys.argv[5] == "gensave":
     lamdatextfile = open(sys.argv[6],"w") # since in the generateTrafficRequests() function the lamdatextfile is appended ("a"), I recreate it empty ("w") to avoid keepeing previous data.
     lamdatextfile.close()
 
-# Lee & Rhee Table I, step 1. Initialization
-
 #nextReqID = 1
 TReqsForQueue = []
+
+'''
+old, 50%-50% traffic distribution among Qhp, Qlp queues
 for i in range(lenQs):
-    tempQ = generateTrafficRequests_0_2X(dbConnection, N, graphsPath, lenQs, X, xi, QueueNames[i], i, sys.argv[12]) # i is the queue number (queueID), sys.argv[12] is the distribution name Uniform/Poisson
+    #queueBestEffort, nextReqID = generateTrafficRequests(dbConnection, N, graphsPath, X, xi, "Queue Video", nextReqID)
+    #queueBestEffort, nextReqID = generateTrafficRequests(dbConnection, N, graphsPath, X, xi, "Queue BestEffort", nextReqID)
+    
+    #tempQ, nextReqID = generateTrafficRequests(dbConnection, N, graphsPath, X, xi, QueueNames[i], i, nextReqID) # i is the queue number (queueID), nextReqID is the request number (reqID)
+    #tempQ = generateTrafficRequests(dbConnection, N, graphsPath, X, xi, QueueNames[i], i) # i is the queue number (queueID)
+    tempQ = generateTrafficRequests(dbConnection, N, graphsPath, lenQs, X, xi, QueueNames[i], i, sys.argv[12]) # i is the queue number (queueID), sys.argv[12] is the distribution name Uniform/Poisson
     
     TReqsForQueue.append(tempQ) # krataei ta traffic reqquests gia kathe queue
+'''
+
+# 2-10-2025 varaiable traffic distribution among Qhp, Qlp queues
+trafficPercentOfQueueHP = roundatdecimals( (int(sys.argv[19]) / 100.0), 3)
+trafficPercentOfQueueLP = roundatdecimals( (1.0 - trafficPercentOfQueueHP), 3)
+
+# 2-10-2025 varaiable traffic distribution among Qhp, Qlp queues
+tempQ = generateTrafficRequestsVariableBalance(dbConnection, N, graphsPath, lenQs, X, xi, QueueNames[0], 0, sys.argv[12], trafficPercentOfQueueHP)
+TReqsForQueue.append(tempQ) # krataei ta traffic reqquests gia kathe queue
+tempQ = generateTrafficRequestsVariableBalance(dbConnection, N, graphsPath, lenQs, X, xi, QueueNames[1], 1, sys.argv[12], trafficPercentOfQueueLP)
+TReqsForQueue.append(tempQ) # krataei ta traffic reqquests gia kathe queue
+
+#print("<li>Queue",QueueNames[0])
+#print("<li>QueItem",TReqsForQueue[0])
+
+#print("<li>Queue",QueueNames[1])
+#print("<li>QueItem",TReqsForQueue[1])
+
+#print ("<p>Queue Video<br>",queueVideo)
+#print ("<p>Queue Best Effort<br>",queueBestEffort)
+#print ("<p></p>")
 
 if lenQs==1:
     aggregatedTReqs = TReqsForQueue[0]
+elif lenQs==2:
+    #aggregate the traffic volume of the two queues
+    aggregatedTReqs= AggregateRequestsTraffic(N, TReqsForQueue[0], TReqsForQueue[1])
 else:
-    print("<div>Error: Heaviest First And Comparison Designed for 1 queue") # Program designed for 1 or 2 queues so far.")
+    print("<div>Error: Program designed for 1 or 2 queues so far.")
     exit(1)
 
 sortTrafficRequestsDescending(aggregatedTReqs)
@@ -457,7 +490,6 @@ if (GlobalSOP==True) :
     printDi(Di, N, SigmaLamda_id)
 #EOP
 
-'''
 # if two (or more in the future) queues, also calculate each queue's contribution
 if lenQs == 2:
     #for the Q0
@@ -489,7 +521,6 @@ if lenQs == 2:
     if (GlobalSOP==True) :
         printDiPerQueue(QueueNames[1], Di_Q1, N, SigmaLamda_id_Q1)
     #EOP
-'''
 
 # Count total lightpaths
 TotalLightpaths = [0] #how many lightpaths
@@ -514,259 +545,32 @@ LightpathReuses = [0] #how many reuses of lightpaths - if a lightpath is reused 
 
 # new, serving two traffic request queues
 if lenQs==2:
-    print("<div>Heaviest and Comparison runs only for one queue!</div>")
-    exit(1)
-else:
     startingstep = 1
 
     s="Virtual topology graph after processing request "
     VTgraph = graph_new(s, True)
     
-    #route Q0 using heaviest and comparison
+    #route Q0 using direct bypass
     Q=0
+    startingstep = routeAllRequestsOfOneQueueOverVirtualTopologyDirectBypass(startingstep, VTgraph, N, TReqsForQueue[Q], Q, vT,vTL,vTfreeCap, maxGbpsPerWavelength, VTfinal, ReqRouteInfo, graphsPath, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VirtLinkIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals)
 
-    # 30-9-2025
-    # startingstep = routeAllTrafficRequestsOfOneQueueOverVirtualTopologyHeaviestFirstAndComparison(startingstep, VTgraph, N, TReqsForQueue[Q], Q, vT,vTL,vTfreeCap,maxGbpsPerWavelength,VTfinal, ReqRouteInfo, graphsPath, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VirtLinkIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals)
+    #route Q1 using multihop bypass
+    Q=1
+    # 12-10-2025 using hybrid bypass for Q1 (Q_LP): this is the original function
+    # startingstep = routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass(startingstep, VTgraph, N, TReqsForQueue[Q], Q, vT,vTL,vTfreeCap,maxGbpsPerWavelength,VTfinal, ReqRouteInfo, graphsPath, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VirtLinkIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals)
+    # On 12-10-2025 I have to change the function to check for revisits in case of traffic grooming
+    # created on 6-9-2025: On this routine I have to perform the wavelength assignment for each routing of a traffic request over a virtual link and check for no revisits in case of traffic grooming before I move to the next traffic request
 
-    # Heaviest First and Comparison for one queue
+    if sys.argv[20] == "CheckForRevisits":
+        startingstep, numberOfPathsWithRevisitWhichRoutedDirectly = routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass_checkingForRevisits_usedbyHybridBypass(startingstep, VTgraph, N, TReqsForQueue[Q], Q, vT,vTL,vTfreeCap,maxGbpsPerWavelength,VTfinal, ReqRouteInfo, graphsPath, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VirtLinkIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, N, Nt, NmC)
+    else:
+        startingstep = routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass(startingstep, VTgraph, N, TReqsForQueue[Q], Q, vT,vTL,vTfreeCap,maxGbpsPerWavelength,VTfinal, ReqRouteInfo, graphsPath, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VirtLinkIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals)
+        numberOfPathsWithRevisitWhichRoutedDirectly = 0
 
-    # data
-
-    G = {}                  # vT={}   # VT = {node:[neighbour, ...], ...}
-    Glist = []              # vTL=[]   # VTL = [(tuple of source, destination of virtual link), ...]
-    Gfreecap = {}           # vTfreeCap={}   #VTFreeCap = {(tuple of source, destination of virtual link):[free capacity], ...}
-    Gfinal = {}             # VTfinal={} # virtual topology for routing virtual links over physical topology
-
-    GvlIDs = {}             # VirtLinkIDs = {}  # a dictionary to keep the unique virtual link IDs assigned to all virtual (lightpath) links.
-                                                # VirtLinkIDs = {id:(tuple of source, destination of virtual link), ...}
-    GVLIDsYetAnother = {}   # VirtLinkIDsYetAnother = {}  # a dictionary to keep the unique virtual link IDs assigned to all virtual (lightpath) links. 
-                            # {id: [src, dst, free], ...} 
-
-    GvirtualLinkIDs = {}        # VirtualLinkIDs = {} # = {(s,d):[0,1,2,...],...}
-    GvirtualLinkTotals = {}     # VirtualLinkTotals = {} # = {(s,d,id):[utilcap, freecap, number_of_TReqs_it_serves], ...}
-    GvirtualLinkTReqs = {}      # VirtualLinkTReqs = {} # = {(s,d,id):[(que1,req1,cap1,"New"), (que2,req2,cap2,"Grm"),...], ...}
-    GreqRouteInfo = {}           # ReqRouteInfo = {}   # req = {(queue, request n`umber): [link and free capacity, ...], ...}   how request is routed; which links it uses and their capacity
-    
-    RoutingOfRequestedTrafficStep = 0 
-    RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
-
-    # start 
-    
-    print("<li>Routing traffic requests of single queue using Heaviest First and Comparison algorithm</li>")
-    
-    TReqs = TReqsForQueue[Q]
-    G = {}
-
-    print("<li>virtual topology G is ", G)
-          
-    # Lee & Rhee Table I, step 2. Iteration
-
-    for TRnum in range(len(TReqs)):     
-    
-        currentTR = TReqs[TRnum]
-        src = currentTR[0]
-        dst = currentTR[1]
-        requiredCap = currentTR[2]  # in Gbps
-
-        print("<hr><li>Current traffic request (flow) is",TRnum,"::",currentTR, "from",src,"to",dst,"requiring",requiredCap,"Gbps</li>")
-
-        G1 = {}
-        G2 = {}
-
-        print("<li>virtual topology G1 is ", G1)
-        print("<li>virtual topology G2 is ", G2)
-
-        # Lee & Rhee Table I, step 2.1 Traffic grooming routing
-
-        print("<li>Attempt to route using traffic grooming</li>")
-
-        if (routeOneVirtualLinkOverTheVirtualTopologyWithTrafficGroomingForHeaviestHottestAndComparison(N, Q, TRnum, src, dst, G, Glist, Gfreecap, requiredCap, maxGbpsPerWavelength, Gfinal, ReqRouteInfo, ReUsedLightpaths, LightpathReuses, GVLIDsYetAnother, dbConnection, GvirtualLinkIDs, GvirtualLinkTReqs, GvirtualLinkTotals, RoutingOfRequestedTrafficStep, tag="G1temp") == 0): 
-            
-            print("<li>routing using traffic grooming succeeded</li>")
-        
-            RoutingOfRequestedTrafficStep += 1
-            
-            G1 = G.copy()
-            G1virtualLinkTotals = GvirtualLinkTotals.copy()
-
-            G1VT, VTfinal = convertVTtoOldFormatForRoutingOverPhysicalTopology(G1virtualLinkTotals, N)
-
-            Cij, SigmaCij = calculateSomePowerParametersForNodesAndLinks(G1VT, N, Cij, SigmaCij)
-
-            RoutingOfVirtualLinksOverWavelengths = {}
-
-            # 4-10-2025: does routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass() insert multiple records?
-            #5-10-2025 no insert to DB 
-            phyLinks, RoutingOfVirtualLinksOverWavelengths = routeVirtualLinksOverPhysicalTopologyForHeaviestHottestAndComparison(G1VT, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, EDFAdist, Dist, wavelegthids, LatRouterPort, LatTransponder)
-
-            CUmn = getCUmnFromDB(CUmn, L, dbConnection)
-            Wmn = getWmnFromDB(Wmn, L, dbConnection)
-            SigmaCij = getSigmaCijFromDB(SigmaCij, N, dbConnection)
-
-            wUaverage, fUaverage = calculatePhysicalLinkStatisticsAndPowerParameters(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection)
-
-            PowerIP, PowerTransponders, PowerEDFAs, G1PowerTotal = evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, Di, Er, Et, Ee, B)
-            G1EnergyIP, G1EnergyWDM, G1Energy = evaluatePowerConsumptionUsingLeeRheeFormula(G1virtualLinkTotals, RoutingOfVirtualLinksOverWavelengths, G1, N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, Di, Er, Et, Ee, B)
-
-            print("<li>virtual topology G1 is ", G1, "</li>")
-            print(f"<li>Request {TRnum:d} routed using grooming with G1 power {G1PowerTotal:.3f} Watts (Shen & Tucker formula)</li>")
-            print(f"<li>Request {TRnum:d} routed using grooming with G1 power {G1Energy:.3f} Watts (Lee & Rhee formula)</li>")
-        
-        else:
-
-            G1 = {}
-            G1PowerTotal = float('inf')
-            G1Energy = float('inf')
-
-            print("<li>routing using traffic grooming failed</li>")
-            print("<li>virtual topology G1 is ", G1, "</li>")
-            print(f"<li>G1 power is {G1PowerTotal:.3f} kWatts (Shen & Tucker)</li>")
-            print(f"<li>G1 power is {G1Energy:.3f} kWatts (Lee & Rhee)</li>")
-
-        # Lee & Rhee Table I, step 2.2 Direct bypass routing
-
-        print("<li>also route using direct bypass</li>")
-
-        if (addNewVirtualLinkToTheVirtualTopologyWithoutGroomingDirectBypassRoutingForHeaviestHottestAndComparison(N, Q, TRnum, src, dst, G, Glist, Gfreecap, requiredCap, maxGbpsPerWavelength, Gfinal, ReqRouteInfo, GVLIDsYetAnother, dbConnection, GvirtualLinkIDs, GvirtualLinkTReqs, GvirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber, tag="G2temp") == 0):
-            
-            print("<li>routing using direct bypass succeeded</li>")                
-
-            #if adding succeded
-            RoutingOfRequestedTrafficStep += 1
-            RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
-
-            #def addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni, Nj, vt, vtl, vtfrcap, cap, maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
-            #added new link to route required capacity successfully
-            #remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
-            #remain = remain - CapForTheLogicalLink
-            #remain=numpy.round(remain, decimals=3, out=None)
-
-            # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
-            TotalLightpaths[0] += 1
-
-            G2 = G.copy()
-            G2virtualLinkTotals = GvirtualLinkTotals.copy()
-
-            G2VT, VTfinal = convertVTtoOldFormatForRoutingOverPhysicalTopology(G2virtualLinkTotals, N)
-
-            Cij, SigmaCij = calculateSomePowerParametersForNodesAndLinks(G2VT, N, Cij, SigmaCij)
-
-            RoutingOfVirtualLinksOverWavelengths = {}
-
-            #5-10-2025 no insert to DB 
-            phyLinks, RoutingOfVirtualLinksOverWavelengths = routeVirtualLinksOverPhysicalTopologyForHeaviestHottestAndComparison(G2VT, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, EDFAdist, Dist, wavelegthids, LatRouterPort, LatTransponder)
-
-            CUmn = getCUmnFromDB(CUmn, L, dbConnection)
-            Wmn = getWmnFromDB(Wmn, L, dbConnection)
-            SigmaCij = getSigmaCijFromDB(SigmaCij, N, dbConnection)
-
-            wUaverage, fUaverage = calculatePhysicalLinkStatisticsAndPowerParameters(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection)
-
-            PowerIP, PowerTransponders, PowerEDFAs, G2PowerTotal = evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, Di, Er, Et, Ee, B)
-            G2EnergyIP, G2EnergyWDM, G2Energy = evaluatePowerConsumptionUsingLeeRheeFormula(G2virtualLinkTotals, RoutingOfVirtualLinksOverWavelengths, G2, N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, Di, Er, Et, Ee, B)
-
-            print("<li>virtual topology G2 is ", G2, "</li>")
-            print(f"<li>Request {TRnum:d} routed using direct bypass with G2 power {G2PowerTotal:.3f} kWatts (Shen & Tucker formula)</li>")
-            print(f"<li>Request {TRnum:d} routed using direct bypass with G2 power {G2Energy:.3f} kWatts (Lee & Rhee formula)</li>")
-
-        # Lee & Rhee Table I, step 2.3 Routing selection
-
-        dbConnection.commit()
-
-        print("<li>select the routing with the least power consumption:</li>")
-        print(f"<li>G1 power is {G1PowerTotal:.3f} kWatts (Shen & Tucker formula)</li>")
-        print(f"<li>G1 power is {G1Energy:.3f} kWatts (Lee & Rhee formula)</li>")
-        print(f"<li>G2 power is {G2PowerTotal:.3f} kWatts (Shen & Tucker formula)</li>")
-        print(f"<li>G2 power is {G2Energy:.3f} kWatts (Lee & Rhee formula)</li>")
-        print("<li>according to Shen & Tucker formula the selected routing is:",("G1" if G1PowerTotal < G2PowerTotal else "G2"),"</li>")
-        print("<li>according to Lee & Rhee formula the selected routing is:",("G1" if G1Energy < G2Energy else "G2"),"</li>")
-        
-        #if (G1PowerTotal < G2PowerTotal):
-        if (G1Energy < G2Energy):
-            G = G1.copy()
-            GvirtualLinkTotals = G1virtualLinkTotals.copy()
-            GVT = G1VT.copy()
-            #print("<li>Request",TRnum,"routed using grooming with power",G1PowerTotal)
-            print(f"<div style='color:green;font-weight:bold;'>Request {TRnum:d} routed using grooming (G1) with power {G1PowerTotal:.3f} kWatts</div>")
-
-            try:
-                sqlUndoG2 = "DELETE FROM RoutingTrafficRequestsOverVirtualTopology WHERE result = 'G2temp';"
-                dbConnection.execute(sqlUndoG2)
-                dbConnection.commit()
-            except sqlite3.IntegrityError:
-                print(f"Cannot delete the Routing of Traffic Requests Over Virtual Topology due to related data exist.")
-
-            sqlUndoG2 = "UPDATE RoutingTrafficRequestsOverVirtualTopology SET result = 'G1' WHERE result = 'G1temp';"
-            dbConnection.execute(sqlUndoG2)
-            dbConnection.commit()
-
-            try:
-                sqlUndoG2 = "DELETE FROM VirtualLinks WHERE result = 'G2temp';"
-                dbConnection.execute(sqlUndoG2)
-                dbConnection.commit()
-            except sqlite3.IntegrityError:
-                print(f"Cannot delete the Virtual Link(s) due to related data exist.")
-
-            sqlUndoG2 = "UPDATE VirtualLinks SET result = 'G1' WHERE result = 'G1temp';"
-            dbConnection.execute(sqlUndoG2)
-            dbConnection.commit()
-
-        else:
-            G = G2.copy()
-            GvirtualLinkTotals = G2virtualLinkTotals.copy()
-            GVT = G2VT.copy()
-            #print("<li>Request",TRnum,"routed using direct bypass with power",G2PowerTotal)
-            print(f"<div style='color:blue;font-weight:bold;'>Request {TRnum:d} routed using direct bypass (G2) with power {G2PowerTotal:.3f} kWatts</div>")
-
-            try:
-                sqlUndoG1 = "DELETE FROM RoutingTrafficRequestsOverVirtualTopology WHERE result = 'G1temp';"
-                dbConnection.execute(sqlUndoG1)
-                dbConnection.commit()
-            except sqlite3.IntegrityError:
-                print(f"Cannot delete the Routing of Traffic Requests Over Virtual Topology due to related data exist.")
-            
-            sqlUndoG1 = "UPDATE RoutingTrafficRequestsOverVirtualTopology SET result = 'G2' WHERE result = 'G2temp';"
-            dbConnection.execute(sqlUndoG1)
-            dbConnection.commit()
-
-            try:
-                sqlUndoG1 = "DELETE FROM VirtualLinks WHERE result = 'G1temp';"
-                dbConnection.execute(sqlUndoG1)
-                dbConnection.commit()
-            except sqlite3.IntegrityError:
-                print(f"Cannot delete the Routing of Traffic Requests Over Virtual Topology due to related data exist.")
-            
-            sqlUndoG1 = "UPDATE VirtualLinks SET result = 'G2' WHERE result = 'G2temp';"
-            dbConnection.execute(sqlUndoG1)
-            dbConnection.commit()
-        #endif (G1PowerTotal < G2PowerTotal):
-        
-        print("<li>virtual topology G after processing request ",TRnum," is ", G, "</li>")
-
-    #end for TRnum
-
-    #5-10-2025: αφού γίνει η επιλογή της τελικής εικονικής τοπολογίας, τότε γίνεται το routing των virtual links της τελικής εικονικής τοπολογίας πάνω στην φυσική τοπολογία
-
-    #G, VTfinal = convertVTtoOldFormatForRoutingOverPhysicalTopology(G1virtualLinkTotals, N)
-    G, VTfinal = convertVTtoOldFormatForRoutingOverPhysicalTopology(GvirtualLinkTotals, N)
-    Cij, SigmaCij = calculateSomePowerParametersForNodesAndLinks(GVT, N, Cij, SigmaCij)
-
-    RoutingOfVirtualLinksOverWavelengths = {}
-    phyLinks, RoutingOfVirtualLinksOverWavelengths = routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass(G, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, EDFAdist, Dist, wavelegthids, LatRouterPort, LatTransponder, dbConnection)
-
-    CUmn = getCUmnFromDB(CUmn, L, dbConnection)
-    Wmn = getWmnFromDB(Wmn, L, dbConnection)
-    SigmaCij = getSigmaCijFromDB(SigmaCij, N, dbConnection)
-    wUaverage, fUaverage = calculatePhysicalLinkStatisticsAndPowerParameters(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection)
-    PowerIP, PowerTransponders, PowerEDFAs, G2PowerTotal = evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, Di, Er, Et, Ee, B)
-
-    schedulingstrategy = sys.argv[13] if sys.argv[13]!=None else "HeaviestAndComparison"
-
-    vT = G
-    VirtualLinkTotals = GvirtualLinkTotals
-    vTL = Glist
-    vTfreeCap = Gfreecap
-    VTfinal = Gfinal
+    schedulingstrategy = sys.argv[13] if sys.argv[13]!=None else "HybridBypass2Q"
+else:
+    print("<div>Hybrid Bypass runs only for two queues!</div>")
+    exit(1)
 
 #SOP
 if (GlobalSOP==True) :
@@ -776,7 +580,7 @@ if (GlobalSOP==True) :
     #print ("<tr><th>Free capacities for the Virtual Links of the Virtual Topology {(s, d): [<em>free capacity</em>], ...} (vTfreeCap) =",vTfreeCap,"</th></tr>")
     #2DO not use vTfreeCap
     print ("<tr><th>The Virtual Topology {node: [<em>list of neighbour nodes</em>], ...} (vT)") # =",vT,"</th></tr>")
-    #5-10-2025: do not print printVTdictionaryAsTable(vT)
+    printVTdictionaryAsTable(vT)
     print("</th></tr>")
     #print ("<tr><th>List of Virtual Links of Virtual Topology [(s, d),...] (vTL) =",vTL,"</th></tr>")
     #2DO not use vTL
@@ -801,13 +605,140 @@ if (GlobalSOP==True) :
     #routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass(N,TReqsForQueue[0],TReqsForQueue[1],vT,vTL,vTfreeCap,maxGbpsPerWavelength,VTfinal, ReqRouteInfo, "no graphs path needed, since no printout", Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VirtLinkIDs, dbConnection,VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals)
 #EOP
 
-# 1-10-2025
-#VT, VTfinal = convertVTtoOldFormatForRoutingOverPhysicalTopology(VirtualLinkTotals, N)
-#Cij, SigmaCij = calculateSomePowerParametersForNodesAndLinks(VT, N, Cij, SigmaCij)
-#RoutingOfVirtualLinksOverWavelengths = {}
-#phyLinks, RoutingOfVirtualLinksOverWavelengths = routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass(VT,  N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, EDFAdist, Dist, wavelegthids, LatRouterPort, LatTransponder, dbConnection)
+VirtualLinks = []
+
+#print ("<div>VTfinal=",VTfinal,"</div>")
+
+# edw allazw to vtfinal gia na exw sosta athroismata gia perissoteres apo 1 queues
+
+newVTFinal = {}
+
+for VLkey in VirtualLinkTotals:
+    #print("<li>VLKey",VLkey)
+    s = VLkey[0]
+    d = VLkey[1]
+    num = VLkey[2]
+    caputil = VirtualLinkTotals[VLkey][0]
+    if caputil > maxGbpsPerWavelength:
+        error("Virtual Link has greater capacity than the allowed limit",99)
+    #print("<li>capacity utilised",caputil)
+    VTFinalKey = (s,d)
+    #print("<li>new VTFinal",newVTFinal)
+    if VTFinalKey in newVTFinal:
+        vtFinalvalue = newVTFinal[VTFinalKey]
+        vtFinalvalue.append(caputil)
+    else:
+        vtFinalvalue = [caputil]
+    newVTFinal.update({(s,d,num):vtFinalvalue})
+
+#print ("<div>New VTfinal=",VTfinal,"</div>")
+
+#SOP
+if (GlobalSOP==True) :
+    print ("<table class='table1c'>")
+    print ("<tr><th colspan=5>The virtual topology for routing over physical topology</th></tr>")
+    print ("<tr><th>source&rarr;destination </th><th>source (s)</th><th>destination (d)</th><th>number (n)</th><th>capacity</th>")
+#EOP
+
+VTfinal = newVTFinal
+
+for link in VTfinal:
+    capacities = VTfinal.get(link)
+    lines = len(capacities)
+
+    #SOP
+    if (GlobalSOP==True) :
+        print ("<tr><td rowspan=",lines,">",N[link[0]],"&rarr;",N[link[1]],"</td>")
+        print ("<td rowspan=",lines,">",link[0],"</td>")
+        print ("<td rowspan=",lines,">",link[1],"</td>")
+        print ("<td rowspan=",lines,">",link[2],"</td>")
+    #EOP
+
+    for c in capacities:
+        VirtualLinks.append([N[link[0]], N[link[1]], link[2], c])
+
+        #SOP
+        if (GlobalSOP==True) :
+            print ("<td>",c,"</td>")
+            print("</tr>")
+        #EOP
+
+#SOP
+if (GlobalSOP==True) :
+    print ("</table>")
+#EOP
+
+VT = VirtualLinks
+
+#print ("<div>Virtual Links for routing over physical topology<p>")
+#print (VT)
+
+# used for power calculation
+#Cij: calculated as the number of virtual links (lightpaths) between a node pair (i,j) 
+for vl in VT:
+    t=(nodenumber(N,vl[0]),nodenumber(N,vl[1]))
+    accumulatePowerParameters(Cij, t, 1)
+
+#SOP
+if (GlobalSOP==True) :
+    printCij(Cij, N)
+#EOP
+
+#SigmaCij: calculated as the number of virtual links (lightpaths) that originate from a node i
+for k in Cij:    
+    val = Cij.get(k)
+    accumulatePowerParameters(SigmaCij, k[0], val)
+
+#SOP
+if (GlobalSOP==True) :
+    printSigmaCij(SigmaCij, N)
+#EOP
+
+'''
+#visualisation of virtual topology is now done at the end of routeAllTrafficRequestQueuesOverVirtualTopologyMultihopBypass()
+#SOP
+if (GlobalSOP==True) :
+    visualiseVirtualTopology_Build_VT_from_scratch(VirtualLinks, N, graphsPath, Ncolours, maxGbpsPerWavelength, (sys.argv[7]!="pdfout")) # if pdfout then it will not include graph in HTML and PDF, else it will include graph in HTML since no PDF output
+#EOP
+'''
+
+RoutingOfVirtualLinksOverWavelengths = {}
+
+phyLinks, RoutingOfVirtualLinksOverWavelengths = routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass(VT,  N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, EDFAdist, Dist, wavelegthids, LatRouterPort, LatTransponder, dbConnection)
+
+#old phyLinks = routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass(VT,  N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, EDFAdist, Dist, wavelegthids, dbConnection)
+#older #phyLinks = routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass(VirtualLinks, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, EDFAdist, Dist)
+
+
+# 12-10-2025: merge here this step of the no revisits functionality 
+# 3-9-2025: briskw ta revisit apo ta dedomena tis database
+dbConnectionCopy = dbConnection
+print("<li>#########")
+revisits = getRevisitsFromSQLite(dbConnectionCopy)
+
+
+
+# 12-10-2025 apply hard latency cap
+#&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& edw
+
+print("<li><em>Routings of Virtual Links before the hard latency cap:",RoutingOfVirtualLinksOverWavelengths)
+
+Q_HP_latency_cap = float(sys.argv[21]) if sys.argv[21]!=None else 0.0   # microsecond 
+Q_LP_latency_cap = float(sys.argv[22]) if sys.argv[22]!=None else 0.0   # microsecond 
+
+numberOf_LPs_checkedForHardLatencyCap = len(RoutingOfVirtualLinksOverWavelengths)
+blockedDueToHardLatencyCap = {}
+countBlockedVL_Q_HP = -1 # -1 means hard latency cap not applied for Q_HP (Q0)
+countBlockedVL_Q_LP = -1 # -1 means hard latency cap not applied for Q_LP (Q1)
+
+if (Q_HP_latency_cap > 0.0) or (Q_LP_latency_cap > 0.0):
+    RoutingOfVirtualLinksOverWavelengths, blockedDueToHardLatencyCap, countBlockedVL_Q_HP, countBlockedVL_Q_LP = blockTrafficAccordingToHardLatencyCap(dbConnection, RoutingOfVirtualLinksOverWavelengths, Q_HP_latency_cap, Q_LP_latency_cap)
+
+print("<li><em>Results of the hard latency cap:",blockedDueToHardLatencyCap)
+print("<li><em>Routings of Virtual Links who passed the hard latency cap:",RoutingOfVirtualLinksOverWavelengths)
 
 # 29-9-2025 apply limitations after the routing of the virtual links over the physical topology
+
 print("<li><em>Limitation:",limitations)
 
 if limitations == "NoBlocking":
@@ -817,6 +748,7 @@ if limitations == "NoBlocking":
         routingResult[k] = "Pass"
 
 else:
+    # edw pws tha xrisimopoiisw to output pinaka tou latency cap?
     newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResult, netmap = blockTrafficAccordingToCriteria(L, RoutingOfVirtualLinksOverWavelengths, limitations, HasWavConv)
 
 #SOP
@@ -835,7 +767,7 @@ if (GlobalSOP==True) :
     printRoutingOfVirtualLinksOverWavelengthsAsTable(RoutingOfVirtualLinksOverWavelengths)
 
     print("<p><li><em>NEW Routing of VLs over PT table after limitations:")
-    printRoutingOfVirtualLinksOverWavelengthsWithLimitResultsAsTableForHeaviestHottestFirstAndComparison(newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResult)
+    printRoutingOfVirtualLinksOverWavelengthsWithLimitResultsAsTable(newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResult)
 #EOP
 
 # 29-9-2025 calculate physical link statistics and power consumption using the data before limitations
@@ -846,14 +778,7 @@ SigmaCij = getSigmaCijFromDB(SigmaCij, N, dbConnection)
 
 wUaverage, fUaverage = calculatePhysicalLinkStatisticsAndPowerParameters(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection) # before updating limits and blockings
 
-#9-10-2025:edw prepei na ypologizetai to power me ta data meta ta limits symfwna me Lee & Rhee formula
-#apla twra den me endiaferei to power to teliko alla mono symfwna me Lee & Rhee formula gia na epilegw poia topologia na krataw se kathe bima
-#PowerIP, PowerTransponders, PowerEDFAs, PowerTotal = evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, Di, Er, Et, Ee, B)
-GEnergyIP, GEnergyWDM, GEnergy = evaluatePowerConsumptionUsingLeeRheeFormula(GvirtualLinkTotals, RoutingOfVirtualLinksOverWavelengths, G, N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, Di, Er, Et, Ee, B)
-PowerTotal = GEnergy
-PowerIP = GEnergyIP
-PowerEDFAs = GEnergyWDM
-PowerTransponders = 0.0 # not calculated separately in Lee & Rhee formula
+PowerIP, PowerTransponders, PowerEDFAs, PowerTotal = evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, Di, Er, Et, Ee, B)
 
 # 29-9-2025 update the databases according to the limitations
 
@@ -863,7 +788,7 @@ PowerTransponders = 0.0 # not calculated separately in Lee & Rhee formula
 passLPs, blockedLPs = resultsDBUpdateOfVLs_LPs(routingResult, dbConnection)
 
 totalLPs = len(routingResult) #how many lightpaths 
-countPassLPs = len(passLPs) +1 #how many of the lightpaths were passed # 12-10-2025 fix the always -1 error
+countPassLPs = len(passLPs) #how many of the lightpaths were passed
 countBlockedLPs = len(blockedLPs) #how many of the lightpaths were blocked
 passLPsPercent = roundatdecimals((countPassLPs/totalLPs*100.0),1) if totalLPs>0 else 0.0
 blockedLPsPercent = roundatdecimals((countBlockedLPs/totalLPs*100.0),1) if totalLPs>0 else 0.0
@@ -888,7 +813,7 @@ passTRs, blockedTRs = resultsDBUpdateOfTRs(dbConnection)
 #print("<li>Passed traffic requests:",passTRs)
 #print("<li>Blocked traffic requests:",blockedTRs)
 
-updateDB_RoutingVirtualLinksOverPhysicalTopology_forHeaviestHottestAndComparison(newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResult, dbConnection)
+updateDB_RoutingVirtualLinksOverPhysicalTopology(newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResult, dbConnection)
 
 removeDB_BlockedVirtualLinksOverPhysicalTopology(newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResult, dbConnection)
 
@@ -927,6 +852,44 @@ wUaverage, fUaverage = calculatePhysicalLinkStatisticsAndPowerParameters(N, L, S
 
 PowerIP, PowerTransponders, PowerEDFAs, PowerTotal = evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, Di, Er, Et, Ee, B)
 
+
+
+'''
+# >>> Evaluate Latency (the wrong way, cummulative)
+
+LatencyTotal = EvaluateLatencyAggregated(LatRouterPort,LatencyTimeUnit,LatTransponder,LatEDFA,LatFiberKilometer,SigmaCij,Di,N,L,Wmn,Amn,fmn,Dist)
+
+#print("<ul>")
+#print("<li>Di",Di)
+Di_Q0 = getDiPerQueueFromSQLite(dbConnection, 0, maxGbpsPerWavelength)
+if lenQs==2:
+    Di_Q1 = getDiPerQueueFromSQLite(dbConnection, 1, maxGbpsPerWavelength)
+
+#print("<li>Cij",SigmaCij)
+#Cij_Q0 = getCijPerQueueFromSQLite(dbConnection, 0)
+#Cij_Q1 = getCijPerQueueFromSQLite(dbConnection, 1)
+
+#print("<li>SigmaCij",SigmaCij)
+SigmaCij_Q0 = getSigmaCijPerQueueFromSQLite(dbConnection, 0)
+if lenQs==2:
+    SigmaCij_Q1 = getSigmaCijPerQueueFromSQLite(dbConnection, 1)
+
+#print("<li>Wmn",Wmn)
+Wmn_Q0 = getWmnPerQueueFromSQLite(dbConnection, 0, L)
+if lenQs==2:
+    Wmn_Q1 = getWmnPerQueueFromSQLite(dbConnection, 1, L)
+
+LatFibLen_Q0 = getLatFibLenPerQueueFromSQLite(dbConnection, 0)
+#print("</ul>")
+
+fmn_Q0 = getfmnPerQueueFromSQLite(dbConnection, 0, L, maxWavelengthsPerFiber)
+if lenQs==2:
+    fmn_Q1 = getfmnPerQueueFromSQLite(dbConnection, 1, L, maxWavelengthsPerFiber)
+
+LatencyTotal_Q0 = EvaluateLatencyPerQueue(0, LatRouterPort,LatencyTimeUnit,LatTransponder,LatEDFA,LatFiberKilometer,SigmaCij_Q0,Di_Q0,N,L,Wmn_Q0,Amn,fmn_Q0,Dist)
+if lenQs==2:
+    LatencyTotal_Q1 = EvaluateLatencyPerQueue(1, LatRouterPort,LatencyTimeUnit,LatTransponder,LatEDFA,LatFiberKilometer,SigmaCij_Q1,Di_Q1,N,L,Wmn_Q1,Amn,fmn_Q1,Dist)
+'''
 
 #SOP
 if (GlobalSOP==True) :
@@ -1168,9 +1131,8 @@ txtLine += str(maxWavelengthsPerFiber)+";"
 txtLine += str(maxGbpsPerWavelength)+";"
 txtLine += str(LatRouterPort)+";"
 txtLine += str(LatTransponder)+";"
-
-txtLine += "Empty;" #txtLine += str(trafficPercentOfQueueHP)+";" not for heaviest and comparison
-txtLine += "Empty;" #txtLine += str(trafficPercentOfQueueLP)+";"
+txtLine += str(trafficPercentOfQueueHP)+";"
+txtLine += str(trafficPercentOfQueueLP)+";"
 
 txtLine += str(countPassLPs)+";"
 txtLine += str(countBlockedLPs)+";"
@@ -1184,12 +1146,17 @@ txtLine += str(blockedTRsPercent)+";"
 
 txtLine += AverageLatencyOfTrafficRequests(dbConnection)+";"
 
-txtLine += "Empty;" # Not for Hottest the... if sys.argv[20] == "CheckForRevisits":
-txtLine += "Empty;" # Not for Hottest the... txtLine += str(numberOfPathsWithRevisitWhichRoutedDirectly)+";"
+if sys.argv[20] == "CheckForRevisits":
+    txtLine += "Not_Allowed;"
+else:
+    txtLine += "Allowed;"
 
-txtLine += "Empty;" # Not for Hottest the... str(numberOf_LPs_checkedForHardLatencyCap)+";"
-txtLine += "Empty;" # Not for Hottest the... if countBlockedVL_Q_HP == -1
-txtLine += "Empty;" # Not for Hottest the... if countBlockedVL_Q_LP == -1
+txtLine += str(numberOfPathsWithRevisitWhichRoutedDirectly)+";"
+
+txtLine += str(numberOf_LPs_checkedForHardLatencyCap)+";"
+
+txtLine += ("Empty" if countBlockedVL_Q_HP == -1 else str(countBlockedVL_Q_HP))+";" # -1 means hard latency cap not applied for Q_HP (Q0)
+txtLine += ("Empty" if countBlockedVL_Q_LP == -1 else str(countBlockedVL_Q_LP))+";" # -1 means hard latency cap not applied for Q_LP (Q1)
 
 txtLine += getListOfLatenciesForAllTrafficRequestsOLDformula(dbConnection)+";"
 txtLine += getListOfLatenciesForAllTrafficRequestsNEWformula(dbConnection)+";"
@@ -1214,8 +1181,8 @@ if (GlobalSOP==True) :
     print ("<th>maxGbpsPerWavelength</th>")
     print ("<th>LatRouterPort ("+LatencyTimeUnit+")</th>")
     print ("<th>LatTransponder ("+LatencyTimeUnit+")</th>")
-    #print ("<th>Traffic_QueueHP (%)</th>") not for heaviest and comparison
-    #print ("<th>Traffic_QueueLP (%)</th>")
+    print ("<th>Traffic_QueueHP (%)</th>")
+    print ("<th>Traffic_QueueLP (%)</th>")
     print ("</tr>")
 
     print ("<tr><th>"+UUID+"</th><th>"+Algorithm+"</th><th>"+experimentName+"</th><th>"+netName+"</th><th>"+txtN+"</th><th>"+txtL+"</th><th>"+txtX+"</th><th>"+txtCap+"</th><th>"+txtPowerIP+"</th><th>"+txtPowerTransponders+"</th><th>"+txtPowerEDFAs+"</th><th>"+txtPower+"</th><th>"+txtProcess+"</th>")
@@ -1226,8 +1193,8 @@ if (GlobalSOP==True) :
     print("<th>"+str(maxGbpsPerWavelength)+"</th>")
     print("<th>"+str(LatRouterPort)+"</th>")
     print("<th>"+str(LatTransponder)+"</th>")
-    #print("<th>"+str(trafficPercentOfQueueHP)+"</th>") not for heaviest and comparison
-    #print("<th>"+str(trafficPercentOfQueueLP)+"</th>")
+    print("<th>"+str(trafficPercentOfQueueHP)+"</th>")
+    print("<th>"+str(trafficPercentOfQueueLP)+"</th>")
 
     print("</tr>")
     
@@ -1358,7 +1325,7 @@ if (GlobalSOP==True) :
         else:
             print(f"<th>{stat:.3f}</th>")
     print("</tr></table>")    
-    
+
     print("</body></html>")
 #EOP
 
@@ -1428,7 +1395,8 @@ if sys.argv[9] == "removereport":
     removeTree(graphsPath)
 
 if sys.argv[9] == "keepDBonly":
-    keep_and_rename_file(UUID, graphsPath, "lightbase.db")
+    #keep_and_rename_file(UUID, graphsPath, "lightbase.db")
+    keep_and_rename_file(UUID, graphsPath, "Alg_"+alg+"_Net-"+netName+"_X-"+str(X[xi])+".db")
 
 
 #close the error log

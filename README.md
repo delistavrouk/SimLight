@@ -19,8 +19,7 @@ N14L21_NSFnet_NoWavConv.txt: a medium-scale network [1] without wavelength conve
 N24L43_USnet_AllWavConv.txt: a large-scale network [1] with wavelength converters ([HasWavConv] has 1s)
 N24L43_USnet_NoWavConv.txt: a large-scale network [1] with wavelength converters ([HasWavConv] has 0s)
 
-The simulator exports results in a CSV file, a folder with detailed report, DB file, topologies
-
+The simulator exports results in a CSV file, an errors log, the traffic requests (if generated randomly), a folder with on demand elements that include (not for codeHottestFirstAndComparison.py which returns only a partial report): detailed report in HTML or PDF form, DB file, virtual topology of every step of routing, physical topology, queues serve pattern, demands distribution graph.
 
 You may run each algorithm via the command line or use utilCLIrunner to run different configurations in batch mode.
 
@@ -28,14 +27,13 @@ For batch mode use the config.txt file to set runtime configuration and number o
 
 Examples of command lines to run the programs
 
-python codeHybridBypass.py N6L8_STnet_AllWavConv.txt 9 Test_Run basicreport gensave TrafficRequests.txt nopdf 2 keepreport Laptop C:\SimLightRun Uniform Hybrid2Q 1  40  100 30  100 50 CheckForRevisits -1.0 -1.0
+python codeHybridBypass.py N6L8_STnet_AllWavConv.txt 9 Test_Run detailreport gensave TrafficRequests.txt nopdf 2 keepreport Laptop C:\SimLightRun Uniform Hybrid2Q 1  40  100 30  100 50 CheckForRevisits -1.0 -1.0
 
-python codeDirectBypass.py N6L8_STnet_AllWavConv.txt 9 Test_Run basicreport gensave TrafficRequests.txt nopdf 1 keepreport Laptop C:\SimLightRun Uniform Direct1Q
+python codeDirectBypass.py N6L8_STnet_AllWavConv.txt 9 Test_Run detailreport gensave TrafficRequests.txt nopdf 1 keepreport Laptop C:\SimLightRun Uniform Direct1Q -1 16 40 30 100
 
-python codeHottestFirstAndComparison.py N6L8_STnet_AllWavConv.txt 9 Test_Run basicreport gensave TrafficRequests.txt nopdf 1 keepreport Laptop C:\SimLightRun Uniform Hottest1Q 1  40  100
+python codeHottestFirstAndComparison.py N6L8_STnet_AllWavConv.txt 9 Test_Run basicreport gensave TrafficRequests.txt nopdf 1 keepreport Laptop C:\SimLightRun Uniform Hottest1Q 1  40  100 30 100
 
-python codeMultiHopBypass.py N6L8_STnet_AllWavConv.txt 9 Test_Run basicreport gensave TrafficRequests.txt nopdf 1 keepreport Laptop C:\SimLightRun Uniform MultiHop1Q
-
+python codeMultiHopBypass.py N6L8_STnet_AllWavConv.txt 9 Test_Run basicreport gensave TrafficRequests.txt nopdf 1 keepreport Laptop C:\SimLightRun Uniform MultiHop1Q -1 16 40 30 100
 
 [id1]: ## "spam proof e-mail address, type it yourself"
 For assistance feel free to contact me at [delistaνrου(α)υοm.edυ.gr][id1]

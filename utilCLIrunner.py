@@ -6,7 +6,9 @@
 
 import subprocess
 from datetime import datetime
-from codeGusLibQueues_v3 import *
+from codeGusLibQueues import *
+
+# version 2
 
 # configuration parameters ----------------------------------------------
 
