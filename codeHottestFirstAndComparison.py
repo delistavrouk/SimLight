@@ -1,43 +1,58 @@
 # -*- coding: utf-8 -*-
 
-# Konstantinos Delistavrou 2021, 2022, 2023, 2024, 2025
-# Enhanced version of Shen & Tucker 2009 heuristic algorithm 2 "multi-hop bypass" serves traffic requests from 2 queues one high priority (video) one low priority (best effort)
-
-# usage: python <program name> <network> <X index> <experiment name for csv file>
-# command line parameters example
-# PS C:\STDMB> python               codeHybrid.py    N4L5_GRNetSubnet.txt      0         testexperiment                 detailreport      gensave                            lamda.txt                     pdfout                        1                  keepreport                         HomePC                 SimLight                                                      Uniform        Q0_75_Q1_25           2                 4                               40
-# <prompt>     <python interpreter> <program name>   <network>                 <X index> <experiment name for csv file> <global printout> <save lamda matrix to text file>   <filename for lamda matrix>   <save web page to pdf or not> <number of Queues> <keep or not detailreport, if any> <name of the computer> <program folder under the root (Win) or home (Lin) directory> <distribution> <scheduling strategy> <fibers per link> <wavelength channels per fiber> <wavelngth channel capacity in Gbps>
-#                                                                                                                       basicreport       load                                                             nopdf                         2                  removepreport                                                                                                           Poisson        Q0nextQ1    
-#                                                                                                                       <no printout>     <load lamda matrix from text file>                                                                                                                                                                                                                       Q1nextQ0
-#                                   argv[0]          argv[1]                   argv[2]   argv[3]                        argv[4]           argv[5]                            argv[6]                       argv[7]                       argv[8]            argv[9]                            argv[10]               argv[11]                                                      argv[12]       argv[13]              argv[14]          argv[15]                        argv[16]
-# Configuration file sections                        [Nets_start]...[Nets_end] [X]       [Name]                         [Printout]        [Lamda]                            [LamdaTextFile]               [PDFout]                      [Queues]           [KeepEveryNthReport]               [ComputerName]         [ProgramFolder]                                               [Distribution] [Strategy]
+# SimLight by Konstantinos Delistavrou 2021, 2022, 2023, 2024, 2025
+# Hottest-First And Comparison algorithm by C. Lee & J.-K. K. Rhee, 2014
 #
-# command line example for Hottest First And Comparison algorithm
+# command line arguments
 #
-# PS C:\SimLight> python codeHottestFirstAndComparison.v01.measurelatencyNewAndOldFormula.py N6L8_ShnTckr_a.txt 0 _HfaC detailreport gensave lambda.txt nopdf 1 keepreport Desktop C:\\SimLight Uniform HottestFirstAndComparison -1 4 40
+# argv[0]	program file name
+# argv[1]	network definition text file name
+# argv[2]	average traffic load (X) index, where 0: X=2 Gbps, 1: X=4 Gbps, 2: X=6 Gbps, 3: X=8 Gbps, 4: X=10 Gbps, 5: X=15 Gbps, 6: X=20 Gbps, 7: X=30 Gbps, 8: X=40 Gbps, 9: X=50 Gbps, 10: X=60 Gbps, 11: X=80 Gbps, 12: X=100 Gbps, 13: X=120 Gbps, 14: X=160 Gbps, 15: X=200 Gbps, 16: X=320 Gbps, 17: X=640 Gbps, 18: X=960 Gbps, 19: X=1280 Gbps
+# argv[3]	set the name of the experment
+# argv[4]	execution report details
+# argv[5]	generate random traffic demands or load them
+# argv[6]	traffic demands text file name
+# argv[7]	output execution report as pdf
+# argv[8]	number of traffic demand queues
+# argv[9]	keep the report and other generated files after the execution of the program
+# argv[10]	name of the computer that execution takes place
+# argv[11]	program folder path under: the root folder (on MS Windows), or the home folder (on GNU/Linux)
+# argv[12]	distribution of random traffic loads
+# argv[13]	scheduling strategy
+# argv[14]	number of fibers per link (f)
+# argv[15]	number of wavelengths per fiber (W)
+# argv[16]	wavelength capacity (C)
+# argv[17]	IP router port latency (Lr)
+# argv[18]	WDM transponder latency (Lt)
 #
+# example
+#
+# python codeHottComp.py N6L8_STnet_NoWavConv.txt 9 TestRun basicreport gensave Traffic-Requests.txt nopdf 1 keepDBonly Desktop C:\simlight Uniform HottComp1Q 1 3 100 30 100  
+# 
 # dependencies
-
-# to update python packages to the latest version
-# pip install pip-review
-# pip-review --local --auto
-
+#
 # install...
 # pip install numpy   # NumPy library used for calculations
 # pip install networkx
-# pip install pyvis   # PyVis used for visualisations
-                      # network visualisation https://pyvis.readthedocs.io/en/latest/tutorial.html
-                      #                       https://pyvis.readthedocs.io/en/latest/install.html
+# pip install pyvis # PyVis used for visualisations
+#                     network visualisation https://pyvis.readthedocs.io/en/latest/tutorial.html
+#                                           https://pyvis.readthedocs.io/en/latest/install.html
 # download sqlite-dll-win-x64-3450200.zip from https://www.sqlite.org/download.html, unpack, and copy sqlite sqlite3.dll and sqlite3.def files to the application directory
-# save as pdf
-#   install software for OS from https://wkhtmltopdf.org/
-#                                https://wkhtmltopdf.org/downloads.html
-#   install wrapper for python $pip install pdfkit
-
+# to save as pdf install software for OS from https://wkhtmltopdf.org/
+#                                             https://wkhtmltopdf.org/downloads.html
+#                install wrapper for python $pip install pdfkit
+#
 #2DO : elaboration needed
 #Done : elaboration completed
 #>>> : elaboration priority
-#Novelties
+#
+# SOP: Start of printout
+# EOP: End of printout
+# use ...
+#     # SOP
+#     if (GlobalSOP==True) :
+#     ...
+#     # EOP
 
 from pydoc import doc
 from turtle import update
@@ -98,15 +113,7 @@ computername = sys.argv[10]
 
 programfolder = sys.argv[11]
 
-#select app dir based on the host OS
-'''
-if platform.system() == 'Windows':
-    appDir = 'C:\\'+programfolder
-elif platform.system() == 'Linux':
-    appDir = "/home/kostas/"+programfolder
-else:
-    appDir = "/home/kostas/"+programfolder
-'''
+
 appDir = programfolder
 
 
@@ -203,17 +210,7 @@ maxLinkCapacity = maxFibersPerLink * maxWavelengthsPerFiber * maxGbpsPerWaveleng
 
 limitations = decideLimitations(N, HasWavConv, maxFibersPerLink)
 
-"""
-decideLimitations()
 
-Assume:
-    Each link has the same number of fibers, and each fiber the same number of wavelength channels
-
-Return:
-    "NoBlocking"
-    "NumFibers"         Wavelength converters everywhere - No Wavelength Continuity Constraint
-    "WavContinuity"     Some wavelength converters - Wavelength Continuity Constraint depending on each link's nodes
-"""
 
 SetGlobalLimits(maxFibersPerLink,maxWavelengthsPerFiber,maxGbpsPerWavelength,B,maxFiberCapacity,maxLinkCapacity)
 
@@ -944,18 +941,7 @@ if (GlobalSOP==True) :
     print ("<tr><td>LatFiberKilometer:",LatFiberKilometer," ",LatencyTimeUnit,"</td></tr>")
     print ("</table>")
 
-    '''
-    printLatenciesPerTrafficRequest(dbConnection, "All", "All")
-    printLatenciesPerTrafficRequest(dbConnection, "All", "New")
-    printLatenciesPerTrafficRequest(dbConnection, "All", "Grm")
-    printLatenciesPerTrafficRequest(dbConnection, 0, "All")
-    printLatenciesPerTrafficRequest(dbConnection, 0, "New")
-    printLatenciesPerTrafficRequest(dbConnection, 0, "Grm")
-    if lenQs==2:
-        printLatenciesPerTrafficRequest(dbConnection, 1, "All")
-        printLatenciesPerTrafficRequest(dbConnection, 1, "New")
-        printLatenciesPerTrafficRequest(dbConnection, 1, "Grm")
-    '''
+    
 #EOP
 
 #now = datetime.now()
@@ -1189,7 +1175,6 @@ txtLine += str(countBlockedTRs)+";"
 txtLine += str(passTRsPercent)+";"
 txtLine += str(blockedTRsPercent)+";"
 
-txtLine += AverageLatencyOfTrafficRequests(dbConnection)+";"
 
 txtLine += "Empty;" # Not for Hottest the... if sys.argv[20] == "CheckForRevisits":
 txtLine += "Empty;" # Not for Hottest the... txtLine += str(numberOfPathsWithRevisitWhichRoutedDirectly)+";"
@@ -1198,8 +1183,7 @@ txtLine += "Empty;" # Not for Hottest the... str(numberOf_LPs_checkedForHardLate
 txtLine += "Empty;" # Not for Hottest the... if countBlockedVL_Q_HP == -1
 txtLine += "Empty;" # Not for Hottest the... if countBlockedVL_Q_LP == -1
 
-txtLine += getListOfLatenciesForAllTrafficRequestsOLDformula(dbConnection)+";"
-txtLine += getListOfLatenciesForAllTrafficRequestsNEWformula(dbConnection)+";"
+
 
 txtLine += "\n"
 
@@ -1444,30 +1428,3 @@ if sys.argv[9] == "keepDBonly":
 #errlog.write(txtLine)
 errlog.close()
 
-'''
-    #pip install html2image
-    #from html2image import Html2Image
-    #hti = Html2Image(size=(900, 300))  # Set the desired image size
-
-    #pip install imgkit
-    import imgkit
-
-    inHTML = graphsPath+"\\"+"PhysicalTopology.html"
-    #outPDF = graphsPath+"\\"+"PhysicalTopology.pdf"
-    outPNG = graphsPath+"\\"+"PhysicalTopology.png"
-    #pdfkit.from_file(inHTML, outPDF, verbose=False, configuration=config, options=options)
-    imgkit.from_file(inHTML, outPNG, configuration=config, options=options)
-
-    inHTML = graphsPath+"\\"+"VirtualTopology.html"
-    #outPDF = graphsPath+"\\"+"VirtualTopology.pdf"
-    outPNG = graphsPath+"\\"+"VirtualTopology.png"
-    #pdfkit.from_file(inHTML, outPDF, verbose=False, configuration=config, options=options)
-    #hti.screenshot(html_file=inHTML, save_as='test.png')
-    imgkit.from_file(inHTML, outPNG, configuration=config, options=options)
-
-    inHTML = graphsPath+"\\"+"RoutingVirtualLinksOverPhysicalTopology.html"
-    #outPDF = graphsPath+"\\"+"RoutingVirtualLinksOverPhysicalTopology.pdf"
-    outPNG = graphsPath+"\\"+"RoutingVirtualLinksOverPhysicalTopology.png"
-    #pdfkit.from_file(inHTML, outPDF, verbose=False, configuration=config, options=options)
-    imgkit.from_file(inHTML, outPNG, configuration=config, options=options)
-    '''

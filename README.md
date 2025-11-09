@@ -21,24 +21,34 @@ N24L43_USnet_NoWavConv.txt: a large-scale network [1] with wavelength converters
 
 The simulator exports results in a CSV file, an errors log, the traffic requests (if generated randomly), a folder with on demand elements that include (not for codeHottestFirstAndComparison.py which returns only a partial report): detailed report in HTML or PDF form, DB file, virtual topology of every step of routing, physical topology, queues serve pattern, demands distribution graph.
 
-You may run each algorithm via the command line or use utilCLIrunner to run different configurations in batch mode.
+Use the data in the exported CSV files to replace measurements in the supplied GNU Octave script files for the realization of all graphs. 
 
-For batch mode use the config.txt file to set runtime configuration and number of execution repetitions. Then run on the command line prompt > python utilCLIrunner.py
+You may run each algorithm (a) via the command line, or (b) use codeUtilCLIrunner.py to run different configurations in batch mode:
 
-Examples of command lines to run the programs
+Option (a):
 
-python codeHybridBypass.py N6L8_STnet_AllWavConv.txt 9 Test_Run detailreport gensave TrafficRequests.txt nopdf 2 keepreport Laptop C:\SimLightRun Uniform Hybrid2Q 1  40  100 30  100 50 CheckForRevisits -1.0 -1.0
+Information about the command line parameters is provided in the [HTML page about command line parameters](READABOUTPARAMETERS.html).
 
-python codeDirectBypass.py N6L8_STnet_AllWavConv.txt 9 Test_Run detailreport gensave TrafficRequests.txt nopdf 1 keepreport Laptop C:\SimLightRun Uniform Direct1Q -1 16 40 30 100
+Examples of command lines to run the programs:
 
-python codeHottestFirstAndComparison.py N6L8_STnet_AllWavConv.txt 9 Test_Run basicreport gensave TrafficRequests.txt nopdf 1 keepreport Laptop C:\SimLightRun Uniform Hottest1Q 1  40  100 30 100
+- python codeHybridBypass.py N6L8_STnet_AllWavConv.txt 9 Test_Run detailreport gensave TrafficRequests.txt nopdf 2 keepreport Laptop C:\SimLightRun Uniform Hybrid2Q 1  40  100 30  100 50 CheckForRevisits -1.0 -1.0
 
-python codeMultiHopBypass.py N6L8_STnet_AllWavConv.txt 9 Test_Run basicreport gensave TrafficRequests.txt nopdf 1 keepreport Laptop C:\SimLightRun Uniform MultiHop1Q -1 16 40 30 100
+- python codeDirectBypass.py N6L8_STnet_AllWavConv.txt 9 Test_Run detailreport gensave TrafficRequests.txt nopdf 1 keepreport Laptop C:\SimLightRun Uniform Direct1Q -1 16 40 30 100
+
+- python codeHottestFirstAndComparison.py N6L8_STnet_AllWavConv.txt 9 Test_Run basicreport gensave TrafficRequests.txt nopdf 1 keepreport Laptop C:\SimLightRun Uniform Hottest1Q 1  40  100 30 100
+
+- python codeMultiHopBypass.py N6L8_STnet_AllWavConv.txt 9 Test_Run basicreport gensave TrafficRequests.txt nopdf 1 keepreport Laptop C:\SimLightRun Uniform MultiHop1Q -1 16 40 30 100
+
+Option (b):
+
+For batch mode use the config.txt file to set runtime configuration and number of execution repetitions. Then run on the command line prompt "python codeUtilCLIrunner.py"
+
+Dependencies for running each simulated algorithm are described in the corresponding source files.
 
 [id1]: ## "spam proof e-mail address, type it yourself"
 For assistance feel free to contact me at [delistaνrου(α)υοm.edυ.gr][id1]
 
-This repository holds a snapshot of the stable version 2, while development actively continues.
+This repository holds a snapshot of the stable version 2, while development actively continues!
 
 Hybrid Bypass has been updated in November 2025 to:
 - apply traffic blocking due to constraints (limited resources, wavelength continuity, hard latency cap)
@@ -55,5 +65,6 @@ Enjoy!
 
 [1] G. Shen and R. S. Tucker, “Energy-minimized design for IP over WDM networks,” Journal of Optical
 Communications and Networking, vol. 1, no. 1, pp. 176–186, 2009.
+
 [2] C. Lee and J.-K. K. Rhee, “Traffic grooming for ip-over-wdm networks: Energy and delay perspectives,” Journal
 of Optical Communications and Networking, vol. 6, no. 2, pp. 96–103, 2014.

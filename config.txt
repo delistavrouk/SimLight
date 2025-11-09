@@ -4,7 +4,7 @@ TestRun
 [Description]
 Test_Run_Algorithms_Of_SimLight_Simulator
 [Version]
-274: full version
+274: latest full version November 2025
 [Runs]
 1
 [Xindex(Xi): 0  1  2  3   4   5   6   7   8   9  10  11   12   13   14   15   16   17   18   19,   20 ]
@@ -14,30 +14,30 @@ Test_Run_Algorithms_Of_SimLight_Simulator
 N6L8_STnet_NoWavConv.txt
 [Nets_end]
 [Printout]
-basicreport
+detailreport
 [KeepEveryNthReport]
--1
+1
 [Lambda]
 gensave
 [LambdaTextFile]
-lambda.txt
+trafficdemands.txt
 [PDFout]
 nopdf
 [RunConfigurations(Program,Queues,Strategy)_start]
 codeHybridBypass.py,2,Hybrid2Q
 codeDirectBypass.py,1,Direct1Q
-codeHottestFirstAndComparison.py,1,Hottest1Q
 codeMultiHopBypass.py,1,MultiHop1Q
+codeHottestFirstAndComparison.py,1,Hottest1Q
 [RunConfigurations(Program,Queues,Strategy)_end]
 [ComputerName]
-Laptop
+TMKws
 [ProgramFolder]
 C:\simlight
 [Distributions_start]
 Uniform
 [Distributions_end]
 [LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_start]
-1, 3, 100
+1, 30, 100
 [LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_end]
 [LatencyComponentConfig(LRouterport,LTransponder)_start]
 30, 100

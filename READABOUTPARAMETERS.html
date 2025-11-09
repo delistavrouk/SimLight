@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset=UTF-8>
+        <title>SimLight CLI parameters</title>
+        <link href=https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap rel=stylesheet>
+        <link href=https://fonts.googleapis.com/css2?family=Inconsolata&display=swap rel=stylesheet>
+        <style>
+            table {
+                font-family: 'IBM Plex Mono', monospace;
+                width: 100%;
+                border: cornflowerblue;
+                font-family: sans-serif;
+                background-color: #f3dfb3;
+                border-collapse: collapse;
+            }
+            th, td {
+                font-family: 'Inconsolata', 'IBM Plex Mono', monospace;
+                border: 1px solid #1d1d1d;
+                padding: 8px;
+                font-size: 0.9em;
+                text-align: left;
+            }
+            th {
+                font-family: 'Inconsolata', 'IBM Plex Mono', monospace;
+                font-size: 0.9em;
+                background-color: #fdbb58;
+            }
+            td table {
+                margin-top: 9px;
+                margin-left: auto;
+                margin-right: auto;
+                font-family: 'IBM Plex Mono', monospace;
+                width: 70%;
+                border: cornflowerblue;
+                font-family: sans-serif;
+                background-color: #f3dfb3;
+                border-collapse: collapse;
+            }
+            td table th {
+                font-family: 'Inconsolata', 'IBM Plex Mono', monospace;
+                border: 1px solid #083d07;
+                padding: 2px 6px;
+                font-size: 0.7em;
+                text-align: center;
+            }
+            td table td {
+                font-family: 'Inconsolata', 'IBM Plex Mono', monospace;
+                border: 1px solid #083d07;
+                padding: 2px 6px;
+                font-size: 0.7em;
+                text-align: center;
+            }
+        </style>
+    </head>
+<body>
+<table>
+<tr><th class='arg'>	argument	</th><th class='use'>	use	</th><th class='val'>	value(s)	</th><th class='con'>	configuration file sections	</th><th class='exm'>	configuration file section example	</th><th class='HyB' title='Hybrid Bypass' style='color: #0000EE;'>	HbB	</th><th class='DB' title='Direct Bypass' style='color: #0000EE;'> DiB </th><th class='MhB' title='Multi-hop Bypass' style='color: #0000EE;'> MhB </th><th class='HtC' title='Hottest-First And Comparison' style='color: #0000EE;'> HotC </th></tr>
+<tr><td class='arg'>	argv[0]	</td><td class='use'>	program file name	</td><td class='val'>	&lt;python file name>	</td><td class='con'>	[RunConfigurations(Program,Queues,Strategy)_start]<br>...<br>[RunConfigurations(Program,Queues,Strategy)_end]	</td><td class='exm'>	[RunConfigurations(Program,Queues,Strategy)_start]<br>codeDirectBypass.py,1,Direct1Q<br>[RunConfigurations(Program,Queues,Strategy)_end]	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[1]	</td><td class='use'>	network definition text file name	</td><td class='val'>	&lt;text file name>	</td><td class='con'>	[Nets_start]<br>...<br>[Nets_end]	</td><td class='exm'>	[Nets_start]<br>N14L21_NSFnet_NoWavConv.txt<br>[Nets_end]	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[2]	</td>
+    <td class='use'>	index of average traffic load array
+    <table>
+        <tr><th>argv[2]</th><th>traffic load (Gbps)</th></tr>
+        <tr><td>0</td><td>2</td></tr>
+        <tr><td>1</td><td>4</td></tr>
+        <tr><td>2</td><td>6</td></tr>
+        <tr><td>3</td><td>8</td></tr>
+        <tr><td>4</td><td>10</td></tr>
+        <tr><td>5</td><td>15</td></tr>
+        <tr><td>6</td><td>20</td></tr>
+        <tr><td>7</td><td>30</td></tr>
+        <tr><td>8</td><td>40</td></tr>
+        <tr><td>9</td><td>50</td></tr>
+        <tr><td>10</td><td>60</td></tr>
+        <tr><td>11</td><td>80</td></tr>
+        <tr><td>12</td><td>100</td></tr>
+        <tr><td>13</td><td>120</td></tr>
+        <tr><td>14</td><td>160</td></tr>
+        <tr><td>15</td><td>200</td></tr>
+        <tr><td>16</td><td>320</td></tr>
+        <tr><td>17</td><td>640</td></tr>
+        <tr><td>18</td><td>960</td></tr>
+        <tr><td>19</td><td>1280</td></tr>
+    </table>	
+    </td><td class='val'>	&lt;integer>	</td><td class='con'>	[Xi where {2, 4, 6, 8, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120, 160, 200, 320, 400, 640, 960, 1280}]	</td><td class='exm'>	9	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[3]	</td><td class='use'>	set the name of the experment	</td><td class='val'>	&lt;text>	</td><td class='con'>	[Name]	</td><td class='exm'>	test_run	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[4]	</td><td class='use'>	execution report details	</td><td class='val'>	detailreport/basicreport	</td><td class='con'>	[Printout]	</td><td class='exm'>	detailreport	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[5]	</td><td class='use'>	generate random traffic demands or load them	</td><td class='val'>	gensave/load	</td><td class='con'>	[Lambda]	</td><td class='exm'>	gensave	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[6]	</td><td class='use'>	traffic demands text file name	</td><td class='val'>	&lt;text file name>	</td><td class='con'>	[LambdaTextFile]	</td><td class='exm'>	traffic_demands.txt	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[7]	</td><td class='use'>	output execution report as pdf	</td><td class='val'>	nopdf/pdfout	</td><td class='con'>	[PDFout]	</td><td class='exm'>	nopdf	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[8]	</td><td class='use'>	traffic demand queues (number)	</td><td class='val'>	&lt;integer>	</td><td class='con'>	[RunConfigurations(Program,Queues,Strategy)_start]<br>...<br>[RunConfigurations(Program,Queues,Strategy)_end]	</td><td class='exm'>	[RunConfigurations(Program,Queues,Strategy)_start]<br>codeDirectBypass.py,1,Direct1Q<br>[RunConfigurations(Program,Queues,Strategy)_end]	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[9]	</td><td class='use'>	keep the report and other generated files after the execution of the program	</td><td class='val'>	keepreport/removereport/keepDBonly	</td><td class='con'>	[KeepEveryNthReport] where >=1:keepreport, 0:removereport, -1:keepDBonly	</td><td class='exm'>	1	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[10]	</td><td class='use'>	name of the computer that execution takes place	</td><td class='val'>	&lt;text>	</td><td class='con'>	[ComputerName]	</td><td class='exm'>	Desktop	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[11]	</td><td class='use'>	program folder path under: the root folder (on MS Windows), or the home folder (on GNU/Linux)	</td><td class='val'>	&lt;path>	</td><td class='con'>	[ProgramFolder]	</td><td class='exm'>	C:\simlight	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[12]	</td><td class='use'>	distribution of random traffic loads	</td><td class='val'>	Uniform/Poisson	</td><td class='con'>	[Distributions_start]<br>...<br>[Distributions_end]	</td><td class='exm'>	[Distributions_start]<br>Uniform<br>[Distributions_end]	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[13]	</td><td class='use'>	scheduling strategy	</td><td class='val'>	Q0_75_Q1_25/Q0nextQ1/Q1nextQ0	</td><td class='con'>	[RunConfigurations(Program,Queues,Strategy)_start]<br>...<br>[RunConfigurations(Program,Queues,Strategy)_end]	</td><td class='exm'>	[RunConfigurations(Program,Queues,Strategy)_start]<br>codeDirectBypass.py,1,Direct1Q<br>[RunConfigurations(Program,Queues,Strategy)_end]	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[14]	</td><td class='use'>	number of fibers per link (f) (number)	</td><td class='val'>	&lt;integer> (-1: unlimited fibers)	</td><td class='con'>	[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_start]<br>...<br>[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_end]	</td><td class='exm'>	[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_start]<br>1, 50, 100<br>[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_end]	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[15]	</td><td class='use'>	number of wavelengths per fiber (W) (number)	</td><td class='val'>	&lt;integer>	</td><td class='con'>	[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_start]<br>...<br>[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_end]	</td><td class='exm'>	[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_start]<br>1, 50, 100<br>[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_end]	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[16]	</td><td class='use'>	wavelength capacity (C) (Gbps)	</td><td class='val'>	&lt;integer>	</td><td class='con'>	[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_start]<br>...<br>[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_end]	</td><td class='exm'>	[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_start]<br>1, 50, 100<br>[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_end]	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[17]	</td><td class='use'>	IP router port latency (Lr) (microsecond)	</td><td class='val'>	&lt;integer>	</td><td class='con'>	[LatencyComponentConfig(LRouterport,LTransponder)_start]<br>...<br>[LatencyComponentConfig(LRouterport,LTransponder)_end]	</td><td class='exm'>	[LatencyComponentConfig(LRouterport,LTransponder)_start]<br>30, 100<br>[LatencyComponentConfig(LRouterport,LTransponder)_end]	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[18]	</td><td class='use'>	WDM transponder latency (Lt) (microsecond)	</td><td class='val'>	&lt;integer>	</td><td class='con'>	[LatencyComponentConfig(LRouterport,LTransponder)_start]<br>...<br>[LatencyComponentConfig(LRouterport,LTransponder)_end]	</td><td class='exm'>	[LatencyComponentConfig(LRouterport,LTransponder)_start]<br>30, 100<br>[LatencyComponentConfig(LRouterport,LTransponder)_end]	</td><td class='HyB'>	✓	</td><td class='DB'>	✓	</td><td class='MhB'>	✓	</td><td class='HtC'>	✓	</td></tr>
+<tr><td class='arg'>	argv[19]	</td><td class='use'>	traffic share percent of Q_{HP} (percent) (traffic sgare of Q_{LP} is 100-argv[19])	</td><td class='val'>	&lt;integer>	</td><td class='con'>	[QHP_percent_of_traffic_split]	</td><td class='exm'>	10, 30, 50	</td><td class='HyB'>	✓	</td><td class='DB'>		</td><td class='MhB'>		</td><td class='HtC'>		</td></tr>
+<tr><td class='arg'>	argv[20]	</td><td class='use'>	check for revisits on traffic grooming	</td><td class='val'>	CheckForRevisits/NoCheckForRevisits	</td><td class='con'>	[CheckForRevisits]	</td><td class='exm'>	CheckForRevisits	</td><td class='HyB'>	✓	</td><td class='DB'>		</td><td class='MhB'>		</td><td class='HtC'>		</td></tr>
+<tr><td class='arg'>	argv[21]	</td><td class='use'>	hard latency cap threshold for Q_{HP} (microsecond)	</td><td class='val'>	&lt;float> (-1: no cap)	</td><td class='con'>	[HardLatencyCap_Q_HP microsec]	</td><td class='exm'>	5000.0	</td><td class='HyB'>	✓	</td><td class='DB'>		</td><td class='MhB'>		</td><td class='HtC'>		</td></tr>
+<tr><td class='arg'>	argv[22]	</td><td class='use'>	hard latency cap threshold for Q_{LP} (microsecond)	</td><td class='val'>	&lt;float> (-1: no cap)	</td><td class='con'>	[HardLatencyCap_Q_LP microsec]	</td><td class='exm'>	-1	</td><td class='HyB'>	✓	</td><td class='DB'>		</td><td class='MhB'>		</td><td class='HtC'>		</td></tr>
+</table>
+</body>
+</html>

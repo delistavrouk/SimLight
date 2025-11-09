@@ -1,7 +1,7 @@
 ﻿# -*- coding: utf-8 -*-
 
-# Konstantinos Delistavrou 2021, 2022, 2023, 2024
-# Library of subroutines for Shen & Tucker 2009 heuristic algorithms
+# Konstantinos Delistavrou 2021, 2022, 2023, 2024, 2025
+# Library of subroutines for SimLight IpoWDM RWA simulator
 
 protocol = "File:///"
 #protocol = "http://"
@@ -238,7 +238,6 @@ def graph_export_to_graphml(gr, path, name):
 def pyvis_to_graphml(pyvis_net, filename="graph.graphml"):
     import networkx as nx
 
-    """Convert a pyvis.Network to a GraphML file via NetworkX."""
     G = nx.Graph()
 
     # Rebuild nodes
@@ -6821,7 +6820,7 @@ def routeOneVirtualLinkOverTheVirtualTopologyMultihopBypassForceGrooming(nodes, 
                 print(f"<li>Groomed {pathmaxfreecapacity} Gbps.")
                 remaincap = roundatdecimals( (remaincap - pathmaxfreecapacity), 3)
                 print(f"<li>Remain {remaincap} Gbps to be traffic groomed.")
-                ###########$$$$$$$
+                
 
                 #remaincap = numpy.round(remaincap, decimals=3, out=None)
                 #print("<li>Remaining capacity for this request is",remaincap)
@@ -11235,7 +11234,8 @@ def setTextCaptions(LatencyTimeUnit4csv):
     txtCaptions += "PassTRs(%);"
     txtCaptions += "BlockedTRs(%);"
 
-    txtCaptions += "AverageLatencyOfTrafficRequestsNewFormula("+LatencyTimeUnit4csv+");"
+    
+    
     txtCaptions += "Node_Revisits(boolean);"
     txtCaptions += "Paths_With_Revisits_Which_Routed_Directly(num);"
 
@@ -11244,8 +11244,7 @@ def setTextCaptions(LatencyTimeUnit4csv):
     txtCaptions += "LightpathsBlockedByHardLatencyCapOn_Q_HP(num);"
     txtCaptions += "LightpathsBlockedByHardLatencyCapOn_Q_LP(num);"
 
-    txtCaptions += "LatenciesForAllTrafficRequestsOLDformula(list);"
-    txtCaptions += "LatenciesForAllTrafficRequestsNEWformula(list);"
+    
 
     txtCaptions += "\n"
     

@@ -1,41 +1,62 @@
 # -*- coding: utf-8 -*-
 
-# Konstantinos Delistavrou 2021, 2022, 2023, 2024, 2025
-# Enhanced version of Shen & Tucker 2009 heuristic algorithm 2 "multi-hop bypass" serves traffic requests from 2 queues one high priority (video) one low priority (best effort)
-
-# usage: python <program name> <network> <X index> <experiment name for csv file>
-# command line parameters example
-# PS C:\STDMB> python               codeHybrid.py    N4L5_GRNetSubnet.txt      0         testexperiment                 detailreport      gensave                            lamda.txt                     pdfout                        1                  keepreport                         HomePC                 SimLight                                                      Uniform        Q0_75_Q1_25           2                 4                               40                                   30                                   100                                  10                            CheckForRevisits
-# <prompt>     <python interpreter> <program name>   <network>                 <X index> <experiment name for csv file> <global printout> <save lamda matrix to text file>   <filename for lamda matrix>   <save web page to pdf or not> <number of Queues> <keep or not detailreport, if any> <name of the computer> <program folder under the root (Win) or home (Lin) directory> <distribution> <scheduling strategy> <fibers per link> <wavelength channels per fiber> <wavelngth channel capacity in Gbps> <Latency of router port in microsec> <Latency of transponder in microsec> <percent of traffic for Q_HP> <check for revisits or not> <hard latency cap Q_HP> <hard latency cap Q_LP>
-#                                                                                                                       basicreport       load                                                             nopdf                         2                  removepreport                                                                                                           Poisson        Q0nextQ1                                                                                                                                                                                                             NoCheckForRevisits
-#                                                                                                                       <no printout>     <load lamda matrix from text file>                                                                                                                                                                                                                       Q1nextQ0
-#                                   argv[0]          argv[1]                   argv[2]   argv[3]                        argv[4]           argv[5]                            argv[6]                       argv[7]                       argv[8]            argv[9]                            argv[10]               argv[11]                                                      argv[12]       argv[13]              argv[14]          argv[15]                        argv[16]                             argv[17]                             argv[18]                             argv[19]                      argv[20]                    argv[21]                argv[22]                            
-# Configuration file sections                        [Nets_start]...[Nets_end] [X]       [Name]                         [Printout]        [Lamda]                            [LamdaTextFile]               [PDFout]                      [Queues]           [KeepEveryNthReport]               [ComputerName]         [ProgramFolder]                                               [Distribution] [Strategy]
+# SimLight by Konstantinos Delistavrou 2021, 2022, 2023, 2024, 2025
+# Hybrid Bypass algorithm by Konstantinos Delistavrou, 2024
 #
-# PS C:\SimLight> python .\codeHybridBypass.py N4L5_GRNetSubnet.txt 0 test detailreport gensave lambda.txt nopdf 2 keepreport Desktop C:\\SimLight Uniform HybridBypass2Q 2 
+# command line arguments
 #
+# argv[0]	program file name
+# argv[1]	network definition text file name
+# argv[2]	average traffic load (X) index, where 0: X=2 Gbps, 1: X=4 Gbps, 2: X=6 Gbps, 3: X=8 Gbps, 4: X=10 Gbps, 5: X=15 Gbps, 6: X=20 Gbps, 7: X=30 Gbps, 8: X=40 Gbps, 9: X=50 Gbps, 10: X=60 Gbps, 11: X=80 Gbps, 12: X=100 Gbps, 13: X=120 Gbps, 14: X=160 Gbps, 15: X=200 Gbps, 16: X=320 Gbps, 17: X=640 Gbps, 18: X=960 Gbps, 19: X=1280 Gbps
+# argv[3]	set the name of the experment
+# argv[4]	execution report details
+# argv[5]	generate random traffic demands or load them
+# argv[6]	traffic demands text file name
+# argv[7]	output execution report as pdf
+# argv[8]	number of traffic demand queues
+# argv[9]	keep the report and other generated files after the execution of the program
+# argv[10]	name of the computer that execution takes place
+# argv[11]	program folder path under: the root folder (on MS Windows), or the home folder (on GNU/Linux)
+# argv[12]	distribution of random traffic loads
+# argv[13]	scheduling strategy
+# argv[14]	number of fibers per link (f)
+# argv[15]	number of wavelengths per fiber (W)
+# argv[16]	wavelength capacity (C)
+# argv[17]	IP router port latency (Lr)
+# argv[18]	WDM transponder latency (Lt)
+# argv[19]	traffic share percent of Q_{HP} (percent) (traffic sgare of Q_{LP} is 100-argv[19])
+# argv[20]	check for revisits on traffic grooming
+# argv[21]	hard latency cap threshold for Q_{HP} (microsecond)
+# argv[22]	hard latency cap threshold for Q_{LP} (microsecond)
+#
+# example
+#
+# python codeHybridBypass.py N6L8_STnet_NoWavConv.txt 9 TestRun detailreport gensave Traffic-Requests.txt nopdf 2 keepreport Laptop C:\simlight Uniform Hybrid2Q -1 3 100 30 100 50 CheckForRevisits -1.0 -1.0
+# 
 # dependencies
-
-# to update python packages to the latest version
-# pip install pip-review
-# pip-review --local --auto
-
+#
 # install...
 # pip install numpy   # NumPy library used for calculations
 # pip install networkx
-# pip install pyvis   # PyVis used for visualisations
-                      # network visualisation https://pyvis.readthedocs.io/en/latest/tutorial.html
-                      #                       https://pyvis.readthedocs.io/en/latest/install.html
+# pip install pyvis # PyVis used for visualisations
+#                     network visualisation https://pyvis.readthedocs.io/en/latest/tutorial.html
+#                                           https://pyvis.readthedocs.io/en/latest/install.html
 # download sqlite-dll-win-x64-3450200.zip from https://www.sqlite.org/download.html, unpack, and copy sqlite sqlite3.dll and sqlite3.def files to the application directory
-# save as pdf
-#   install software for OS from https://wkhtmltopdf.org/
-#                                https://wkhtmltopdf.org/downloads.html
-#   install wrapper for python $pip install pdfkit
-
+# to save as pdf install software for OS from https://wkhtmltopdf.org/
+#                                             https://wkhtmltopdf.org/downloads.html
+#                install wrapper for python $pip install pdfkit
+#
 #2DO : elaboration needed
 #Done : elaboration completed
 #>>> : elaboration priority
-#Novelties
+#
+# SOP: Start of printout
+# EOP: End of printout
+# use ...
+#     # SOP
+#     if (GlobalSOP==True) :
+#     ...
+#     # EOP
 
 from pydoc import doc
 from turtle import update
@@ -96,15 +117,7 @@ computername = sys.argv[10]
 
 programfolder = sys.argv[11]
 
-#select app dir based on the host OS
-'''
-if platform.system() == 'Windows':
-    appDir = 'C:\\'+programfolder
-elif platform.system() == 'Linux':
-    appDir = "/home/kostas/"+programfolder
-else:
-    appDir = "/home/kostas/"+programfolder
-'''
+
 appDir = programfolder
 
 
@@ -216,17 +229,7 @@ maxLinkCapacity = maxFibersPerLink * maxWavelengthsPerFiber * maxGbpsPerWaveleng
 
 limitations = decideLimitations(N, HasWavConv, maxFibersPerLink)
 
-"""
-decideLimitations()
 
-Assume:
-    Each link has the same number of fibers, and each fiber the same number of wavelength channels
-
-Return:
-    "NoBlocking"
-    "NumFibers"         Wavelength converters everywhere - No Wavelength Continuity Constraint
-    "WavContinuity"     Some wavelength converters - Wavelength Continuity Constraint depending on each link's nodes
-"""
 
 SetGlobalLimits(maxFibersPerLink,maxWavelengthsPerFiber,maxGbpsPerWavelength,B,maxFiberCapacity,maxLinkCapacity)
 
@@ -424,18 +427,7 @@ if sys.argv[5] == "gensave":
 #nextReqID = 1
 TReqsForQueue = []
 
-'''
-old, 50%-50% traffic distribution among Qhp, Qlp queues
-for i in range(lenQs):
-    #queueBestEffort, nextReqID = generateTrafficRequests(dbConnection, N, graphsPath, X, xi, "Queue Video", nextReqID)
-    #queueBestEffort, nextReqID = generateTrafficRequests(dbConnection, N, graphsPath, X, xi, "Queue BestEffort", nextReqID)
-    
-    #tempQ, nextReqID = generateTrafficRequests(dbConnection, N, graphsPath, X, xi, QueueNames[i], i, nextReqID) # i is the queue number (queueID), nextReqID is the request number (reqID)
-    #tempQ = generateTrafficRequests(dbConnection, N, graphsPath, X, xi, QueueNames[i], i) # i is the queue number (queueID)
-    tempQ = generateTrafficRequests(dbConnection, N, graphsPath, lenQs, X, xi, QueueNames[i], i, sys.argv[12]) # i is the queue number (queueID), sys.argv[12] is the distribution name Uniform/Poisson
-    
-    TReqsForQueue.append(tempQ) # krataei ta traffic reqquests gia kathe queue
-'''
+
 
 # 2-10-2025 varaiable traffic distribution among Qhp, Qlp queues
 trafficPercentOfQueueHP = roundatdecimals( (int(sys.argv[19]) / 100.0), 3)
@@ -695,13 +687,7 @@ if (GlobalSOP==True) :
     printSigmaCij(SigmaCij, N)
 #EOP
 
-'''
-#visualisation of virtual topology is now done at the end of routeAllTrafficRequestQueuesOverVirtualTopologyMultihopBypass()
-#SOP
-if (GlobalSOP==True) :
-    visualiseVirtualTopology_Build_VT_from_scratch(VirtualLinks, N, graphsPath, Ncolours, maxGbpsPerWavelength, (sys.argv[7]!="pdfout")) # if pdfout then it will not include graph in HTML and PDF, else it will include graph in HTML since no PDF output
-#EOP
-'''
+
 
 RoutingOfVirtualLinksOverWavelengths = {}
 
@@ -855,43 +841,6 @@ PowerIP, PowerTransponders, PowerEDFAs, PowerTotal = evaluatePowerConsumption(N,
 
 
 
-'''
-# >>> Evaluate Latency (the wrong way, cummulative)
-
-LatencyTotal = EvaluateLatencyAggregated(LatRouterPort,LatencyTimeUnit,LatTransponder,LatEDFA,LatFiberKilometer,SigmaCij,Di,N,L,Wmn,Amn,fmn,Dist)
-
-#print("<ul>")
-#print("<li>Di",Di)
-Di_Q0 = getDiPerQueueFromSQLite(dbConnection, 0, maxGbpsPerWavelength)
-if lenQs==2:
-    Di_Q1 = getDiPerQueueFromSQLite(dbConnection, 1, maxGbpsPerWavelength)
-
-#print("<li>Cij",SigmaCij)
-#Cij_Q0 = getCijPerQueueFromSQLite(dbConnection, 0)
-#Cij_Q1 = getCijPerQueueFromSQLite(dbConnection, 1)
-
-#print("<li>SigmaCij",SigmaCij)
-SigmaCij_Q0 = getSigmaCijPerQueueFromSQLite(dbConnection, 0)
-if lenQs==2:
-    SigmaCij_Q1 = getSigmaCijPerQueueFromSQLite(dbConnection, 1)
-
-#print("<li>Wmn",Wmn)
-Wmn_Q0 = getWmnPerQueueFromSQLite(dbConnection, 0, L)
-if lenQs==2:
-    Wmn_Q1 = getWmnPerQueueFromSQLite(dbConnection, 1, L)
-
-LatFibLen_Q0 = getLatFibLenPerQueueFromSQLite(dbConnection, 0)
-#print("</ul>")
-
-fmn_Q0 = getfmnPerQueueFromSQLite(dbConnection, 0, L, maxWavelengthsPerFiber)
-if lenQs==2:
-    fmn_Q1 = getfmnPerQueueFromSQLite(dbConnection, 1, L, maxWavelengthsPerFiber)
-
-LatencyTotal_Q0 = EvaluateLatencyPerQueue(0, LatRouterPort,LatencyTimeUnit,LatTransponder,LatEDFA,LatFiberKilometer,SigmaCij_Q0,Di_Q0,N,L,Wmn_Q0,Amn,fmn_Q0,Dist)
-if lenQs==2:
-    LatencyTotal_Q1 = EvaluateLatencyPerQueue(1, LatRouterPort,LatencyTimeUnit,LatTransponder,LatEDFA,LatFiberKilometer,SigmaCij_Q1,Di_Q1,N,L,Wmn_Q1,Amn,fmn_Q1,Dist)
-'''
-
 #SOP
 if (GlobalSOP==True) :
     
@@ -902,18 +851,7 @@ if (GlobalSOP==True) :
     print ("<tr><td>LatFiberKilometer:",LatFiberKilometer," ",LatencyTimeUnit,"</td></tr>")
     print ("</table>")
 
-    '''
-    printLatenciesPerTrafficRequest(dbConnection, "All", "All")
-    printLatenciesPerTrafficRequest(dbConnection, "All", "New")
-    printLatenciesPerTrafficRequest(dbConnection, "All", "Grm")
-    printLatenciesPerTrafficRequest(dbConnection, 0, "All")
-    printLatenciesPerTrafficRequest(dbConnection, 0, "New")
-    printLatenciesPerTrafficRequest(dbConnection, 0, "Grm")
-    if lenQs==2:
-        printLatenciesPerTrafficRequest(dbConnection, 1, "All")
-        printLatenciesPerTrafficRequest(dbConnection, 1, "New")
-        printLatenciesPerTrafficRequest(dbConnection, 1, "Grm")
-    '''
+    
 #EOP
 
 #now = datetime.now()
@@ -1143,7 +1081,6 @@ txtLine += str(countBlockedTRs)+";"
 txtLine += str(passTRsPercent)+";"
 txtLine += str(blockedTRsPercent)+";"
 
-txtLine += AverageLatencyOfTrafficRequests(dbConnection)+";"
 
 if sys.argv[20] == "CheckForRevisits":
     txtLine += "Not_Allowed;"
@@ -1157,8 +1094,6 @@ txtLine += str(numberOf_LPs_checkedForHardLatencyCap)+";"
 txtLine += ("Empty" if countBlockedVL_Q_HP == -1 else str(countBlockedVL_Q_HP))+";" # -1 means hard latency cap not applied for Q_HP (Q0)
 txtLine += ("Empty" if countBlockedVL_Q_LP == -1 else str(countBlockedVL_Q_LP))+";" # -1 means hard latency cap not applied for Q_LP (Q1)
 
-txtLine += getListOfLatenciesForAllTrafficRequestsOLDformula(dbConnection)+";"
-txtLine += getListOfLatenciesForAllTrafficRequestsNEWformula(dbConnection)+";"
 
 txtLine += "\n"
 
@@ -1343,13 +1278,7 @@ if (GlobalSOP==True) :
 
 if (sys.argv[4] == "detailreport") and (sys.argv[7]=="pdfout"):
 
-    '''
-    print()
-    print (graphsPath+"\\"+"Alg_"+alg+"_Net-"+netName+"_X-"+str(X[xi])+".html")
-    print()
-    print(graphsPath+"\\"+"Alg_"+alg+"_Net-"+netName+"_X-"+str(X[xi])+".pdf")
-    print()
-    '''
+    
 
     # Convert Google search page to PDF
     # install software for OS from https://wkhtmltopdf.org/
@@ -1403,30 +1332,4 @@ if sys.argv[9] == "keepDBonly":
 #errlog.write(txtLine)
 errlog.close()
 
-'''
-    #pip install html2image
-    #from html2image import Html2Image
-    #hti = Html2Image(size=(900, 300))  # Set the desired image size
 
-    #pip install imgkit
-    import imgkit
-
-    inHTML = graphsPath+"\\"+"PhysicalTopology.html"
-    #outPDF = graphsPath+"\\"+"PhysicalTopology.pdf"
-    outPNG = graphsPath+"\\"+"PhysicalTopology.png"
-    #pdfkit.from_file(inHTML, outPDF, verbose=False, configuration=config, options=options)
-    imgkit.from_file(inHTML, outPNG, configuration=config, options=options)
-
-    inHTML = graphsPath+"\\"+"VirtualTopology.html"
-    #outPDF = graphsPath+"\\"+"VirtualTopology.pdf"
-    outPNG = graphsPath+"\\"+"VirtualTopology.png"
-    #pdfkit.from_file(inHTML, outPDF, verbose=False, configuration=config, options=options)
-    #hti.screenshot(html_file=inHTML, save_as='test.png')
-    imgkit.from_file(inHTML, outPNG, configuration=config, options=options)
-
-    inHTML = graphsPath+"\\"+"RoutingVirtualLinksOverPhysicalTopology.html"
-    #outPDF = graphsPath+"\\"+"RoutingVirtualLinksOverPhysicalTopology.pdf"
-    outPNG = graphsPath+"\\"+"RoutingVirtualLinksOverPhysicalTopology.png"
-    #pdfkit.from_file(inHTML, outPDF, verbose=False, configuration=config, options=options)
-    imgkit.from_file(inHTML, outPNG, configuration=config, options=options)
-    '''
