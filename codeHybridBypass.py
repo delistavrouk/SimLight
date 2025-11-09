@@ -417,7 +417,8 @@ saveNodes2sqlite(dbConnection, N)
 #EOP
 
 if sys.argv[5] == "gensave":
-    lamdatextfile = open(sys.argv[6],"w") # since in the generateTrafficRequests() function the lamdatextfile is appended ("a"), I recreate it empty ("w") to avoid keepeing previous data.
+    demandsfilename = os.path.join(graphsPath, sys.argv[6])
+    lamdatextfile = open(demandsfilename,"w") # since in the generateTrafficRequests() function the lamdatextfile is appended ("a"), I recreate it empty ("w") to avoid keepeing previous data.
     lamdatextfile.close()
 
 #nextReqID = 1
@@ -1133,12 +1134,10 @@ txtLine += str(LatRouterPort)+";"
 txtLine += str(LatTransponder)+";"
 txtLine += str(trafficPercentOfQueueHP)+";"
 txtLine += str(trafficPercentOfQueueLP)+";"
-
 txtLine += str(countPassLPs)+";"
 txtLine += str(countBlockedLPs)+";"
 txtLine += str(passLPsPercent)+";"
 txtLine += str(blockedLPsPercent)+";"
-
 txtLine += str(countPassTRs)+";"
 txtLine += str(countBlockedTRs)+";"
 txtLine += str(passTRsPercent)+";"

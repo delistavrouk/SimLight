@@ -414,7 +414,8 @@ saveNodes2sqlite(dbConnection, N)
 #EOP
 
 if sys.argv[5] == "gensave":
-    lamdatextfile = open(sys.argv[6],"w") # since in the generateTrafficRequests() function the lamdatextfile is appended ("a"), I recreate it empty ("w") to avoid keepeing previous data.
+    demandsfilename = os.path.join(graphsPath, sys.argv[6])
+    lamdatextfile = open(demandsfilename,"w") # since in the generateTrafficRequests() function the lamdatextfile is appended ("a"), I recreate it empty ("w") to avoid keepeing previous data.
     lamdatextfile.close()
 
 # Lee & Rhee Table I, step 1. Initialization

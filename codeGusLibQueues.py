@@ -12707,8 +12707,9 @@ def generateTrafficRequestsVariableBalance(dbConnection, N, graphsPath, lenQs, X
                 print("</tr>")
             print ("</table>")
         #EOP
-
-        fout = open(sys.argv[6],"a")
+        
+        demandsfilename = os.path.join(graphsPath, sys.argv[6])
+        fout = open(demandsfilename,"a")
                         # prefer to write lamda to the output text file since requests do not include the 0.0 capacity for nodes where i==Nj
         for r in lamda: #lamda include the 0.0 capacity for nodes where i==j
             #fout.write(str(r[0])+","+str(r[1])+","+"{:0.3f}".format(r[2])+"\n")
@@ -12918,8 +12919,9 @@ def generateTrafficRequests_0_2X(dbConnection, N, graphsPath, lenQs, X, xi, Queu
                 print("</tr>")
             print ("</table>")
         #EOP
-
-        fout = open(sys.argv[6],"a")
+        
+        demandsfilename = os.path.join(graphsPath, sys.argv[6])
+        fout = open(demandsfilename,"a")
                         # prefer to write lamda to the output text file since requests do not include the 0.0 capacity for nodes where i==Nj
         for r in lamda: #lamda include the 0.0 capacity for nodes where i==j
             #fout.write(str(r[0])+","+str(r[1])+","+"{:0.3f}".format(r[2])+"\n")
@@ -13138,8 +13140,9 @@ def generateTrafficRequests(dbConnection, N, graphsPath, lenQs, X, xi, Queuelabe
             print ("</table>")
         #EOP
 
-        fout = open(sys.argv[6],"a")
-                        # prefer to write lamda to the output text file since requests do not include the 0.0 capacity for nodes where i==Nj
+        demandsfilename = os.path.join(graphsPath, sys.argv[6])
+        fout = open(demandsfilename,"a") # prefer to write lamda to the output text file since requests do not include the 0.0 capacity for nodes where i==Nj
+
         for r in lamda: #lamda include the 0.0 capacity for nodes where i==j
             #fout.write(str(r[0])+","+str(r[1])+","+"{:0.3f}".format(r[2])+"\n")
             fout.write(Queuelabel+","+str(r[0])+","+str(r[1])+","+"{:0.3f}".format(r[2])+"\n")

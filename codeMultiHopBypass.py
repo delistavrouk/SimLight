@@ -403,7 +403,8 @@ saveNodes2sqlite(dbConnection, N)
 #EOP
 
 if sys.argv[5] == "gensave":
-    lamdatextfile = open(sys.argv[6],"w") # since in the generateTrafficRequests() function the lamdatextfile is appended ("a"), I recreate it empty ("w") to avoid keepeing previous data.
+    demandsfilename = os.path.join(graphsPath, sys.argv[6])
+    lamdatextfile = open(demandsfilename,"w") # since in the generateTrafficRequests() function the lamdatextfile is appended ("a"), I recreate it empty ("w") to avoid keepeing previous data.
     lamdatextfile.close()
 
 #nextReqID = 1
@@ -1089,7 +1090,7 @@ ts = datetime.now()
 timeStamp = f"y{ts.year:04d}_m{ts.month:02d}_d{ts.day:02d}_h{ts.hour:02d}_m{ts.minute:02d}_s{ts.second:02d}_u{ts.microsecond:06d}"
 
 txtLine  = UUID+";"
-txtLine  = timeStamp+";"+computername+";"+programfolder+";"+Algorithm+";"+str(lenQs)+";"+schedulingstrategy+";"+experimentName+";"+netName+";"+txtN+";"+txtL+";"+txtX+";"
+txtLine += timeStamp+";"+computername+";"+programfolder+";"+Algorithm+";"+str(lenQs)+";"+schedulingstrategy+";"+experimentName+";"+netName+";"+txtN+";"+txtL+";"+txtX+";"
 txtLine += txtDistribution+";"+txtCap+";"+txtPowerIP+";"+txtPowerTransponders+";"
 txtLine += txtPowerEDFAs+";"+txtPower+";"+txtProcess+";"+txtLightpaths+";"+txtReusedLightpaths+";"
 txtLine += txtPercentReusedLightpaths+";"+txtAverageLightpathReuses+";"
@@ -1192,16 +1193,16 @@ txtLine += str(maxWavelengthsPerFiber)+";"
 txtLine += str(maxGbpsPerWavelength)+";"
 txtLine += str(LatRouterPort)+";"
 txtLine += str(LatTransponder)+";"
-txtLine += "Single_Q_no_split;"
-txtLine += "Single_Q_no_split;"
-txtLine += "No_Limitations;"
-txtLine += "No_Limitations;"
-txtLine += "No_Limitations;"
-txtLine += "No_Limitations;"
-
-txtLine += "No_Limitations;"
-txtLine += "No_Limitations;"
-txtLine += "No_Limitations;"
+txtLine += "n/a_Q_trffcSplit;"
+txtLine += "n/a_Q_trffcSplit;"
+txtLine += "n/a_PassLPs;"
+txtLine += "n/a_BlockLPs;"
+txtLine += "n/a_passLPsPercent;"
+txtLine += "n/a_blockedLPsPercent;"
+txtLine += "n/a_countPassTRs;"
+txtLine += "n/a_countBlockedTRs;"
+txtLine += "n/a_PassTRsPercent;"
+txtLine += "n/a_blockedTRsPercent;"
 
 txtLine += AverageLatencyOfTrafficRequests(dbConnection)+";"
 
@@ -1213,8 +1214,6 @@ txtLine += "No_Check_for_revisits;"
 
 txtLine += getListOfLatenciesForAllTrafficRequestsOLDformula(dbConnection)+";"
 txtLine += getListOfLatenciesForAllTrafficRequestsNEWformula(dbConnection)+";"
-
-txtLine += AverageLatencyOfTrafficRequests(dbConnection)
 
 txtLine += "\n"
 
