@@ -43,7 +43,7 @@ Option (b):
 
 For batch mode use the config.txt file to set runtime configuration and number of execution repetitions. Then run on the command line prompt "python codeUtilCLIrunner.py"
 
-Dependencies for running each simulated algorithm are described in the corresponding source files.
+Dependencies for running each simulated algorithm are described in detail in the corresponding source files. In general you need NumPy, SciPy, PyVis along with Python.
 
 [id1]: ## "spam proof e-mail address, type it yourself"
 For assistance feel free to contact me at [delistaνrου(α)υοm.edυ.gr][id1]
