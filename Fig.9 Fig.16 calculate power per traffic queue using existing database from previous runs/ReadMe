@@ -1,0 +1,3 @@
+This is the script and text files utilized to calculate power per traffic queue from existing database files (one DB file per run) to update Fig.9 and Fig.16.
+
+Three sample DB files included as a sample due to space restriction of the respository, since the calculation required the interpreting of 1800 DB files.
