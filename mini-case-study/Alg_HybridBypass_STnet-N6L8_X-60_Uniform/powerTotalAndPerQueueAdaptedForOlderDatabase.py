@@ -74,7 +74,6 @@ class NetworkPowerCalculator:
 
         df_w = pd.read_sql(sql_w_mn, self.engine)
         
-        # Calculation: Sum( Et * w_mn )
         term2_total = (E_T * df_w['w_mn']).sum()
 
         sql_a_mn = """
@@ -147,5 +146,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An error occurred: {e}")
         print("Ensure your database connection string is correct and tables exist.")
+
 
 
