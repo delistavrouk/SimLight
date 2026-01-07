@@ -1,8 +1,6 @@
 % Clear environment
 clc; clear; close all;
 
-% --- 1. Define Data Points (Visually Estimated) ---
-% x Lat - y Pow
 DiB_Lat=[3.837;3.856;3.838;3.832;3.837;3.835;5.578;5.58;5.572;5.568;5.575;5.586;5.069;5.065;5.065;5.071;5.078;5.071]
 DiB_Pow=[51.706;83.86312;117.11722;146.67577;178.20447;210.15678;315.788;515.36741;711.65047;915.17972;1113.02949;1322.94786;969.218;1583.18955;2202.7231;2820.24753;3439.00779;4054.38372]
 
@@ -21,7 +19,7 @@ Pow_HyB_Q_HP=[46.76;53.2;71.01026;85.19786;101.9371;116.44445;277.218;321.938;43
 
 Pow_HyB_Q_LP=[11.64;35.76454;48.69721;68.32555;82.32416;98.52342;53.74;206.71006;288.22994;405.71663;495.226;607.38414;149.22;619.27557;865.74999;1226.8597;1504.25075;1847.3209]
 
-% --- 2. Create Plot ---
+
 figure('Name', 'Pareto Plot Replication', 'Color', 'w');
 hold on;
 grid on;
@@ -58,7 +56,6 @@ xlabel('Average latency (ms)', 'FontSize', 12);
 ylabel('Power consumption (kW)', 'FontSize', 12);
 %title('Pareto: Lat vs Pow, unlim λ, load 20-120G, wavcap 40G, splt 50-50', 'FontSize', 14, 'FontWeight', 'bold');
 
-% Set Axis Limits to match image
 %xlim([2.6, 4.6]);
 %ylim([3.05, 4.15]);
 
@@ -72,3 +69,4 @@ set(lg, 'FontSize', 10);
 %set(1, 'position', [200, 200, 1000, 750]);
 drawnow;
 print('U:\My Drive\DELISTAVROU_KONSTANTINOS\2025-07 Journal\_rev2\Pareto\Fig17Pareto.png', '-dpng', '-r300'); % 300 DPI
+
