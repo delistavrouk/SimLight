@@ -61,6 +61,8 @@ Comments and remarks are welcome.
 
 Enjoy!	
 
+**Update (Jan 2026): A new website is currently under development to enable online experimentation with SimLight. Stay tuned!**
+
 
 
 [1] G. Shen and R. S. Tucker, “Energy-minimized design for IP over WDM networks,” Journal of Optical
