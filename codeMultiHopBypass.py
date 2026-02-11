@@ -1097,13 +1097,16 @@ txtLine += "n/a_countBlockedTRs;"
 txtLine += "n/a_PassTRsPercent;"
 txtLine += "n/a_blockedTRsPercent;"
 
-txtLine += AverageLatencyOfTrafficRequests(dbConnection)+";"
+#txtLine += AverageLatencyOfTrafficRequests(dbConnection)+";"
 
-txtLine += "Empty;" # Not for Multi-hop the... if sys.argv[20] == "CheckForRevisits":
-txtLine += "Empty;" # Not for Multi-hop the... txtLine += str(numberOfPathsWithRevisitWhichRoutedDirectly)+";"
-txtLine += "Empty;" # Not for Multi-hop the... str(numberOf_LPs_checkedForHardLatencyCap)+";"
-txtLine += "Empty;" # Not for Multi-hop the... if countBlockedVL_Q_HP == -1
-txtLine += "Empty;" # Not for Multi-hop the... if countBlockedVL_Q_LP == -1
+txtLine += "No_Check_for_revisits;"
+txtLine += "No_Check_for_revisits;"
+txtLine += "No_Check_for_revisits;"
+txtLine += "No_Check_for_revisits;"
+txtLine += "No_Check_for_revisits;"
+
+#txtLine += getListOfLatenciesForAllTrafficRequestsOLDformula(dbConnection)+";"
+#txtLine += getListOfLatenciesForAllTrafficRequestsNEWformula(dbConnection)+";"
 
 txtLine += "\n"
 

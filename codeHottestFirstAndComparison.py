@@ -1175,13 +1175,17 @@ txtLine += str(countBlockedTRs)+";"
 txtLine += str(passTRsPercent)+";"
 txtLine += str(blockedTRsPercent)+";"
 
-txtLine += AverageLatencyOfTrafficRequests(dbConnection)+";"
+#txtLine += AverageLatencyOfTrafficRequests(dbConnection)+";"
 
 txtLine += "Empty;" # Not for Hottest the... if sys.argv[20] == "CheckForRevisits":
 txtLine += "Empty;" # Not for Hottest the... txtLine += str(numberOfPathsWithRevisitWhichRoutedDirectly)+";"
+
 txtLine += "Empty;" # Not for Hottest the... str(numberOf_LPs_checkedForHardLatencyCap)+";"
 txtLine += "Empty;" # Not for Hottest the... if countBlockedVL_Q_HP == -1
 txtLine += "Empty;" # Not for Hottest the... if countBlockedVL_Q_LP == -1
+
+#txtLine += getListOfLatenciesForAllTrafficRequestsOLDformula(dbConnection)+";"
+#txtLine += getListOfLatenciesForAllTrafficRequestsNEWformula(dbConnection)+";"
 
 txtLine += "\n"
 

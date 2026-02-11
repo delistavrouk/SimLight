@@ -11177,10 +11177,8 @@ def setTextCaptions(LatencyTimeUnit4csv):
     txtCaptions += "X(Gbps);"
     txtCaptions += "Distribution(name);"
     txtCaptions += "TotalCapacityProcessed(Gbps);"
-    txtCaptions += "PowerIPRouters(kWatt);"
-    txtCaptions += "PowerWDMTransponders(kWatt);"
-    txtCaptions += "PowerEDFAs(kWatt);"
-    txtCaptions += "PowerTotal(kWatt);"
+    txtCaptions += "PowerQ_HP(kWatt);"
+    txtCaptions += "PowerQ_LP(kWatt);"
     txtCaptions += "ProcessTime(sec);"
     txtCaptions += "TotalLightpaths(num);"
     txtCaptions += "ReusedLightpaths(num);"
@@ -11234,7 +11232,7 @@ def setTextCaptions(LatencyTimeUnit4csv):
     txtCaptions += "PassTRs(%);"
     txtCaptions += "BlockedTRs(%);"
 
-    txtCaptions += "AverageLatencyOfTrafficRequests("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "AverageLatencyOfTrafficRequestsNewFormula("+LatencyTimeUnit4csv+");"
     
     txtCaptions += "Node_Revisits(boolean);"
     txtCaptions += "Paths_With_Revisits_Which_Routed_Directly(num);"
@@ -11243,6 +11241,9 @@ def setTextCaptions(LatencyTimeUnit4csv):
 
     txtCaptions += "LightpathsBlockedByHardLatencyCapOn_Q_HP(num);"
     txtCaptions += "LightpathsBlockedByHardLatencyCapOn_Q_LP(num);"
+
+    #txtCaptions += "LatenciesForAllTrafficRequestsOLDformula(list);"
+    #txtCaptions += "LatenciesForAllTrafficRequestsNEWformula(list);"
 
     txtCaptions += "\n"
     
@@ -12627,7 +12628,10 @@ def generateTrafficRequestsVariableBalance(dbConnection, N, graphsPath, lenQs, X
         if (GlobalPrintOutEnabled==True) :
             graphDistribution(N, traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, deigma, distribution, graphsPath+pathseparatortoken()+f"TR_sample_histogram_Q_{("HP" if queueID==0 else "LP"):s}.png")
             print (f"<tr><th colspan='{str(len(N))}' style='background:orange;'>")
-            print (f"<img src='{graphsPath+pathseparatortoken()}TR_sample_histogram_Q_{("HP" if queueID==0 else "LP"):s}.png' style='display: block; margin-left: auto; margin-right: auto; width: 30%;' ")
+            #old histogram with path: 
+            # print (f"<img src='{graphsPath+pathseparatortoken()}TR_sample_histogram_Q_{("HP" if queueID==0 else "LP"):s}.png' style='display: block; margin-left: auto; margin-right: auto; width: 30%;' ")
+            #7-2-2026: new histogram without path: 
+            print (f"<img src='{"."+pathseparatortoken()}TR_sample_histogram_Q_{("HP" if queueID==0 else "LP"):s}.png' style='display: block; margin-left: auto; margin-right: auto; width: 30%;' ")
             print ("alt='Traffic requests sample data histogram'></th></tr>")
         #EOP
 
@@ -14009,7 +14013,7 @@ def calculateWmnFromSQLite(dbConnection,L):
     dataset = cursor.fetchall()
 
 
-def calculatePhysicalLinkStatisticsAndPowerParameters(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection):
+def calculatePhysicalLinkStatisticsAndPowerParametersBeforeLimitations(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection):
     # used for power calculation
 
     #SOP
@@ -14079,6 +14083,83 @@ def calculatePhysicalLinkStatisticsAndPowerParameters(N, L, S, Wmn, CUmn, Lmn, f
     #EOP
 
     return wUaverage, fUaverage
+
+
+
+
+
+def calculatePhysicalLinkStatisticsAndPowerParametersAfterLimitations(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection):
+    # used for power calculation
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :   
+        print ("<table class='data'>")
+        print ("<tr><th colspan=9>Statistics about Physical Links before applying limitations</th></tr>")
+        print ("<tr><th>Physical Link</th><th>Wavelengths w<sub>mn</sub></th>")
+        print ("<th>Fibers f<sub>mn</sub></th><th>Distance L<sub>mn</sub> (km)</th>")
+        print ("<th>Capacity requested (Gbps)</th><th>Free capacity (Gbps)</th>")
+        print ("<th>Reserved capacity for wavelengths (Gbps)</th>")
+        print ("<th>Wavelegth Utilisation (%)<br><span style='font-size:0.6em;'>Capacity requested / Capacity of the wavelengths</span></th>")
+        print ("<th>Fiber Link Utilisation (%)<br><span style='font-size:0.6em;'>Capacity requested / Capacity of the fibers</span></th></tr>")
+    #EOP
+
+    #Statistics about Physical Links
+
+    wUtotal = 0.0 # wavelength utilisation total
+    fUtotal = 0.0 # fiber utilisation total
+
+    keys = list(Wmn.keys())
+    keys.sort()
+    for key in keys:
+        wl = Wmn.get(key)
+        #fibers = int((wl/maxWavelengthsPerFiber)+1)
+        fibers=numpy.ceil(wl/maxWavelengthsPerFiber) 
+        CU = roundatdecimals(CUmn.get(key),3)                                                                        # CU : capacity utilised
+        CR = wl * maxGbpsPerWavelength                                                                               # CR : capacity required
+        CF = roundatdecimals((CR - CU), 3)                                                                           # CF : capacity free
+        wU = roundatdecimals((CU / CR * 100.0), 1) if CR>0 else 0                                                    # wU : wavelength utilisation percentage # prevent division by zero
+        fU = roundatdecimals((CU / (fibers * maxFiberCapacity) * 100.0), 1) if (fibers * maxFiberCapacity)>0 else 0  # fU : fiber link utilisation percentage # prevent division by zero
+
+        wUtotal += wU
+        fUtotal += fU
+
+        updateTotals(fmn, key, fibers)
+        distance = Lmn.get(key)
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :    
+            print("<tr><td>",N[L[key][0]]+"-"+N[L[key][1]],"</td><td>",wl,"</td><td>",fibers,"</td><td>",distance,"</td><td>",CU,"</td><td>",CF,"</td><td>",CR,"</td><td>",wU,"</td><td>",fU,"</td></tr>")
+        #EOP
+
+    wUaverage = wUtotal / len(keys) if len(keys)>0 else 0.0 # prevent division by zero
+    fUaverage = fUtotal / len(keys) if len(keys)>0 else 0.0 # prevent division by zero
+
+    wUaverage = roundatdecimals(wUaverage,1)
+    fUaverage = roundatdecimals(fUaverage,1)
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        print("</table>")
+    #EOP
+
+    ##########used for power calculation
+    ##########key = linknumber(L, sp[0],sp[1])
+    ##########numOfEDFAs = int ( ( dist[key] / distEDFA - 1.0 ) + 2.0 )
+
+    for physicallink in L:
+        key = linknumber(L,physicallink[0],physicallink[1])
+        LmnValue = Lmn.get(key)
+        value = numpy.ceil(LmnValue / S - 1.0) + 2 if S>0 else 0  # prevent division by zero
+        accumulatePowerParameters(Amn, key, value)
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        printAmn(Amn, N, L)
+    #EOP
+
+    return wUaverage, fUaverage
+
+
 
 
 
@@ -14192,13 +14273,6 @@ def evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, D
 
     ValueOfPower = 0.0
 
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        print ("<table class='tablePow'>")
-        print ("<tr><th colspan=2>Energy consumption evaluation in the IP layer</th></tr>")
-        print ("<tr><th>Node</th><th>Power consumption ",mathPowerFormulaIP()," in Watts</th></tr>")
-    #EOP
-
     PowerIP = 0.0
     keys = list(SigmaCij.keys())
     keys.sort()
@@ -14208,42 +14282,12 @@ def evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, D
         ValueOfPower = Er * ( valDi + valSigmaCij )
         PowerIP += ValueOfPower
 
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print("<tr><td>",N[k],"</td><td>",Er, "* (",valDi,"+",valSigmaCij,") =",ValueOfPower,"</td></tr>")
-        #EOP
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        print("<tr><th colspan=2>Total:",PowerIP,"Watts</th></tr>")
-        print("</table>")
-
-        print ("<table class='tablePow'>")
-        print ("<tr><th colspan=2>Energy consumption evaluation in the optical layer (Transponders)</th></tr>")
-        print ("<tr><th>Node</th><th>Power consumption ",mathPowerFormulaTransponders(),"in Watts</th></tr>")
-    #EOP
-
     PowerTransponders = 0.0
     for i in range(len(L)):
         key = linknumber(L, L[i][0],L[i][1])
         valWmn = Wmn.get(key)
         ValueOfPower = Et * (valWmn if valWmn is not None else 0.0)
         PowerTransponders += ValueOfPower
-
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print("<tr><td>",N[L[i][0]],"-",N[L[i][1]],"</td><td>",Et, "*",valWmn,"=",ValueOfPower,"</td></tr>")
-        #EOP
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        print("<tr><th colspan=2>Total:",PowerTransponders,"Watts</th></tr>")
-        print("</table>")
-
-        print ("<table class='tablePow'>")
-        print ("<tr><th colspan=2>Energy consumption evaluation in the optical layer (EDFAs)</th></tr>")
-        print ("<tr><th>Node</th><th>Power consumption ",mathPowerFormulaEDFA()," in Watts</th></tr>")
-    #EOP
 
     PowerEDFAs = 0.0
     for i in range(len(L)):
@@ -14253,17 +14297,6 @@ def evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, D
         ValueOfPower = Ee * valAmn * valfmn
         PowerEDFAs += ValueOfPower
 
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print("<tr><td>",N[L[i][0]],"-",N[L[i][1]],"</td><td>",Ee, "*",valAmn,"*",valfmn,"=",ValueOfPower,"</td></tr>")
-        #EOP
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        print("<tr><th colspan=2>Total:",PowerEDFAs,"Watts</th></tr>")
-        print("</table>")
-    #EOP
-
     PowerTotal = PowerIP + PowerTransponders + PowerEDFAs
     PowerTotal = roundatdecimals(PowerTotal/1000.0,3)
 
@@ -14271,20 +14304,297 @@ def evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, D
     PowerTransponders = roundatdecimals(PowerTransponders/1000.0,3)
     PowerEDFAs = roundatdecimals(PowerEDFAs/1000.0,3)
 
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        print ("<table class='tablePow'>")
-        print ("<tr><th>Evaluation of total energy consumption in the network</th></tr>")
-        print ("<tr><td>",mathPowerFormula(),"</td></tr>")
-        print ("<tr><th>Total power consumption",PowerTotal,"kWatts</th></tr>")
-        print ("</table>")
-    #EOP
-
     # >>> Evaluate Power (end)
 
     return PowerIP, PowerTransponders, PowerEDFAs, PowerTotal
 
+def getSigmaCijPerQueue(dbConnection, queue):
+    if queue=="HP":
+        Q=0
+    else:
+        Q=1
 
+    sql = f"""
+            select vlsrc, count(*) 
+            from RoutingTrafficRequestsOverVirtualTopology
+            where reqquenum = {Q}
+            and result = "Pass"
+            and   type = "New"
+            group by vlsrc
+
+            order by vlsrc
+          """
+    
+    SCijQ = {}
+
+    cursor = dbConnection.execute(sql)
+    for row in cursor:
+        key = int(row[0])
+        value = int(row[1])
+        SCijQ.update({key:value})
+
+    return SCijQ
+
+def getWmnPerQueue(dbConnection, queue):
+    if queue=="HP":
+        Q=0
+    else:
+        Q=1
+
+    sql = f"""
+            SELECT reqquenum, plsrc, pldst, count(waveid) 
+            FROM RoutingTrafficRequestsOverVirtualTopology, RoutingVirtualLinksOverPhysicalTopology 
+            where RoutingTrafficRequestsOverVirtualTopology.vlsrc = RoutingVirtualLinksOverPhysicalTopology.vlsrc
+            and   RoutingTrafficRequestsOverVirtualTopology.vldst = RoutingVirtualLinksOverPhysicalTopology.vldst
+            and   RoutingTrafficRequestsOverVirtualTopology.vlnum = RoutingVirtualLinksOverPhysicalTopology.vlnum
+            and   RoutingTrafficRequestsOverVirtualTopology.type="New"
+            and   RoutingVirtualLinksOverPhysicalTopology.result="Pass"
+            and   RoutingTrafficRequestsOverVirtualTopology.reqquenum={Q}
+            GROUP BY reqquenum, RoutingTrafficRequestsOverVirtualTopology.type, plsrc, pldst
+            ORDER BY reqquenum, plsrc, pldst
+          """
+    
+    WmnQ = {}
+
+    cursor = dbConnection.execute(sql)
+    for row in cursor:
+        key = (int(row[1]),int(row[2]))
+        value = int(row[3])
+        WmnQ.update({key:value})
+
+    return WmnQ
+
+def evaluatePowerConsumptionPerQueue(dbConnection, Di, Di_Q0, Di_Q1, Er, Et, Ee, SigmaCij, N, L):
+
+    """
+    --Query to get Di_Q_HP drom DB
+    select src, sum(cap) from TrafficRequests
+    where quenum=0
+    group by src
+    order by src
+    """
+
+    """
+    --Query to get SigmaCij_Q_HP from DB
+    select vlsrc, count(*) 
+    from RoutingTrafficRequestsOverVirtualTopology
+    where reqquenum = 0
+    and result = "Pass"
+    and   type = "New"
+    group by vlsrc
+    order by vlsrc
+    """
+
+    """
+    --Query to get fibers that carry HP traffic from DB
+    select 
+	TReqQueNum,	
+	TReqResult,	
+	routeTReqOverVTtype,		
+	PLsrc,					
+	PLdst,
+	routeVLoverPT_fiberID,	
+	routeVLoverPT_waveID,	
+	routeVLoverPT_shPathAsInt,
+	(PLlatEDFA * 10) as Asd,
+	"HPFinit" as tag
+    from 
+        route_traffic_requests_over_virtual_and_physical_topology
+    where 
+        TReqQueNum=0 
+        AND
+        TReqResult = "Pass"
+        AND
+        routeTReqOverVTtype = "New"
+        AND
+        routeVLoverPT_waveID=0
+    order by PLsrc,	PLdst, routeVLoverPT_fiberID, routeVLoverPT_waveID	
+    """
+
+    PowerQ_HP = 0.0
+    PowerQ_LP = 0.0
+    PowerQ_HP_IP = 0.0
+    PowerQ_LP_IP = 0.0
+    PowerQ_HP_WDM = 0.0
+    PowerQ_LP_WDM = 0.0
+    PowerQ_HP_fbr = 0.0
+    PowerQ_LP_fbr = 0.0
+
+
+    SigmaCij_Q0 = getSigmaCijPerQueue(dbConnection, "HP")
+    SigmaCij_Q1 = getSigmaCijPerQueue(dbConnection, "LP")
+
+    Wmn_Q0 = getWmnPerQueue(dbConnection, "HP")
+    Wmn_Q1 = getWmnPerQueue(dbConnection, "LP")
+
+    sqlGetHP_LPs = """
+                    select 
+                        TReqQueNum,	
+                        TReqResult,	
+                        routeTReqOverVTtype,		
+                        VLsrc,					
+                        VLdst,		
+                        VLnum,		
+                        VLresult,			
+                        routeVLoverPT_NumOfHops,
+                        routeVLoverPT_shPathAsInt
+                    from 
+                        route_traffic_requests_over_virtual_and_physical_topology
+                    where 
+                        TReqQueNum=0 
+                        AND
+                        TReqResult = "Pass"
+                        AND
+                        routeTReqOverVTtype = "New"
+                    group by vlsrc, vldst,vlnum
+                    order by VLsrc,	VLdst, VLnum
+                   """
+    
+    sqlGetHP_finit = """
+                        select 
+                            TReqQueNum,	
+                            TReqResult,	
+                            routeTReqOverVTtype,		
+                            PLsrc,					
+                            PLdst,
+                            routeVLoverPT_fiberID,	
+                            routeVLoverPT_waveID,	
+                            routeVLoverPT_shPathAsInt,
+                            (PLlatEDFA * 10) as Asd
+                        from 
+                            route_traffic_requests_over_virtual_and_physical_topology
+                        where 
+                            TReqQueNum=0 
+                            AND
+                            TReqResult = "Pass"
+                            AND
+                            routeTReqOverVTtype = "New"
+                            AND
+                            routeVLoverPT_waveID=0
+                        order by PLsrc,	PLdst, routeVLoverPT_fiberID, routeVLoverPT_waveID
+                     """
+
+    sqlGetLP_LPs = """
+                    select 
+                        TReqQueNum,	
+                        TReqResult,	
+                        routeTReqOverVTtype,		
+                        VLsrc,					
+                        VLdst,		
+                        VLnum,		
+                        VLresult,			
+                        routeVLoverPT_NumOfHops,
+                        routeVLoverPT_shPathAsInt
+                    from 
+                        route_traffic_requests_over_virtual_and_physical_topology
+                    where 
+                        TReqQueNum=1 
+                        AND
+                        TReqResult = "Pass"
+                        AND
+                        routeTReqOverVTtype = "New"
+                    group by vlsrc, vldst,vlnum
+                    order by VLsrc,	VLdst, VLnum
+                   """
+
+    sqlGetLP_finit = """
+                        select 
+                            TReqQueNum,	
+                            TReqResult,	
+                            routeTReqOverVTtype,		
+                            PLsrc,					
+                            PLdst,
+                            routeVLoverPT_fiberID,	
+                            routeVLoverPT_waveID,	
+                            routeVLoverPT_shPathAsInt,
+                            (PLlatEDFA * 10) as Asd
+                        from 
+                            route_traffic_requests_over_virtual_and_physical_topology
+                        where 
+                            TReqQueNum=1 
+                            AND
+                            TReqResult = "Pass"
+                            AND
+                            routeTReqOverVTtype = "New"
+                            AND
+                            routeVLoverPT_waveID=0
+                        order by PLsrc,	PLdst, routeVLoverPT_fiberID, routeVLoverPT_waveID
+                     """
+ 
+    #OK calculate power of IP router ports
+
+    keys = list(range(len(N)))
+    #print ("<li>keys",keys)
+    for key in keys:
+        temp1 = Di_Q0.get(key)
+        tempDiQ   = temp1 if temp1!=None else 0.0 
+
+        temp2 = SigmaCij_Q0.get(key)
+        tempSCijQ = temp2 if temp2!=None else 0.0
+
+        PowerQ_HP_IP += (tempDiQ + tempSCijQ) * Er
+        #print (f"<li>node {key}:PowerQ_HP_IP += (tempDiQ + tempSCijQ) * Er = {PowerQ_HP_IP} <- ({tempDiQ} + {tempSCijQ}) * {Er}")
+
+    for key in keys:
+        temp1 = Di_Q1.get(key)
+        tempDiQ   = temp1 if temp1!=None else 0.0 
+
+        temp2 = SigmaCij_Q1.get(key)
+        tempSCijQ = temp2 if temp2!=None else 0.0
+
+        PowerQ_LP_IP += (tempDiQ + tempSCijQ) * Er
+        #print (f"<li>node {key}:PowerQ_LP_IP += (tempDiQ + tempSCijQ) * Er = {PowerQ_LP_IP} <- ({tempDiQ} + {tempSCijQ}) * {Er}")
+
+    # calculate power of WDM
+    keys=[]
+    keys = list(map(tuple, L))
+    #print ("<li>keys",keys)
+
+    for key in keys:
+        temp1 = Wmn_Q0.get(key)
+        tempWmnQ   = temp1 if temp1!=None else 0.0 
+
+        PowerQ_HP_WDM += tempWmnQ * Et
+        #print (f"<li>node {key}:PowerQ_HP_WDM += tempWmnQ * Et = {PowerQ_HP_WDM} <- {tempWmnQ} * {Et}")
+
+    for key in keys:
+        temp1 = Wmn_Q1.get(key)
+        tempWmnQ   = temp1 if temp1!=None else 0.0 
+
+        PowerQ_LP_WDM += tempWmnQ * Et
+        #print (f"<li>node {key}:PowerQ_LP_WDM += tempWmnQ * Et = {PowerQ_LP_WDM} <- {tempWmnQ} * {Et}")
+
+    #OK calculate power of EDFAs
+    cursor = dbConnection.execute(sqlGetHP_finit)
+    for row in cursor:
+        Asd = float(row[8])
+        PowerQ_HP_fbr += Asd * Ee
+
+    cursor = dbConnection.execute(sqlGetLP_finit)
+    for row in cursor:
+        Asd = float(row[8])
+        PowerQ_LP_fbr += Asd * Ee
+
+    PowerQ_HP_IP  = roundatdecimals(PowerQ_HP_IP/1000, 3)
+    PowerQ_HP_WDM = roundatdecimals(PowerQ_HP_WDM/1000, 3)
+    PowerQ_HP_fbr = roundatdecimals(PowerQ_HP_fbr/1000, 3)
+
+    PowerQ_LP_IP  = roundatdecimals(PowerQ_LP_IP/1000, 3)
+    PowerQ_LP_WDM = roundatdecimals(PowerQ_LP_WDM/1000, 3)
+    PowerQ_LP_fbr = roundatdecimals(PowerQ_LP_fbr/1000, 3)
+
+    PowerQ_HP = roundatdecimals(PowerQ_HP_IP + PowerQ_HP_WDM + PowerQ_HP_fbr, 3)
+    PowerQ_LP = roundatdecimals(PowerQ_LP_IP + PowerQ_LP_WDM + PowerQ_LP_fbr, 3)
+
+    print (f"""
+           <table class='table1c'>
+           <tr><th>Queue</th><th>Power IP</th><th>Power WDM</th><th>Power EDFA</th><th>Power Total</th></tr>
+           <tr><td>HP</td><td>{PowerQ_HP_IP}</td><td>{PowerQ_HP_WDM}</td><td>{PowerQ_HP_fbr}</td><td>{PowerQ_HP}</td></tr>
+           <tr><td>LP</td><td>{PowerQ_LP_IP}</td><td>{PowerQ_LP_WDM}</td><td>{PowerQ_LP_fbr}</td><td>{PowerQ_LP}</td></tr>
+           </table>
+           """)
+
+    return PowerQ_HP, PowerQ_LP
 
 
 

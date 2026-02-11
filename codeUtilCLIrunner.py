@@ -16,6 +16,9 @@ name, description, version, runs, X, nets, printout, keepeveryNreport, lamdagens
 
 # end of configuration parameters ---------------------------------------
 
+#LatencyComponents = LatencyComponents[0]
+#LimitConfigs = LimitConfigs[0]
+
 # using now() to get current time
 current_time = datetime.now()
  
@@ -43,7 +46,9 @@ fout.write(txtCaptions)
 fout.close()
 
 totalruns = runs * len(distributions) * len(nets) * len(X) * len(runConfigs) * len(LimitConfigs) * len(LatencyComponents) * len(QHPpercentTrafficSplit)
+print ("~"*99)
 print (f"Runs: {totalruns} = Distributions: {len(distributions)} x Networks: {len(nets)} x X: {len(X)} x Program configurations: {len(runConfigs)} x Configurations with limits: {len(LimitConfigs)} x Configurations for different latency of components: {len(LatencyComponents)} x Configurations with different splits of traffic: {len(QHPpercentTrafficSplit)} x Repetitions: {runs}.")
+print ("~"*99)
 
 countallprogramsruns = 0
 
@@ -79,5 +84,6 @@ for countprogramruns in range(runs):
                                 
                                 lamdaoutput = "Traffic-Requests-for_"+program+"_"+yr+"-"+mo+"-"+dy+"_"+hr+"-"+mn+"-"+sc+"_Net("+net+")"+"_Run("+str(countallprogramsruns)+")_"+"NumOfQueues("+queue+")_"+lamdafile
                                 print ('Run',countallprogramsruns,'of',totalruns,': ~ Command: "python', program, net, x, csv, printout, lamdagensaveload, lamdaoutput, pdfout, queue, keepreport, computername, progfolder, distribution, strategy, fibersperlink, wavelengthsperfiber, wavelengthcapacity, latRouterPort, latTransponder, QHPpercent, CheckForRevisits, HardLatencyCap_Q_HP, HardLatencyCap_Q_LP, '"')
-                                subprocess.run(["python ", program, net, x, csv, printout, lamdagensaveload, lamdaoutput, pdfout, queue, keepreport, computername, progfolder, distribution, strategy, fibersperlink, wavelengthsperfiber, wavelengthcapacity, latRouterPort, latTransponder, QHPpercent, CheckForRevisits, str(HardLatencyCap_Q_HP), str(HardLatencyCap_Q_LP)])
-                                
+                                # print(["python ", program, net, x, csv, printout, lamdagensaveload, lamdaoutput, pdfout, queue, keepreport, computername, progfolder, distribution, strategy, fibersperlink, wavelengthsperfiber, wavelengthcapacity, latRouterPort, latTransponder, QHPpercent, CheckForRevisits, str(HardLatencyCap_Q_HP), str(HardLatencyCap_Q_LP)])
+                                subprocess.run(["python", program, net, x, csv, printout, lamdagensaveload, lamdaoutput, pdfout, queue, keepreport, computername, progfolder, distribution, strategy, fibersperlink, wavelengthsperfiber, wavelengthcapacity, latRouterPort, latTransponder, QHPpercent, CheckForRevisits, str(HardLatencyCap_Q_HP), str(HardLatencyCap_Q_LP)])
+                                print ("- "*50)

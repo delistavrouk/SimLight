@@ -27,7 +27,7 @@ You may run each algorithm (a) via the command line, or (b) use codeUtilCLIrunne
 
 Option (a):
 
-Information about the command line parameters is provided in the [HTML page about command line parameters](https://delistavrouk.github.io/SimLight/READABOUTPARAMETERS.html).
+Information about the command line parameters is provided in the [HTML page about command line parameters](READABOUTPARAMETERS.html).
 
 Examples of command lines to run the programs:
 
@@ -43,7 +43,7 @@ Option (b):
 
 For batch mode use the config.txt file to set runtime configuration and number of execution repetitions. Then run on the command line prompt "python codeUtilCLIrunner.py"
 
-Dependencies for running each simulated algorithm are described in detail in the corresponding source files. In general you need NumPy, SciPy, PyVis, MatPlotLib along with Python.
+Dependencies for running each simulated algorithm are described in the corresponding source files.
 
 [id1]: ## "spam proof e-mail address, type it yourself"
 For assistance feel free to contact me at [delistaνrου(α)υοm.edυ.gr][id1]
@@ -60,8 +60,6 @@ Hybrid Bypass has been updated in November 2025 to:
 Comments and remarks are welcome.
 
 Enjoy!	
-
-**Update (Jan 2026): A new website is currently under development to enable online experimentation with SimLight. Stay tuned!**
 
 
 

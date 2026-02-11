@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# SimLight by Konstantinos Delistavrou 2021, 2022, 2023, 2024, 2025
+# SimLight by Konstantinos Delistavrou 2021, 2022, 2023, 2024, 2025, 2026
 # Hybrid Bypass algorithm by Konstantinos Delistavrou, 2024
 #
 # command line arguments
@@ -328,7 +328,7 @@ initialiseSet(Lmn,L,Dist)
 Amn = {}
 initialiseSet(Amn,L,[])
 
-#there is no Amn_Q0 or Amn_Q1 because if a fiber is due to a traffic request then the fiber has predetermined number of EDFAs
+#wrong thought: there is no Amn_Q0 or Amn_Q1 because if a fiber is due to a traffic request then the fiber has predetermined number of EDFAs
 
 #unique, standard colours for each node
 Ncolours = []
@@ -763,10 +763,6 @@ CUmn = getCUmnFromDB(CUmn, L, dbConnection)
 Wmn = getWmnFromDB(Wmn, L, dbConnection)
 SigmaCij = getSigmaCijFromDB(SigmaCij, N, dbConnection)
 
-wUaverage, fUaverage = calculatePhysicalLinkStatisticsAndPowerParameters(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection) # before updating limits and blockings
-
-PowerIP, PowerTransponders, PowerEDFAs, PowerTotal = evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, Di, Er, Et, Ee, B)
-
 # 29-9-2025 update the databases according to the limitations
 
 #<28-9-2025> statistics about the traffic requests that were blocked due to limitations
@@ -825,21 +821,17 @@ if (GlobalSOP==True) :
 
 #</28-9-2025>
 
-
-
 # 29-9-2025 calculate physical link statistics and power consumption using the data AFTER limitations
-
-
 
 CUmn = getCUmnFromDB(CUmn, L, dbConnection)
 Wmn = getWmnFromDB(Wmn, L, dbConnection)
 SigmaCij = getSigmaCijFromDB(SigmaCij, N, dbConnection)
 
-wUaverage, fUaverage = calculatePhysicalLinkStatisticsAndPowerParameters(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection) # before updating limits and blockings
+wUaverage, fUaverage = calculatePhysicalLinkStatisticsAndPowerParametersAfterLimitations(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection) # before updating limits and blockings
 
 PowerIP, PowerTransponders, PowerEDFAs, PowerTotal = evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, Di, Er, Et, Ee, B)
 
-
+PowerQ_HP, PowerQ_LP = evaluatePowerConsumptionPerQueue(dbConnection, Di, Di_Q0, Di_Q1, Er, Et, Ee, SigmaCij, N, L)
 
 #SOP
 if (GlobalSOP==True) :
@@ -910,6 +902,10 @@ txtPowerIP = str(PowerIP)
 txtPowerTransponders = str(PowerTransponders)
 txtPowerEDFAs = str(PowerEDFAs)
 txtPower = str(PowerTotal)
+#7-2-2026
+txtPowerQ_HP = str(PowerQ_HP)
+txtPowerQ_LP = str(PowerQ_LP)
+
 #txtProcess = str(roundatdecimals(ProcessTime*1.0e-9, 6))
 txtProcess = str(roundatdecimals(ProcessTime, 3))
 txtLightpaths = str(lightpaths)
@@ -968,8 +964,7 @@ timeStamp = f"y{ts.year:04d}_m{ts.month:02d}_d{ts.day:02d}_h{ts.hour:02d}_m{ts.m
 
 txtLine  = UUID+";"
 txtLine += timeStamp+";"+computername+";"+programfolder+";"+Algorithm+";"+str(lenQs)+";"+schedulingstrategy+";"+experimentName+";"+netName+";"+txtN+";"+txtL+";"+txtX+";"
-txtLine += txtDistribution+";"+txtCap+";"+txtPowerIP+";"+txtPowerTransponders+";"
-txtLine += txtPowerEDFAs+";"+txtPower+";"+txtProcess+";"+txtLightpaths+";"+txtReusedLightpaths+";"
+txtLine += txtDistribution+";"+txtCap+";"+txtPowerQ_HP+";"+txtPowerQ_LP+";"+txtProcess+";"+txtLightpaths+";"+txtReusedLightpaths+";"
 txtLine += txtPercentReusedLightpaths+";"+txtAverageLightpathReuses+";"
 txtLine += txtwUaverage+";"
 txtLine += txtfUaverage+";"
@@ -1081,7 +1076,7 @@ txtLine += str(countBlockedTRs)+";"
 txtLine += str(passTRsPercent)+";"
 txtLine += str(blockedTRsPercent)+";"
 
-txtLine += AverageLatencyOfTrafficRequests(dbConnection)+";"
+#txtLine += AverageLatencyOfTrafficRequests(dbConnection)+";"
 
 if sys.argv[20] == "CheckForRevisits":
     txtLine += "Not_Allowed;"
@@ -1095,6 +1090,9 @@ txtLine += str(numberOf_LPs_checkedForHardLatencyCap)+";"
 txtLine += ("Empty" if countBlockedVL_Q_HP == -1 else str(countBlockedVL_Q_HP))+";" # -1 means hard latency cap not applied for Q_HP (Q0)
 txtLine += ("Empty" if countBlockedVL_Q_LP == -1 else str(countBlockedVL_Q_LP))+";" # -1 means hard latency cap not applied for Q_LP (Q1)
 
+#txtLine += getListOfLatenciesForAllTrafficRequestsOLDformula(dbConnection)+";"
+#txtLine += getListOfLatenciesForAllTrafficRequestsNEWformula(dbConnection)+";"
+
 txtLine += "\n"
 
 #keep the dot (.) as the decimal separator symbol for processing by my Grapher application
@@ -1107,7 +1105,7 @@ fout.close()
 if (GlobalSOP==True) :
     print ("<table class='table1c' id='results'>")
     
-    print ("<tr><th>RunID (UUID)</th><th>Algorithm</th><th>Experiment name</th><th>Network</th><th>Number of nodes</th><th>Number of links</th><th>X (Gbps)</th><th>Total capacity processed (Gbps)</th><th>Power of IP routers (kWatt)</th><th>Power of WDM Transponders (kWatt)</th><th>Power of EDFAs (kWatt)</th><th>TotalPower (kWatt)</th><th>Process Time (sec)</th>")
+    print ("<tr><th>RunID (UUID)</th><th>Algorithm</th><th>Experiment name</th><th>Network</th><th>Number of nodes</th><th>Number of links</th><th>X (Gbps)</th><th>Total capacity processed (Gbps)</th><th>Power Q<sub>HP</sub>(kWatt)</th><th>Power Q<sub>LP</sub>(kWatt)</th><th>Process Time (sec)</th>")
     print ("<th>Total lightpaths</th><th>Reused Lightpaths</th><th>Percent of Reused Lightpaths (%)</th><th>Average Lightpaths Reuses</th><th>Average wavelengths utilisation (%)</th><th>Average fiber links utilisation (%)</th>")
     print ("<th>limitations</th>")
     print ("<th>maxFibersPerLink</th>")
@@ -1119,7 +1117,7 @@ if (GlobalSOP==True) :
     print ("<th>Traffic_QueueLP (%)</th>")
     print ("</tr>")
 
-    print ("<tr><th>"+UUID+"</th><th>"+Algorithm+"</th><th>"+experimentName+"</th><th>"+netName+"</th><th>"+txtN+"</th><th>"+txtL+"</th><th>"+txtX+"</th><th>"+txtCap+"</th><th>"+txtPowerIP+"</th><th>"+txtPowerTransponders+"</th><th>"+txtPowerEDFAs+"</th><th>"+txtPower+"</th><th>"+txtProcess+"</th>")
+    print ("<tr><th>"+UUID+"</th><th>"+Algorithm+"</th><th>"+experimentName+"</th><th>"+netName+"</th><th>"+txtN+"</th><th>"+txtL+"</th><th>"+txtX+"</th><th>"+txtCap+"</th><th>"+txtPowerQ_HP+"</th><th>"+txtPowerQ_LP+"</th><th>"+txtProcess+"</th>")
     print("<th>"+txtLightpaths+"</th><th>"+txtReusedLightpaths+"</th><th>"+txtPercentReusedLightpaths+"</th><th>"+txtAverageLightpathReuses+"</th><th>"+txtwUaverage+"</th><th>"+txtfUaverage+"</th>")
     print("<th>"+limitations+"</th>")
     print("<th>"+str(maxFibersPerLink)+"</th>")
