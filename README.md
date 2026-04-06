@@ -27,7 +27,7 @@ You may run each algorithm (a) via the command line, or (b) use codeUtilCLIrunne
 
 Option (a):
 
-Information about the command line parameters is provided in the [HTML page about command line parameters](READABOUTPARAMETERS.html).
+Information about the command line parameters is provided in the [HTML page about command line parameters](https://195-251-209-155.uom.gr/READABOUTPARAMETERS.html).
 
 Examples of command lines to run the programs:
 
