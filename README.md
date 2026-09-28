@@ -3,6 +3,8 @@ A simulation of RWA for IPoWDM optical backbone networks by Konstantinos Delista
 Published in: Konstantinos Delistavrou, Georgia A. Beletsioti, Georgios I. Papadimitriou, Sophia Petridou, A new approach for reducing end-to-end latency in energy efficient IP-over-WDM networks,
 Simulation Modelling Practice and Theory, Volume 149, 2026, 103275, ISSN 1569-190X, https://doi.org/10.1016/j.simpat.2026.103275.
 
+The files related to the publication are kept in the "SimLight_SIMPATpubversion_2026May" folder, since the repository reflects the continuous development progress. 
+
 codeHybridBypass.py: is the implementation of Hybrid bypass a new latency- and power-aware RWA algorithm for IPoWDM networks utilizing queues of high- and low-priority traffic demands. 
 
 codeDirectBypass.py: is the implementation of Direct Bypass, the power efficient algorithm by G. Shen & R. S. Tucker [1]  that does not apply traffic grooming and serves traffic in a single queue.
