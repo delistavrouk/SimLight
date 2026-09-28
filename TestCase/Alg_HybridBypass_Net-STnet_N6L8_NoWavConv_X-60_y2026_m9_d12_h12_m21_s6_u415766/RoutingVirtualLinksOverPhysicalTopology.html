@@ -1,0 +1,163 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 600px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#ba24e6", "id": 0, "label": "Node0 \u21fe", "shape": "dot", "title": "0"}, {"color": "#472ea6", "id": 1, "label": "Node1 \u21fe", "shape": "dot", "title": "1"}, {"color": "#1c3b", "id": 3, "label": "Node3 \u21fe", "shape": "dot", "title": "3"}, {"color": "#2c7cdd", "id": 4, "label": "Node4 \u21fe", "shape": "dot", "title": "4"}, {"color": "#96cfec", "id": 5, "label": "Node5 \u21fe", "shape": "dot", "title": "5"}, {"color": "#6b240", "id": 2, "label": "Node2 \u21fe", "shape": "dot", "title": "2"}]);
+                  edges = new vis.DataSet([{"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 0, "label": "fr:9.092", "title": "Node0\u2192Node1,cp:0,fr:9.092", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:9.092", "title": "Node1\u2192Node3,cp:0,fr:9.092", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 4, "label": "fr:4.123", "title": "Node4\u2192Node3,cp:0,fr:4.123", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:4.123", "title": "Node3\u2192Node1,cp:0,fr:4.123", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:9.259", "title": "Node3\u2192Node5,cp:0,fr:9.259", "to": 5, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 2, "label": "fr:9.573", "title": "Node2\u2192Node4,cp:0,fr:9.573", "to": 4, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 4, "label": "fr:9.573", "title": "Node4\u2192Node5,cp:0,fr:9.573", "to": 5, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:10.732", "title": "Node3\u2192Node1,cp:0,fr:10.732", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 0, "label": "fr:10.942", "title": "Node0\u2192Node2,cp:0,fr:10.942", "to": 2, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 2, "label": "fr:10.942", "title": "Node2\u2192Node4,cp:0,fr:10.942", "to": 4, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:11.029", "title": "Node1\u2192Node3,cp:0,fr:11.029", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:11.029", "title": "Node3\u2192Node5,cp:0,fr:11.029", "to": 5, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 5, "label": "fr:6.044", "title": "Node5\u2192Node3,cp:0,fr:6.044", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 2, "label": "fr:1.459", "title": "Node2\u2192Node1,cp:0,fr:1.459", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 5, "label": "fr:18.456", "title": "Node5\u2192Node3,cp:0,fr:18.456", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:18.456", "title": "Node3\u2192Node1,cp:0,fr:18.456", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:18.456", "title": "Node1\u2192Node0,cp:0,fr:18.456", "to": 0, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 4, "label": "fr:0.168", "title": "Node4\u2192Node3,cp:0,fr:0.168", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 5, "label": "fr:8.695", "title": "Node5\u2192Node4,cp:0,fr:8.695", "to": 4, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 2, "label": "fr:1.364", "title": "Node2\u2192Node4,cp:0,fr:1.364", "to": 4, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:21.187", "title": "Node3\u2192Node1,cp:0,fr:21.187", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:21.187", "title": "Node1\u2192Node0,cp:0,fr:21.187", "to": 0, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:17.144", "title": "Node1\u2192Node3,cp:0,fr:17.144", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 0, "label": "fr:5.83", "title": "Node0\u2192Node2,cp:0,fr:5.83", "to": 2, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:0.13", "title": "Node3\u2192Node1,cp:0,fr:0.13", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:0.13", "title": "Node1\u2192Node2,cp:0,fr:0.13", "to": 2, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:20.905", "title": "Node1\u2192Node0,cp:0,fr:20.905", "to": 0, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:16.816", "title": "Node1\u2192Node2,cp:0,fr:16.816", "to": 2, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 5, "label": "fr:3.567", "title": "Node5\u2192Node3,cp:0,fr:3.567", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:3.567", "title": "Node3\u2192Node1,cp:0,fr:3.567", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 5, "label": "fr:18.247", "title": "Node5\u2192Node4,cp:0,fr:18.247", "to": 4, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 4, "label": "fr:18.247", "title": "Node4\u2192Node2,cp:0,fr:18.247", "to": 2, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 0, "label": "fr:3.053", "title": "Node0\u2192Node1,cp:0,fr:3.053", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:3.053", "title": "Node1\u2192Node3,cp:0,fr:3.053", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:3.053", "title": "Node3\u2192Node5,cp:0,fr:3.053", "to": 5, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:7.894", "title": "Node3\u2192Node4,cp:0,fr:7.894", "to": 4, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 2, "label": "fr:2.455", "title": "Node2\u2192Node1,cp:0,fr:2.455", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:2.455", "title": "Node1\u2192Node3,cp:0,fr:2.455", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 0, "label": "fr:1.974", "title": "Node0\u2192Node1,cp:0,fr:1.974", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 4, "label": "fr:19.387", "title": "Node4\u2192Node2,cp:0,fr:19.387", "to": 2, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 2, "label": "fr:10.793", "title": "Node2\u2192Node0,cp:0,fr:10.793", "to": 0, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 4, "label": "fr:4.096", "title": "Node4\u2192Node5,cp:0,fr:4.096", "to": 5, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:19.631", "title": "Node1\u2192Node3,cp:0,fr:19.631", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:19.631", "title": "Node3\u2192Node4,cp:0,fr:19.631", "to": 4, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 4, "label": "fr:4.053", "title": "Node4\u2192Node2,cp:0,fr:4.053", "to": 2, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 2, "label": "fr:4.053", "title": "Node2\u2192Node0,cp:0,fr:4.053", "to": 0, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 5, "label": "fr:0.0", "title": "Node5\u2192Node3,cp:1,fr:0.0", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:0.0", "title": "Node3\u2192Node1,cp:1,fr:0.0", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:0.0", "title": "Node1\u2192Node0,cp:1,fr:0.0", "to": 0, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 5, "label": "fr:6.556", "title": "Node5\u2192Node3,cp:2,fr:6.556", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:6.556", "title": "Node3\u2192Node1,cp:2,fr:6.556", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:6.556", "title": "Node1\u2192Node0,cp:2,fr:6.556", "to": 0, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 4, "label": "fr:0.0", "title": "Node4\u2192Node3,cp:1,fr:0.0", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:0.0", "title": "Node3\u2192Node1,cp:1,fr:0.0", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:0.0", "title": "Node3\u2192Node1,cp:1,fr:0.0", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:0.0", "title": "Node1\u2192Node2,cp:1,fr:0.0", "to": 2, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 0, "label": "fr:0.0", "title": "Node0\u2192Node2,cp:1,fr:0.0", "to": 2, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 2, "label": "fr:0.0", "title": "Node2\u2192Node4,cp:1,fr:0.0", "to": 4, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 0, "label": "fr:15.227", "title": "Node0\u2192Node2,cp:2,fr:15.227", "to": 2, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 2, "label": "fr:15.227", "title": "Node2\u2192Node4,cp:2,fr:15.227", "to": 4, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 2, "label": "fr:0.0", "title": "Node2\u2192Node4,cp:1,fr:0.0", "to": 4, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 4, "label": "fr:0.0", "title": "Node4\u2192Node5,cp:1,fr:0.0", "to": 5, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:0.0", "title": "Node3\u2192Node1,cp:1,fr:0.0", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:3.623", "title": "Node3\u2192Node1,cp:2,fr:3.623", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:0.0", "title": "Node1\u2192Node3,cp:1,fr:0.0", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:0.0", "title": "Node3\u2192Node5,cp:1,fr:0.0", "to": 5, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 4, "label": "fr:0.0", "title": "Node4\u2192Node2,cp:1,fr:0.0", "to": 2, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 5, "label": "fr:0.0", "title": "Node5\u2192Node4,cp:1,fr:0.0", "to": 4, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 5, "label": "fr:0.0", "title": "Node5\u2192Node3,cp:1,fr:0.0", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:0.0", "title": "Node1\u2192Node2,cp:1,fr:0.0", "to": 2, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 2, "label": "fr:0.0", "title": "Node2\u2192Node1,cp:1,fr:0.0", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:0.0", "title": "Node1\u2192Node3,cp:1,fr:0.0", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 4, "label": "fr:0.0", "title": "Node4\u2192Node2,cp:1,fr:0.0", "to": 2, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 2, "label": "fr:0.0", "title": "Node2\u2192Node0,cp:1,fr:0.0", "to": 0, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:0.0", "title": "Node1\u2192Node3,cp:1,fr:0.0", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 2, "label": "fr:1.45", "title": "Node2\u2192Node0,cp:1,fr:1.45", "to": 0, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 0, "label": "fr:6.556", "title": "Node0\u2192Node1,cp:1,fr:6.556", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:6.556", "title": "Node1\u2192Node3,cp:1,fr:6.556", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:6.556", "title": "Node3\u2192Node5,cp:1,fr:6.556", "to": 5, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:7.557", "title": "Node1\u2192Node3,cp:1,fr:7.557", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:7.557", "title": "Node3\u2192Node4,cp:1,fr:7.557", "to": 4, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:9.5", "title": "Node1\u2192Node0,cp:1,fr:9.5", "to": 0, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 0, "label": "fr:10.803", "title": "Node0\u2192Node1,cp:1,fr:10.803", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:10.803", "title": "Node1\u2192Node3,cp:1,fr:10.803", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 4, "label": "fr:11.505", "title": "Node4\u2192Node5,cp:1,fr:11.505", "to": 5, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 0, "label": "fr:14.462", "title": "Node0\u2192Node2,cp:1,fr:14.462", "to": 2, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 4, "label": "fr:15.958", "title": "Node4\u2192Node3,cp:1,fr:15.958", "to": 3, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:18.149", "title": "Node3\u2192Node1,cp:1,fr:18.149", "to": 1, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 1, "label": "fr:18.149", "title": "Node1\u2192Node0,cp:1,fr:18.149", "to": 0, "weight": 0.9}, {"arrowStrikethrough": false, "arrows": "to", "color": "#000000", "from": 3, "label": "fr:6.141", "title": "Node3\u2192Node4,cp:1,fr:6.141", "to": 4, "weight": 0.9}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {
+    "configure": {
+        "enabled": false
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": true,
+            "type": "dynamic"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "repulsion": {
+            "centralGravity": 0.1,
+            "damping": 0.1,
+            "nodeDistance": 200,
+            "springConstant": 0.1,
+            "springLength": 400
+        },
+        "solver": "repulsion",
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>

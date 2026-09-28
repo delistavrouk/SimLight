@@ -1,0 +1,27 @@
+PS C:\find_files_by_UUID> python .\powerTotalAndPerQueueAdaptedForOlderDatabase.py .\lightbase.db
+
+filename;
+.\lightbase.db;
+
+IP power: 103000.0
+Transponders power: 6132.0
+Fibers power: 520.0
+
+(a) Total Power (All Queues);
+109,652.000;
+
+IP power: 64000.0
+Transponders power: 4234.0
+Fibers power: 448.0
+
+(b) Power for Queue HP;
+68,682.000;
+
+IP power: 44000.0
+Transponders power: 1898.0
+Fibers power: 520.0
+
+(c) Power for Queue LP
+46,418.000
+
+PS C:\find_files_by_UUID>

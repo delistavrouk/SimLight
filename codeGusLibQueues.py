@@ -340,7 +340,8 @@ def visualiseRoutingOfVirtualLinksOverPhysicalTopology(pL, N, grpath, colours, I
         free=pl[3]
         graph_add_node(gr,Ni,N[Ni],colours)
         graph_add_node(gr,Nj,N[Nj],colours)
-        graph_add_edge(gr,Ni,Nj,str(N[Ni])+"&rarr;"+str(N[Nj])+",cp:"+str(cap)+",fr:"+str(free), "fr:"+str(free))
+        #22-3-2026 replace character entity "&rarr;" with "→": graph_add_edge(gr,Ni,Nj,str(N[Ni])+"&rarr;"+str(N[Nj])+",cp:"+str(cap)+",fr:"+str(free), "fr:"+str(free))
+        graph_add_edge(gr,Ni,Nj,str(N[Ni])+"→"+str(N[Nj])+",cp:"+str(cap)+",fr:"+str(free), "fr:"+str(free))
 
     graph_save(gr, grpath, graph_filename)
 
@@ -352,7 +353,42 @@ def visualiseRoutingOfVirtualLinksOverPhysicalTopology(pL, N, grpath, colours, I
         #print("<h4><a href='"+protocol+newfilename+"' target='_blank'>"+newfilename+"</a></h4>")
         print("<h4><a href='"+graph_filename+"' target='_blank'>"+graph_filename+"</a></h4>")
         print("<br><iframe src='"+graph_filename+"' style='border:2px solid red;width:500px;height:500px;' title='"+newfilename+"'></iframe></div>")
+
+
+def visualiseRoutingOfVirtualLinksOverPhysicalTopologyAndWavenengthConverters(pL, N, grpath, colours, IncludeNetworkGraphInHTML, WavConv):
+    # Visualise network graph 
+    # https://pyvis.readthedocs.io/en/latest/documentation.html
+    # https://www.askpython.com/python/examples/customizing-pyvis-interactive-network-graphs
+    # https://towardsdatascience.com/pyvis-visualize-interactive-network-graphs-in-python-77e059791f01
     
+    s="Routing of Virtual Links over the Physical Topology"
+    gr = graph_new(s, True)
+    graph_filename='RoutingVirtualLinksOverPhysicalTopology.html'
+    for pl in pL:
+        Ni=pl[0]
+        Nj=pl[1]
+        cap=pl[2]
+        free=pl[3]
+        #14-4-2026 # ↻ wavelength conversion, ⇾ no wavelength conversion   # alternative symbols ↭⇎⇴⇸⇿⇶⇀⇼⇹⇸⇿⇾▨▩▮ ↭↜↝↺↻↹⇌⇜⇝⇼⇹⇷⇵⇆
+        nodeLabel=N[Ni]+(" ↻" if WavConv[Ni]==1 else " ⇾") 
+        graph_add_node(gr,Ni,nodeLabel,colours)
+        nodeLabel=N[Nj]+(" ↻" if WavConv[Nj]==1 else " ⇾") 
+        graph_add_node(gr,Nj,nodeLabel,colours)
+        #22-3-2026 replace character entity "&rarr;" with "→": graph_add_edge(gr,Ni,Nj,str(N[Ni])+"&rarr;"+str(N[Nj])+",cp:"+str(cap)+",fr:"+str(free), "fr:"+str(free))
+        graph_add_edge(gr,Ni,Nj,str(N[Ni])+"→"+str(N[Nj])+",cp:"+str(cap)+",fr:"+str(free), "fr:"+str(free))
+
+    graph_save(gr, grpath, graph_filename)
+
+    if IncludeNetworkGraphInHTML == True:
+        newfilename = os.path.join(grpath, graph_filename)
+        
+        print("<div style='margin-left:auto;margin-right:auto;'>")
+        print("<h3>Routing of Virtual Links over the Physical Topology</h3>")
+        #print("<h4><a href='"+protocol+newfilename+"' target='_blank'>"+newfilename+"</a></h4>")
+        print("<h4><a href='"+graph_filename+"' target='_blank'>"+graph_filename+"</a></h4>")
+        print("<br><iframe src='"+graph_filename+"' style='border:2px solid red;width:500px;height:500px;' title='"+newfilename+"'></iframe></div>")
+
+
 def visualisePhysicalTopology(N,L,grpath,colours,costs, IncludeNetworkGraphInHTML):
     net = graph_new("Physical Topology", False)
     #net = Network()
@@ -364,6 +400,7 @@ def visualisePhysicalTopology(N,L,grpath,colours,costs, IncludeNetworkGraphInHTM
     #net.repulsion(node_distance=300, central_gravity=0.01, spring_length=100, spring_strength=0.01)
     for i in range(len(N)):
         net.add_node(i,title=N[i],label=N[i]+" node:"+str(i),color=colours[i]) #for graphical representation
+        
     for i in range(len(L)):
         #net.add_edge(L[i][0],L[i][1], weight=0.90, color="#000000")
         #net.add_edge(L[i][0],L[i][1], weight=0.90, color=randomcolor())
@@ -387,6 +424,44 @@ def visualisePhysicalTopology(N,L,grpath,colours,costs, IncludeNetworkGraphInHTM
         #print("<br><iframe src='"+protocol+newfilename+"' style='border:2px solid red;width:500px;height:500px;' title='"+newfilename+"'></iframe></div>")
         print("<br><iframe src='"+filename+"' style='border:2px solid red;width:500px;height:500px;' title='"+filename+"'></iframe></div>")
 
+def visualisePhysicalTopologyAndWavenengthConverters(N,L,grpath,colours,costs, IncludeNetworkGraphInHTML, WavConv):
+    net = graph_new("Physical Topology", False)
+    #net = Network()
+    #net.set_edge_smooth('dynamic')
+    #net.repulsion(node_distance=100, central_gravity=0.2, spring_length=200, spring_strength=0.01, damping=0.09)
+    #net.repulsion(node_distance=100)
+    #net.repulsion(node_distance=200, spring_length=400)
+    #net.toggle_physics(True) # true elastic network graph - false static
+    #net.repulsion(node_distance=300, central_gravity=0.01, spring_length=100, spring_strength=0.01)
+    for i in range(len(N)):
+        #14-4-2026 # ↻ wavelength conversion, ⇾ no wavelength conversion   # alternative symbols ↭⇎⇴⇸⇿⇶⇀⇼⇹⇸⇿⇾▨▩▮ ↭↜↝↺↻↹⇌⇜⇝⇼⇹⇷⇵⇆
+        nodeLabel=N[i]+" node:"+str(i)+(" ↻" if WavConv[i]==1 else " ⇾") # ↻ wavelength conversion, ⇾ no wavelength conversion   # alternative symbols ↭⇎⇴⇸⇿⇶⇀⇼⇹⇸⇿⇾▨▩▮ ↭↜↝↺↻↹⇌⇜⇝⇼⇹⇷⇵⇆
+        net.add_node(i, title=N[i], label=nodeLabel, color=colours[i]) #for graphical representation
+        
+    for i in range(len(L)):
+        #net.add_edge(L[i][0],L[i][1], weight=0.90, color="#000000")
+        #net.add_edge(L[i][0],L[i][1], weight=0.90, color=randomcolor())
+        l = linknumber(L, L[i][0],L[i][1])
+        #net.add_edge(L[i][0],L[i][1], weight=0.90, color="#000000", title="Dist. "+str(costs[l]), label="Dist. "+str(costs[l]), arrowStrikethrough=False, physics=False) # without elasticity
+        net.add_edge(L[i][0],L[i][1], weight=0.90, color="#000000", title="Dist. "+str(costs[l]), label="Dist. "+str(costs[l]), arrowStrikethrough=False) # with elasticity
+    filename = 'PhysicalTopology.html'
+    newfilename = os.path.join(grpath, filename)
+    graph_save(net, grpath, filename)
+    #graph_export_to_graphml(net, grpath, 'PhysicalTopology.graphml')
+    #net.save_graph(filename)
+    #net.save_graph(newfilename)
+    #shutil.copyfile(filename, newfilename)
+    #os.remove(filename)
+    #os. rename(filename, newfilename)
+    if IncludeNetworkGraphInHTML == True:
+        print("<div style='margin-left:auto;margin-right:auto;'>")
+        print("<h3>The Physical Topology</h3>")
+        #print("<h4><a href='"+protocol+newfilename+"' target='_blank'>"+newfilename+"</a></h4>")
+        print("<h4><a href='"+filename+"' target='_blank'>"+filename+"</a></h4>")
+        #print("<br><iframe src='"+protocol+newfilename+"' style='border:2px solid red;width:500px;height:500px;' title='"+newfilename+"'></iframe></div>")
+        print("<br><iframe src='"+filename+"' style='border:2px solid red;width:500px;height:500px;' title='"+filename+"'></iframe></div>")
+
+
 def visualiseVirtualTopology_Build_VT_from_scratch(VT, nodes, graph_path, Ncolours, maxGbpsPerWave, IncludeNetworkGraphInHTML) :
     #αυτη η function διαβαζει την εικονικη τοπολογια και δημιουργει από την αρχή ένα γράφο
     #καλύτερο αποτέλεσμα βγάζει το τελευταίο βήμα της σταδιακής δημιουργίας γράφων για την εικονική τοπολογία οπότε χρησιμοποιώ αυτό
@@ -402,7 +477,9 @@ def visualiseVirtualTopology_Build_VT_from_scratch(VT, nodes, graph_path, Ncolou
         free=roundatdecimals(maxGbpsPerWave-cap,3)
         graph_add_node(gr,Ni,vl[0],Ncolours)
         graph_add_node(gr,Nj,vl[1],Ncolours)
-        graph_add_edge(gr,Ni,Nj,str(Ni)+"&rarr;"+str(Nj)+",cp:"+str(cap)+",fr:"+str(free), "fr:"+str(free))
+        #→
+        #graph_add_edge(gr,Ni,Nj,str(Ni)+"&rarr;"+str(Nj)+",cp:"+str(cap)+",fr:"+str(free), "fr:"+str(free))
+        graph_add_edge(gr,Ni,Nj,str(Ni)+"→"+str(Nj)+",cp:"+str(cap)+",fr:"+str(free), "fr:"+str(free))
 
     graph_save(gr, graph_path, graph_filename)
 
@@ -3737,6 +3814,152 @@ def htmlhead(title, lenQs, distribution):
         print("<h3 style='text-align:center'>Implementation by <em>Konstantinos Delistavrou</em> &copy; 2021-2025</h3><hr>")
     #EOP
 
+
+def mathPowerFormulaPerQueue():
+    # https://fred-wang.github.io/MathFonts/mozilla_mathml_test/
+    s = """
+        <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+        <mrow>
+            <msub>
+            <mi>E</mi>
+            <mi>k</mi>
+            </msub>
+            <mo>=</mo>
+            <munder>
+            <mo>&sum;</mo>
+            <mrow>
+                <mi>i</mi>
+                <mo>&isin;</mo>
+                <mi>N</mi>
+            </mrow>
+            </munder>
+            <msub>
+            <mi>E</mi>
+            <mi>r</mi>
+            </msub>
+            <mo>&middot;</mo>
+            <mrow>
+            <mo>(</mo>
+            <msubsup>
+                <mi>&Delta;</mi>
+                <mi>i</mi>
+                <mi>k</mi>
+            </msubsup>
+            <mo>+</mo>
+            <munder>
+                <mo>&sum;</mo>
+                <mtable rowspacing="0ex">
+                <mtr>
+                    <mtd>
+                    <mrow>
+                        <mi>j</mi>
+                        <mo>&isin;</mo>
+                        <mi>N</mi>
+                    </mrow>
+                    </mtd>
+                </mtr>
+                <mtr>
+                    <mtd>
+                    <mrow>
+                        <mi>i</mi>
+                        <mo>&ne;</mo>
+                        <mi>j</mi>
+                    </mrow>
+                    </mtd>
+                </mtr>
+                </mtable>
+            </munder>
+            <msubsup>
+                <mi>W</mi>
+                <mrow>
+                <mi>i</mi>
+                <mi>j</mi>
+                </mrow>
+                <mi>k</mi>
+            </msubsup>
+            <mo>)</mo>
+            </mrow>
+            <mo>+</mo>
+            <munder>
+            <mo>&sum;</mo>
+            <mrow>
+                <mi>m</mi>
+                <mo>&isin;</mo>
+                <mi>N</mi>
+            </mrow>
+            </munder>
+            <munder>
+            <mo>&sum;</mo>
+            <mrow>
+                <mi>n</mi>
+                <mo>&isin;</mo>
+                <msub>
+                <mi>N</mi>
+                <mi>m</mi>
+                </msub>
+            </mrow>
+            </munder>
+            <msub>
+            <mi>E</mi>
+            <mi>t</mi>
+            </msub>
+            <mo>&middot;</mo>
+            <msubsup>
+            <mi>w</mi>
+            <mrow>
+                <mi>m</mi>
+                <mi>n</mi>
+            </mrow>
+            <mi>k</mi>
+            </msubsup>
+            <mo>+</mo>
+            <munder>
+            <mo>&sum;</mo>
+            <mrow>
+                <mi>m</mi>
+                <mo>&isin;</mo>
+                <mi>N</mi>
+            </mrow>
+            </munder>
+            <munder>
+            <mo>&sum;</mo>
+            <mrow>
+                <mi>n</mi>
+                <mo>&isin;</mo>
+                <msub>
+                <mi>N</mi>
+                <mi>m</mi>
+                </msub>
+            </mrow>
+            </munder>
+            <msub>
+            <mi>E</mi>
+            <mi>e</mi>
+            </msub>
+            <mo>&middot;</mo>
+            <msub>
+            <mi>A</mi>
+            <mrow>
+                <mi>m</mi>
+                <mi>n</mi>
+            </mrow>
+            </msub>
+            <mo>&middot;</mo>
+            <msubsup>
+            <mi>f</mi>
+            <mrow>
+                <mi>m</mi>
+                <mi>n</mi>
+            </mrow>
+            <mi>k</mi>
+            </msubsup>
+        </mrow>
+        </math>
+        """
+    return s
+
+
+
 def mathPowerFormula():
     # https://fred-wang.github.io/MathFonts/mozilla_mathml_test/
     s = ""
@@ -4634,6 +4857,8 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypassWithForceG
 
 
 
+
+
 def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass(startingStep, gr, nodes, Queue, QueueID, vt,vtl,vtfreecaps, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals):
     
     #6-9-2025 this is the original version of the subroutine, used in multihop bypass
@@ -4972,9 +5197,6 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass(startingS
     #EOP
 
     return startingStep+step
-
-
-
 
 
 
@@ -5645,6 +5867,370 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass_checkingF
 
 
 
+#7-4-2026
+def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass_checkingForRevisits_utilizeVirtualWavelengthCapacity_usedbyHybridBypass(startingStep, gr, nodes, Queue, QueueID, vt,vtl,vtfreecaps, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, N, Nt, NmC, virtWavCap):
+
+    #7-4-2026
+    # virtWavCap
+        
+    #6-9-2025 this is the new version of the subroutine for Hybrid Bypass, where I check for revisits
+    # on this routine I have to perform the wavelength assignment for each routing of a traffic request over a virtual link and check for no revisits in case of traffic grooming before I move to the next traffic request
+    # in order not to modify a lot the code, temporarily I will intervene only in case of traffic grooming to perform the wavelength assignment only to check for revisits and repeat the routing of the traffic request only in case of revisit
+    #2DO >>>> at some point a redesign of the data structures and parameters must take place to avoid data redundancy (πλεονασμός δεδομένων)
+
+    startingStep = startingStep -1
+    
+    # 12-10-2025 count paths with revisits
+    numberOfPathsWithRevisitWhichRoutedDirectly = 0
+
+    #this version uses Queues!
+    #this version simulates execution time
+    #this function's parameter "q0" refers to the traffic requests of the high priority "Video" queue
+    #this function's parameter "q1" refers to the traffic requests of the low priority "Best Effort" queue
+
+    global GlobalPrintOutEnabled
+    global GlobalVirtLinkID
+    global GlobalStringOutcomes
+
+    GlobalStringOutcomes = ""
+
+    graph_filename = ""
+           
+    #EOP
+    #SOP
+    #if (GlobalPrintOutEnabled==True) :
+    ###19-9-2024 create graph in the calling program and pass as parameter to the routing function, since the traffic requests might be served by more than one routing functions depending on the scheduling strategy
+    ###s="Virtual topology graph after processing request "
+    ###gr = graph_new(s, True)
+    #EOP
+
+    #n = len(data)
+    n = len(Queue)
+    #n1 = len(q1)
+    TotalNumberOfTrafficRequestsOnBothQueues = n #+n1 # ex n
+    #count=0
+
+    GlobalVirtLinkID = 0
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        #table routing traffic requests over virtual topology headings
+        print("<table class='data'>")
+        print("<tr><th colspan='10'>Routing traffic requests of the single queue over the Virtual Topology (a.k.a. Adding requests to the Virtual Topology)</th></tr>")
+        print ("<tr><th>Step number</th><th>Queue</th><th>Request</th><th>From</th><th>To</th>")
+        print ("<th>Required/Remain</th><th class='actions'>Actions</th><th>Outcomes</th>")
+        print("<th>Current Virtual Topology</th><th>Current request processing start (msec)</th></tr>")
+        #print ("<tr><th style='width: 50px; inline-size: 50px;'>Request</th><th style='width: 50px; inline-size: 50px;'>Queue</th><th style='width: 50px; inline-size: 50px;'>From</th><th style='width: 50px; inline-size: 50px;'>To</th><th>Required/Remain</th><th class='actions'>Actions</th><th>Free capacities</th><th>Current Virtual Topology</th><th>Time started serving TrReq (msec)</th><th>Time started serving after first TrReq (msec)</th><th>Time started serving TrReq at the subprocess (msec)</th><th>Time started serving after first TrReq at the subprocess (msec)</th></tr>")
+    #EOP
+
+    # Traverse through all array elements
+    # edw prepei na pairnei apo tis 2 queues symfwna me to xronismo to shaper
+    #for i in range(n):   #for each request
+    #i0=0
+    #i1=0
+    currentrequest = 0
+    step = 1
+
+    # Start the thread to alternate queues
+    #thread = threading.Thread(target=alternateQueueSelection)
+    #thread.daemon = True  # This ensures the thread will exit when the main program does
+    #thread.start()
+
+    startRoutingOverVT = time.process_time_ns()
+    #startof_serving_current_TRreq_timestamp = 0.0
+    #endof_serving_current_TRreq_timestamp = 0.0
+    
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+    #select path separator based on the host OS
+        pathseparator = ""
+        if platform.system() == 'Windows':
+            pathseparator = "\\"
+        elif platform.system() == 'Linux':
+            pathseparator = "/"
+        else:
+            pathseparator = "/"
+        f = open(graph_path+pathseparator+'QueuesServingPattern_methodAthreads.txt', 'a')
+    #EOP
+
+    CurrentQueue = QueueID
+
+    while step <= TotalNumberOfTrafficRequestsOnBothQueues: # process all traffic requests from all queues
+                
+        # Solution D with simulation time estimated/approximated
+        #CurrentQueue = QueueVideoTurn(0.75) # this works! using random parameter with probability 0.75
+
+        startTReq = time.process_time_ns() # count the time per traffic request, not for each lightpath of the traffic request
+
+        #time_from_start = startof_serving_current_TRreq_timestamp - startof_serving_all_TRreqs_timestamp
+
+        #select queue based on time passed (simulation time, not system time)
+        #ReqTime = abs(startof_serving_current_TRreq_timestamp - startof_serving_all_TRreqs_timestamp)
+        RequestTime = nsec2msec(startTReq - startRoutingOverVT)
+        
+        Qtime = RequestTime % 100.0
+        
+        '''
+        if Qtime >= 0.0 and Qtime < 75.0:
+            CurrentQueue="0"
+        elif Qtime >= 75.0:
+            CurrentQueue="1"
+        '''
+
+        if CurrentQueue==QueueID and currentrequest<n:
+            treq = Queue[currentrequest] # treq = traffic request
+            que=QueueID
+            fromQueue=QueueID
+            req=currentrequest
+            currentrequest = currentrequest + 1
+        
+        '''
+        elif CurrentQueue=="0" and i0>=n0:
+            treq = q1[i1]
+            que=1
+            fromQueue="1"
+            i1 = i1 + 1
+            req=i1
+        elif CurrentQueue=="1" and i1<n1:
+            treq = q1[i1]
+            que=1
+            fromQueue="1"
+            i1 = i1 + 1
+            req=i1
+        elif CurrentQueue=="1" and i1>=n1:
+            treq = q0[i0]
+            que=0
+            fromQueue="0"
+            i0 = i0 + 1
+            req=i0
+        else:
+            print("<div>Error on Queue selection")
+            exit(1)
+        '''
+
+        remain = treq[2]
+    
+        apo = nodes[treq[0]]
+        pros = nodes[treq[1]]
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            graph_filename="VT_after_Step"+str(startingStep+step)+"_Que"+str(que)+"_Req"+str(req)+".html"
+        #EOP
+        
+        RoutingOfRequestedTrafficStep = 0
+        RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
+        
+        while (remain>0.0): #while there are remaining Gb of the request to be routed
+            
+            #SOP
+            if (GlobalPrintOutEnabled==True) :
+                print (f"<td style='width: 50px; inline-size: 50px;'>Step {startingStep+step:0d}</td><td>Processing queue {fromQueue:0d}</td><td>request {req:0d}</td><td style='width: 50px; inline-size: 50px;'>from {apo:s} ({treq[0]:0d})</td><td style='width: 50px; inline-size: 50px;'>to {pros:s} ({treq[1]:0d})</td>")
+                print ("<td>Remain",remain,"Gbps to be routed.</td>")
+
+                f.write(f"Que {fromQueue:4d} ~ Req {req:4d} ~ Remain Gbps {remain:10.3f}\n")
+            
+                graph_add_node(gr,treq[0],apo,Ncolours)
+                graph_add_node(gr,treq[1],pros,Ncolours)
+            
+                #print ("<td class='actions' style='font-size:0.8em'>")
+                print ("<td class='actions'>")
+            #EOP
+
+            ##keep a copy of  the previous versions of the dictionaries to be able to only incremental updates of the content for shorter output
+            #prevVirtualLinkIDs = copyDictionary(VirtualLinkIDs)
+            #prevVirtualLinkTReqs = copyDictionary(VirtualLinkTReqs)
+            #prevVirtualLinkTotals = copyDictionary(VirtualLinkTotals)
+            #prevReqRouteInfo = copyDictionary(ReqRouteInfo)
+            
+            #if (remain >= maxGbpsPerWavelength):  #if the request is >=40Gbps
+            if (remain >= virtWavCap):
+                #SOP
+                if (GlobalPrintOutEnabled==True) :
+                    print("<li>A new virtual link will be created since the requirement is >= 40 Gbps.")
+                #EOP
+                
+                CapForTheLogicalLink = virtWavCap #used to be: maxGbpsPerWavelength
+                  
+                if (addNewVirtualLinkToTheVirtualTopology(nodes, que, req,  treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, virtWavCap, VTFinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):
+                #def addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
+                    
+                    #if adding succeded
+                    RoutingOfRequestedTrafficStep += 1
+                    RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
+
+                    #added new link to route 40G successfully
+                    remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
+                    
+                    # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
+                    TotalLightpaths[0] +=1
+
+                    # do not add a edge on the graph for 40 Gbps virtual (logical) links; we don't want the graph overcrowded
+                    # if you want to add, just uncomment next line
+                    # graph_add_edge(gr,data[i][0],data[i][1],str(CapForTheLogicalLink),"free:0")
+
+            else:   #if the request is <40Gbps attempt grooming
+                #SOP
+                if (GlobalPrintOutEnabled==True) :
+                    print("<li>Since the requirement is < 40 Gbps then an attempt to route traffic over existing virtual links will be made")
+                #EOP
+
+                CapForTheLogicalLink=remain
+                
+                # 6-9-2025 this is the point that this routine for Hybrid Bypass routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass_checkingForRevisits_usedbyHybridBypass()
+                #          differs from the regular routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass()
+                #          on this one the following routine also checks for revisits
+                
+                # for MultiHop Bypass: if (routeOneVirtualLinkOverTheVirtualTopologyMultihopBypass(nodes, que, req, treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, gr, ReUsedLightpaths, LightpathReuses, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep) == 0):   #try to route it over existing paths of the virtual topology
+                
+                # new, for Hybrid Bypass:
+                
+                #12-10-2025
+                returnedremainingcapacity, numPathsAbortedDueToRevisit = routeOneVirtualLinkOverTheVirtualTopologyMultihopBypass_checkforRevisits(nodes, que, req, treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, virtWavCap, VTFinal, ReqRouteInfo, gr, ReUsedLightpaths, LightpathReuses, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, N, Nt, NmC)
+                numberOfPathsWithRevisitWhichRoutedDirectly += numPathsAbortedDueToRevisit
+                if (returnedremainingcapacity == 0):   
+                    
+                    #if routing succeded
+                    RoutingOfRequestedTrafficStep += 1
+                    RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
+
+                    #routed the required capacity successfully
+                    remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
+                    
+                    #graph_add_edge(gr,data[i][0],data[i][1],str(CapForTheLogicalLink),"free:0")
+
+                else:   #if it cannot be routed over existing paths of the virtual topology, then add a new virtual link for it
+                    
+                    ##keep a copy of  the previous versions of the dictionaries to be able to only incremental updates of the content for shorter output
+                    #prevVirtualLinkIDs = copyDictionary(VirtualLinkIDs)
+                                
+                    if (addNewVirtualLinkToTheVirtualTopology(nodes, que, req, treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, virtWavCap, VTFinal, ReqRouteInfo, gr, VLIDs, dbConnection,VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):
+                        
+                        #if adding succeded
+                        RoutingOfRequestedTrafficStep += 1
+                        RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
+
+                        #defaddNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
+                        #added new link to route required capacity successfully
+                        remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
+                        #remain = remain - CapForTheLogicalLink
+                        #remain=numpy.round(remain, decimals=3, out=None)
+
+                        # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
+                        TotalLightpaths[0] += 1
+
+            #endof_serving_current_TRreq_timestamp = time.process_time_ns()
+            #time_for_serving_current_Treq = endof_serving_current_TRreq_timestamp - startof_serving_current_TRreq_timestamp
+
+            #SOP
+            if (GlobalPrintOutEnabled==True) :
+                print ("</td>")
+                print("<td class='actions'>")
+                # A not using vtfreecaps anymore 
+                # print("<li>Free capacities list vTfreeCapacities",vtfreecaps)
+                # printFreeCapacitiesAsTable(vtfreecaps)
+                
+                # B print latest addition, not new version of VirtualLinkIDs
+                
+                ###print("<li>Update of the Virtual Link IDs = {(s,d):[0,1,2,...],...}")
+                ###printDifferencesOfDictionary2comparedtoDictionary1(prevVirtualLinkIDs, VirtualLinkIDs)
+                
+                # print("<li>Virtual Link IDs = {(s,d):[0,1,2,...],...}")
+                # not printing new version printVLids(VirtualLinkIDs)
+
+                ###print("<li>Update of the Traffic Requests for each Virtual Link = {(s,d,n):[(que,req,cap,type),...],...}")
+                                
+                ###printDifferencesOfDictionary2comparedtoDictionary1(prevVirtualLinkTReqs, VirtualLinkTReqs)
+
+                ###print("<li>Update of the Virtual Link Totals = {(s,d,n):[caputil, capfree, num_of_TReqs],...}")
+                #printVLTotals(VirtualLinkTotals)
+                ###printDifferencesOfDictionary2comparedtoDictionary1(prevVirtualLinkTotals, VirtualLinkTotals)
+
+                ###print("<li>Update of the Virtual Links per Request R = {(queue, request number): [(virtual link (s,d,n), type, capacity utilsed), ...], ...}")
+                ###printDifferencesOfDictionary2comparedtoDictionary1(prevReqRouteInfo, ReqRouteInfo)
+
+                # C print all outcomes (dictionaries) on each step
+                # print("<li>Virtual Link IDs = {(s,d):[0,1,2,...],...}")
+                # printVLids(VirtualLinkIDs)
+
+                # print("<li>Traffic Requests for each Virtual Link = {(s,d,n):[(que,req,cap,type),...],...}")
+                # printVLTReqs(VirtualLinkTReqs)
+                
+                # print("<li>Virtual Link Totals = {(s,d,n):[caputil, capfree, num_of_TReqs],...}")
+                # printVLTotals(VirtualLinkTotals)
+
+                # print("<li>Virtual Links per Request R = {(queue, request number): [(virtual link (s,d,n), type, capacity utilsed), ...], ...}")
+                # printRequestRoutingInfoAsTable(ReqRouteInfo)
+
+                print(GlobalStringOutcomes)
+
+                GlobalStringOutcomes = ""
+
+                print("</td>")
+                print("<td>Virtual Topology vT =",vt)
+                #print("<!--<iframe src='"+graph_filename+"' style='border:2px solid red;width:200px;height:200px;' title='"+graph_filename+"'></iframe>-->")   # not including graphs in the report, but only links to graphs
+                print("<p><a href='"+graph_filename+"' target='_blank'>"+graph_filename+"</a></p></td>")
+                #print("</td><td>",roundatdecimals((start_serve_treq_processtime * 1e-6), 3),"msec</td>") # nsec to msec
+                #print("</td><td>",roundatdecimals(((start_serve_treq_processtime - start_serving_all_treqs_processtime) * 1e-6), 3),"msec</td>") # nsec to msec
+                #print("</td><td>",roundatdecimals(((start_serving_current_treq_time_at_the_subprocess) * 1e-6), 3),"msec</td>") # nsec to msec
+                #print("</td><td>",roundatdecimals(((start_serving_current_treq_time_at_the_subprocess - start_time_of_all_at_the_subprocess) * 1e-6), 3),"msec</td>") # nsec to msec
+                print("<td>")
+                #print("Since start serving all TReqs, For current TReq<br>")
+                #print("Since start serving all TReqs, For current TReq<br>")
+                print(f"Time of processing all requests {RequestTime:.3f},")
+                print(f"Time of current queue's turn {Qtime:.3f}")
+                #print(f"{nsec2msec(time_for_serving_current_Treq):.3f}")
+                print("</td>")
+                print("</tr>")
+                #print("<li>Links list vTL =",vtl)
+                #print("<li>Links used for each request (s,d,type,capacity) R =",R)
+            #EOP
+
+            #RoutingOfRequestedTrafficStep += 1
+
+        #SOP    
+        if (GlobalPrintOutEnabled==True) :
+            #after each request routing over virtual topology save graph phase
+            graph_save(gr, graph_path, graph_filename)
+            #add an iframe to show the virtual topology network graph
+            #print("<iframe src='"+"VTpostReq"+str(r)+".html"+"'></iframe></td></tr>")
+        #EOP
+        step = step + 1
+
+    # signaling process to stop
+    #flag.set()  # Signal the worker to stop
+    #process.join()
+    #print("Process has stopped.")
+
+    # terminating process
+    #print(f"Sending SIGTERM to child process with PID: {process.pid}")
+    ###os.kill(process.pid, signal.SIGTERM)
+    
+    #wait process to join the main program when it stops normally
+    #process.join()
+    #print("Child process terminated.")
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        f.close()
+
+        graph_save(gr, graph_path, "VirtualTopology.html")   # save virtual topology after last step as the final virtual topology graph.
+
+        #after all requests show total graph
+        print("</table>")
+        #grFile = os.path.join(graph_path, graph_filename)
+        #print("<div style='margin-left:auto;margin-right:auto;'>")
+        #print("<br><br><a href='"+protocol+grFile+"' target='_blank'>"+graph_filename+"</a></div>")
+        #print("<iframe src='"+protocol+grFile+"' style='border:2px solid red;width:500px;height:500px;' title='"+graph_filename+"'></iframe>")
+
+        visualiseVirtualTopology(graph_filename,(sys.argv[7]!="pdfout")) #if not output to pdf then draw graph in the report
+    #EOP
+
+    return startingStep+step, numberOfPathsWithRevisitWhichRoutedDirectly
+
+
+
+
 
 def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q0_75_Q1_25(nodes, q0, q1, vt,vtl,vtfreecaps, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals):
     #this version uses Queues!
@@ -5763,6 +6349,7 @@ def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q0_75_Q1
             req=i0-1
         else:
             print("<div>Error on Queue selection")
+            error("Error on Queue selection",99)
             exit(1)
 
         remain = treq[2]
@@ -6096,6 +6683,7 @@ def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q1nextQ0
             i1 = i1 + 1
         else:
             print("<div>Error on Queue selection")
+            error("Error on Queue selection",99)
             exit(1)
 
         remain = treq[2]
@@ -6432,6 +7020,7 @@ def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q0nextQ1
             i1 = i1 + 1
         else:
             print("<div>Error on Queue selection")
+            error("Error on Queue selection",99)
             exit(1)
 
         remain = treq[2]
@@ -8584,11 +9173,13 @@ def addNewVirtualLinkToTheVirtualTopology(nodes, que, req, Ni, Nj, vt, vtl, vtfr
         if (addEdgeWhenFreeCapacityOnly == True):
             if (LogicalLinkFreeCapacity>0.0): #add graph edges only for free capacities > 0.0
                 #graph_add_edge(gr,Ni,Nj,"rq:"+str(rq)+","+str(Ni)+"->"+str(Nj)+",cp:"+str(cap)+",fr:"+str(LogicalLinkFreeCapacity), "fr:"+str(LogicalLinkFreeCapacity))
-                graph_add_edge(gr,Ni,Nj,"que"+str(que)+",req:"+str(req)+","+str(nodes[Ni])+"&rarr;"+str(nodes[Nj])+",cp:"+str(cap)+",fr:"+str(LogicalLinkFreeCapacity), "fr:"+str(LogicalLinkFreeCapacity))
+                #graph_add_edge(gr,Ni,Nj,"que"+str(que)+",req:"+str(req)+","+str(nodes[Ni])+"&rarr;"+str(nodes[Nj])+",cp:"+str(cap)+",fr:"+str(LogicalLinkFreeCapacity), "fr:"+str(LogicalLinkFreeCapacity))
+                graph_add_edge(gr,Ni,Nj,"que"+str(que)+",req:"+str(req)+","+str(nodes[Ni])+"→"+str(nodes[Nj])+",cp:"+str(cap)+",fr:"+str(LogicalLinkFreeCapacity), "fr:"+str(LogicalLinkFreeCapacity))
         else:
             #graph_add_edge(gr,Ni,Nj,"rq:"+str(rq)+","+str(Ni)+"->"+str(Nj)+",cp:"+str(cap)+",fr:"+str(LogicalLinkFreeCapacity), "fr:"+str(LogicalLinkFreeCapacity))
             #graph_add_edge(gr,Ni,Nj,"req:"+str(req)+","+str(nodes[Ni])+"->"+str(nodes[Nj])+",cp:"+str(cap)+",fr:"+str(LogicalLinkFreeCapacity), "fr:"+str(LogicalLinkFreeCapacity))
-            graph_add_edge(gr,Ni,Nj,"que"+str(que)+",req:"+str(req)+","+str(nodes[Ni])+"&rarr;"+str(nodes[Nj])+",cp:"+str(cap)+",fr:"+str(LogicalLinkFreeCapacity), "fr:"+str(LogicalLinkFreeCapacity))
+            #graph_add_edge(gr,Ni,Nj,"que"+str(que)+",req:"+str(req)+","+str(nodes[Ni])+"&rarr;"+str(nodes[Nj])+",cp:"+str(cap)+",fr:"+str(LogicalLinkFreeCapacity), "fr:"+str(LogicalLinkFreeCapacity))
+            graph_add_edge(gr,Ni,Nj,"que"+str(que)+",req:"+str(req)+","+str(nodes[Ni])+"→"+str(nodes[Nj])+",cp:"+str(cap)+",fr:"+str(LogicalLinkFreeCapacity), "fr:"+str(LogicalLinkFreeCapacity))
         
         """
         graph_add_edge(gr,Ni,Nj,"rq:"+str(rq)+","+str(Ni)+"&rarr;"+str(Nj)+",cp:"+str(cap)+",fr:"+str(LogicalLinkFreeCapacity), "fr:"+str(LogicalLinkFreeCapacity))
@@ -8705,6 +9296,13 @@ def updateVirtualLinkTReq(VLTReqs, vlidkey, que, req, cap, type):
     GlobalStringOutcomes += "]</td></tr>"
     GlobalStringOutcomes += "</table>"
     
+
+
+def list2string(datalist, separator):
+    output = separator.join(map(str, datalist))
+    return output
+
+
 
 def error(description,code):
     global GlobalPrintOutEnabled
@@ -9691,7 +10289,7 @@ def addRoutingOfVirtualLinksOverPhysicalLinks(routingdict,VLid,PLid):
 
 
 
-def routeAllRequestsOfOneQueueOverVirtualTopologyDirectBypassWithVirtualGbpsPerWavelength(startingStep, gr, nodes, Queue, QueueID, vt,vtl,vtfreecaps, maxGbpsPerWavelength, virtualGbpsPerWavelength, VTFinal, ReqRouteInfo, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals):
+def OLD_attempt_routeAllRequestsOfOneQueueOverVirtualTopologyDirectBypassWithVirtualGbpsPerWavelength(startingStep, gr, nodes, Queue, QueueID, vt,vtl,vtfreecaps, maxGbpsPerWavelength, virtualGbpsPerWavelength, VTFinal, ReqRouteInfo, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals):
 
     startingStep = startingStep - 1
 
@@ -9941,6 +10539,261 @@ def routeAllRequestsOfOneQueueOverVirtualTopologyDirectBypassWithVirtualGbpsPerW
 
     return startingStep+step
 
+
+
+#7-4-2026
+def routeAllRequestsOfOneQueueOverVirtualTopologyDirectBypassUtilizeVirtualWavelengthCapacity(startingStep, gr, nodes, Queue, QueueID, vt,vtl,vtfreecaps, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, virtualGbpsPerWavelength):
+
+    startingStep = startingStep - 1
+
+    #this version of Direct bypass uses a single Queue!
+    #this version simulates execution time
+    #Queue is the actual Queue data bearing data structure
+    #this function's parameter "q0" refers to the traffic requests of the high priority "Video" queue
+    #this function's parameter "q1" refers to the traffic requests of the low priority "Best Effort" queue
+
+    global GlobalPrintOutEnabled
+    global GlobalVirtLinkID
+    global GlobalStringOutcomes
+
+    GlobalStringOutcomes = ""
+    
+    #SOP
+    #if (GlobalPrintOutEnabled==True) :
+    ###19-9-2024 create graph in the calling program and pass as parameter to the routing function, since the traffic requests might be served by more than one routing functions depending on the scheduling strategy
+    ###s="Virtual topology graph after processing request "
+    ###gr = graph_new(s, True)
+    #EOP
+    
+    #n = len(data)
+    #n0 = len(q0)
+    #n1 = len(q1)
+    n = len(Queue)
+
+    TotalNumberOfTrafficRequestsOnBothQueues = n #+n1 # ex n
+    #count=0
+
+    GlobalVirtLinkID = 0
+    
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        #table routing traffic requests over virtual topology headings
+        print("<table class='data'>")
+        print("<tr><th colspan='10'>Routing traffic requests of the single queue over the Virtual Topology (a.k.a. Adding requests to the Virtual Topology)</th></tr>")
+        print ("<tr><th>Step number</th><th>Queue</th><th>Request</th><th>From</th><th>To</th>")
+        print ("<th>Required/Remain</th><th class='actions'>Actions</th><th>Outcomes</th>")
+        print("<th>Current Virtual Topology</th><th>Current request processing start (msec)</th></tr>")
+        #print ("<tr><th style='width: 50px; inline-size: 50px;'>Request</th><th style='width: 50px; inline-size: 50px;'>Queue</th><th style='width: 50px; inline-size: 50px;'>From</th><th style='width: 50px; inline-size: 50px;'>To</th><th>Required/Remain</th><th class='actions'>Actions</th><th>Free capacities</th><th>Current Virtual Topology</th><th>Time started serving TrReq (msec)</th><th>Time started serving after first TrReq (msec)</th><th>Time started serving TrReq at the subprocess (msec)</th><th>Time started serving after first TrReq at the subprocess (msec)</th></tr>")
+    #EOP
+
+    # Traverse through all array elements
+    # edw prepei na pairnei apo tis 2 queues symfwna me to xronismo to shaper
+    #for i in range(n):   #for each request
+    
+    #i0=0
+    #i1=0
+    currentrequest=0
+    step = 1
+
+    # Start the thread to alternate queues
+    #thread = threading.Thread(target=alternateQueueSelection)
+    #thread.daemon = True  # This ensures the thread will exit when the main program does
+    #thread.start()
+
+    startRoutingOverVT = time.process_time_ns()
+    #startof_serving_current_TRreq_timestamp = 0.0
+    #endof_serving_current_TRreq_timestamp = 0.0
+    
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        #select path separator based on the host OS
+        pathseparator = ""
+        if platform.system() == 'Windows':
+            pathseparator = "\\"
+        elif platform.system() == 'Linux':
+            pathseparator = "/"
+        else:
+            pathseparator = "/"
+        f = open(graph_path+pathseparator+'QueuesServingPattern_methodAthreads.txt', 'a')
+    #EOP
+
+    while step <= TotalNumberOfTrafficRequestsOnBothQueues: # process all traffic requests from all queues
+                
+        # Solution D with simulation time estimated/approximated
+        #CurrentQueue = QueueVideoTurn(0.75) # this works! using random parameter with probability 0.75
+
+        startTReq = time.process_time_ns() # count the time per traffic request, not for each lightpath of the traffic request
+
+        #time_from_start = startof_serving_current_TRreq_timestamp - startof_serving_all_TRreqs_timestamp
+
+        #select queue based on time passed (simulation time, not system time)
+        #ReqTime = abs(startof_serving_current_TRreq_timestamp - startof_serving_all_TRreqs_timestamp)
+        RequestTime = nsec2msec(startTReq - startRoutingOverVT)
+        
+        Qtime = RequestTime % 100.0
+        
+        CurrentQueue = QueueID
+                
+        if CurrentQueue==QueueID and currentrequest<n:
+            treq = Queue[currentrequest] # treq = traffic request
+            #que=0
+            que=QueueID
+            fromQueue=QueueID
+            req=currentrequest
+            currentrequest = currentrequest + 1
+        
+        remain = treq[2]
+    
+        apo = nodes[treq[0]]
+        pros = nodes[treq[1]]
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            graph_filename="VT_after_Step"+str(startingStep+step)+"_Que"+str(que)+"_Req"+str(req)+".html"
+        #EOP
+
+        RoutingOfRequestedTrafficStep = 0
+        RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
+
+        while (remain>0.0): #while there are remaining Gb of the request to be routed
+            
+            #SOP
+            if (GlobalPrintOutEnabled==True) :
+                print (f"<td style='width: 50px; inline-size: 50px;'>Step {startingStep+step:0d}</td><td>Processing queue {fromQueue:0d}</td><td>request {req:0d}</td><td style='width: 50px; inline-size: 50px;'>from {apo:s} ({treq[0]:0d})</td><td style='width: 50px; inline-size: 50px;'>to {pros:s} ({treq[1]:0d})</td>")
+                print ("<td>Remain:",remain,"Gbps to be routed.</td>")
+
+                f.write(f"Que {fromQueue:4d} ~ Req {req:4d} ~ Remain Gbps {remain:10.3f}\n")
+
+                graph_add_node(gr,treq[0],apo,Ncolours)
+                graph_add_node(gr,treq[1],pros,Ncolours)
+            
+                #print ("<td class='actions' style='font-size:0.8em'>")
+                print ("<td class='actions'>")
+            #EOP
+
+            ##keep a copy of  the previous versions of the dictionaries to be able to only incremental updates of the content for shorter output
+            #prevVirtualLinkIDs = copyDictionary(VirtualLinkIDs)
+            #prevVirtualLinkTReqs = copyDictionary(VirtualLinkTReqs)
+            #prevVirtualLinkTotals = copyDictionary(VirtualLinkTotals)
+            #prevReqRouteInfo = copyDictionary(ReqRouteInfo)
+
+            #no if since this is direct bypass
+            # if (remain >= maxGbpsPerWavelength):  #if the request is >=40Gbps
+            # ex if body from here 
+            
+            #SOP
+            if (GlobalPrintOutEnabled==True) :
+                print("<li>A new virtual link will be created since the requirement is routed using Direct Bypass.")
+            #EOP
+            
+            # 29-08-2024
+
+            # CapForTheLogicalLink = maxGbpsPerWavelength
+            
+            #7-4-2026
+            #if remain >= maxGbpsPerWavelength:
+                #CapForTheLogicalLink = maxGbpsPerWavelength      
+            if remain >= virtualGbpsPerWavelength:   ### 7-4-2026
+                #CapForTheLogicalLink = maxGbpsPerWavelength
+                CapForTheLogicalLink = virtualGbpsPerWavelength
+            else:
+                CapForTheLogicalLink = remain
+
+            if (addNewVirtualLinkToTheVirtualTopology(nodes, que, req, treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):
+            #def addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
+                
+                #if adding succeded
+                RoutingOfRequestedTrafficStep += 1
+                RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
+
+                #added new link to route 40G successfully
+                remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
+                
+                # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
+                TotalLightpaths[0] +=1
+
+                # do not add a edge on the graph for 40 Gbps virtual (logical) links; we don't want the graph overcrowded
+                # if you want to add, just uncomment next line
+                # graph_add_edge(gr,data[i][0],data[i][1],str(CapForTheLogicalLink),"free:0")
+            
+            # ex if body to here 
+            # endif
+            #no else since this is direct bypass
+            '''
+            else:   #if the request is <40Gbps attempt grooming
+                #SOP
+                if (GlobalPrintOutEnabled==True) :
+                    print("<li>Since the requirement is < 40 Gbps then an attempt to route traffic over existing virtual links will be made")
+                #EOP
+
+                CapForTheLogicalLink=remain
+                if (routeOneVirtualLinkOverTheVirtualTopologyMultihopBypass(nodes, que, req, treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, gr, ReUsedLightpaths, LightpathReuses, VLIDs, dbConnection,VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):   #try to route it over existing paths of the virtual topology
+                    
+                    #routed the required capacity successfully
+                    remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
+                    
+                    #graph_add_edge(gr,data[i][0],data[i][1],str(CapForTheLogicalLink),"free:0")
+
+                else:   #if it cannot be routed over existing paths of the virtual topology, then add a new virtual link for it
+                    
+                    #keep a copy of  the previous versions of the dictionaries to be able to only incremental updates of the content for shorter output
+                    prevVirtualLinkIDs = copyDictionary(VirtualLinkIDs)
+                                
+                    if (addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, gr, VLIDs, dbConnection,VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):
+                       #defaddNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
+                        #added new link to route required capacity successfully
+                        remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
+                        #remain = remain - CapForTheLogicalLink
+                        #remain=numpy.round(remain, decimals=3, out=None)
+
+                        # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
+                        TotalLightpaths[0] += 1
+            '''
+
+            #endof_serving_current_TRreq_timestamp = time.process_time_ns()
+            #time_for_serving_current_Treq = endof_serving_current_TRreq_timestamp - startof_serving_current_TRreq_timestamp
+
+            #SOP
+            if (GlobalPrintOutEnabled==True) :
+                print ("</td>")
+                print("<td class='actions'>")
+                print(GlobalStringOutcomes)
+                GlobalStringOutcomes = ""
+                print("</td>")
+                print("<td>Virtual Topology vT =",vt)
+                #print("<!--<iframe src='"+graph_filename+"' style='border:2px solid red;width:200px;height:200px;' title='"+graph_filename+"'></iframe>-->")   # not including graphs in the report, but only links to graphs
+                print("<p><a href='"+graph_filename+"' target='_blank'>"+graph_filename+"</a></p></td>")
+                print("<td>")
+                print(f"Time of processing all requests {RequestTime:.3f},")
+                print(f"Time of current queue's turn {Qtime:.3f}")
+                print("</td>")
+                print("</tr>")
+            #EOP
+            
+            #RoutingOfRequestedTrafficStep += 1
+
+        #SOP    
+        if (GlobalPrintOutEnabled==True) :
+            #after each request routing over virtual topology save graph phase
+            graph_save(gr, graph_path, graph_filename)
+            #add an iframe to show the virtual topology network graph
+            #print("<iframe src='"+"VTpostReq"+str(r)+".html"+"'></iframe></td></tr>")
+        #EOP
+        step = step + 1
+    
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        f.close()
+
+        graph_save(gr, graph_path, "VirtualTopology.html")   # save virtual topology after last step as the final virtual topology graph.
+
+        #after all requests show total graph
+        print("</table>")
+
+        visualiseVirtualTopology(graph_filename,(sys.argv[7]!="pdfout")) #if not output to pdf then draw graph in the report
+    #EOP
+
+    return startingStep+step
 
 
 
@@ -10312,7 +11165,9 @@ def routeAllRequestsOfTwoQueuesOverVirtualTopologyDirectBypass_Q0_75_Q1_25(nodes
             req=i0-1
         else:
             print("<div>Error on Queue selection")
+            error("Error on Queue selection",99)
             exit(1)
+
 
         remain = treq[2]
     
@@ -10567,6 +11422,7 @@ def routeAllRequestsOfTwoQueuesOverVirtualTopologyDirectBypass_Q0nextQ1(nodes, q
             i1 = i1 + 1
         else:
             print("<div>Error on Queue selection")
+            error("Error on Queue selection",99)
             exit(1)
 
         remain = treq[2]
@@ -10821,6 +11677,7 @@ def routeAllRequestsOfTwoQueuesOverVirtualTopologyDirectBypass_Q1nextQ0(nodes, q
             i1 = i1 + 1
         else:
             print("<div>Error on Queue selection")
+            error("Error on Queue selection",99)
             exit(1)
 
         remain = treq[2]
@@ -11177,9 +12034,15 @@ def setTextCaptions(LatencyTimeUnit4csv):
     txtCaptions += "X(Gbps);"
     txtCaptions += "Distribution(name);"
     txtCaptions += "TotalCapacityProcessed(Gbps);"
+    txtCaptions += "PowerIPRouters(kWatt);"
+    txtCaptions += "PowerWDMTransponders(kWatt);"
+    txtCaptions += "PowerEDFAs(kWatt);"
+    txtCaptions += "PowerTotal(kWatt);"
     txtCaptions += "PowerQ_HP(kWatt);"
     txtCaptions += "PowerQ_LP(kWatt);"
     txtCaptions += "ProcessTime(sec);"
+    txtCaptions += "TrReq_AvgLat_Q(HP)_AnyTypeRoutingOverVT_updatedFormula("+LatencyTimeUnit4csv+");"
+    txtCaptions += "TrReq_AvgLat_Q(LP)_AnyTypeRoutingOverVT_updatedFormula("+LatencyTimeUnit4csv+");"
     txtCaptions += "TotalLightpaths(num);"
     txtCaptions += "ReusedLightpaths(num);"
     txtCaptions += "ReusedLightpaths(%);"
@@ -11270,10 +12133,16 @@ def readConfigNew(file):
     cfgLimitConfigs = []
     cfgLatencyComponent = []
     cfgQHPpercentTrafficSplit = []
-    cfgCheckForRevisits = ""
+    #cfgCheckForRevisits = ""
+    cfgConsiderTGRC = "" #TGRC=Traffic Grooming Rejection Criterion
     cfgHardLatencyCap_Q_HP = 0.0
     cfgHardLatencyCap_Q_LP = 0.0
-    
+    cfgVirtWavCap = 0
+    cfgConsiderWCC = "" #WCC=Wavelength Continuity Constraint
+
+    cfgWavConvLatAndPowerConsum = []
+    cfgNumShortestPathsConsider = 0
+
     #numberofqueues = ""
 
     fin = open(file,"r")
@@ -11432,10 +12301,11 @@ def readConfigNew(file):
 
     nextLine = fin.readline(); 
     nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[CheckForRevisits]"):
+    #if (nextLine=="[CheckForRevisits]"):
+    if (nextLine=="[ConsiderTrafficGroomingRejectionCriterion]"):
         nextLine = fin.readline(); 
         nextLine = removeNewLine(nextLine); 
-        cfgCheckForRevisits = nextLine
+        cfgConsiderTGRC = nextLine #TGRC=Traffic Grooming Rejection Criterion
 
     nextLine = fin.readline(); 
     nextLine = removeNewLine(nextLine); 
@@ -11453,10 +12323,47 @@ def readConfigNew(file):
 
     nextLine = fin.readline(); 
     nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[VirtualWavelengthCapacity]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgVirtWavCap = int(nextLine)
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[ConsiderWavelengthContinuityConstraint]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgConsiderWCC = nextLine #WCC=WavelengthContinuityConstraint
+
+    #18-8-2026
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[WavelengthConverterLatency_msec,WavelengthConverterPowerConsumption_Watt)_start]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        while (nextLine!="[WavelengthConverterLatency_msec,WavelengthConverterPowerConsumption_Watt)_end]"):
+            cfgWavConvLatAndPowerConsum.append(nextLine.split(','))
+            nextLine = fin.readline();
+            nextLine = removeNewLine(nextLine); 
+
+    #18-8-2026
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[NumberOfShortestPathsConsiderDuringWavAssign]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgNumShortestPathsConsider = int(nextLine) 
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
     if (nextLine=="[Config_end]"):
         fin.close()
-    
-    return cfgName, cfgDescription, cfgVersion, cfgRuns, cfgX, cfgNets, cfgPrintout, cfgKeepEveryNthReport, cfgLamdagensaveload, cfgLamdaFile, cfgPdfOut, cfgRunConfigs, cfgComputerName, cfgProgFolder, cfgDistributions, cfgLimitConfigs, cfgLatencyComponent, cfgQHPpercentTrafficSplit, cfgCheckForRevisits, cfgHardLatencyCap_Q_HP, cfgHardLatencyCap_Q_LP
+
+    return cfgName, cfgDescription, cfgVersion, cfgRuns, cfgX, cfgNets, cfgPrintout, cfgKeepEveryNthReport,  \
+           cfgLamdagensaveload, cfgLamdaFile, cfgPdfOut, cfgRunConfigs, cfgComputerName, cfgProgFolder,       \
+           cfgDistributions, cfgLimitConfigs, cfgLatencyComponent, cfgQHPpercentTrafficSplit, cfgConsiderTGRC, \
+           cfgHardLatencyCap_Q_HP, cfgHardLatencyCap_Q_LP, cfgVirtWavCap, cfgConsiderWCC,                       \
+           cfgWavConvLatAndPowerConsum, cfgNumShortestPathsConsider
 
     
 
@@ -11692,12 +12599,13 @@ def initialiseWavelegthids(wavelegthids,L):
 #<25-9-2025> calculation of traffic blocking due to criteria: limited fibers per link, wavelength continuity constraint
 
 def decideLimitations(N, HasWavConv, maxFibersPerLink):
-    NumOfWavConv = 0
+    numberOfNodes = len(N)
+    Limitations = []
     
     #WavConvInAllNodes = 1
     #for hwc in HasWavConv:
     #    WavConvInAllNodes *= hwc
-    
+    '''
     if maxFibersPerLink<=0:
         return "NoBlocking"
     else:
@@ -11708,10 +12616,38 @@ def decideLimitations(N, HasWavConv, maxFibersPerLink):
             return "NumFibers"
         elif WavConv == 0:
             return "WavContinuity"
+    '''
 
+    #7-4-2026 consider also partial wavelength continuity where some nodes have and some nodes do not have wavelength converters
+    if maxFibersPerLink<=0:
+        Limitations.append("UnlimitedFibersPerLink") # there is no limitation on the number of fibers per link, hence no blocking
+    else: 
+        Limitations.append("LimitedFibersPerLink")
+    
+    numberOfWavelengthConverters = 0
+    for hwc in HasWavConv:
+        numberOfWavelengthConverters += hwc
+    if numberOfWavelengthConverters == numberOfNodes:
+        #return "NumFibers" # only limitation is the number of fibers, since wavelength conversion is considered for all nodes
+        Limitations.append("NoWavContConstr")
+    elif numberOfWavelengthConverters == 0:
+        #return "WavContinuity" # no wavelength conversion on any node, hence wavelength continuity constraint for all nodes
+        Limitations.append("FullWavContConstr")
+    elif numberOfWavelengthConverters > 0 and numberOfWavelengthConverters < numberOfNodes :
+        #return "PartialWavContinuity" # some nodes have wavelength converters, some nodes don't, hence it depends:
+                                        #     if there is at least one node of the path that does not have wavelength conversion, 
+                                        #         then wavelength continuity constraint is considered for all the lightpath
+                                        #         else no wavelength continuity constraint is considered for all the lightpath (all the nodes of the path have converters)
+        Limitations.append("PartialWavContConstr")
+    else:
+        error("Miscomputation of limitations", 339)
+        exit(339)
+
+    return Limitations        
 
 
 def blockTrafficAccordingToCriteria(L, RoutingOfVirtualLinksOverWavelengths, criterion, HasWavConv):
+    print("<div><li>HERE!!!</div>")
     """
     NetworkWavelengthsMap
     Network
@@ -11754,6 +12690,491 @@ def blockTrafficAccordingToCriteria(L, RoutingOfVirtualLinksOverWavelengths, cri
     print_reservations(NetworkWavelengthsMap, L)
     
     return newRoutingWithLimits, resultRouting, NetworkWavelengthsMap
+
+
+#10-4-2026___start
+
+
+
+def assignUnlimitedFibers_NoWavContConstr(L, RoutingOfVirtualLinksOverWavelengths, NetworkWavelengthsMap):
+    """
+    Pass-through assignment for Unlimited Fibers & Converters Everywhere.
+    Trusts the incoming routing and wavelength assignments entirely.
+    Merely populates the NetworkWavelengthsMap for printing purposes.
+    """
+    print("<li><em>Accepting current assignments: Unlimited Fibers, Converters Everywhere (No Blockings)</em>")
+    
+    newRoutings = {}
+    routingResults = {}
+    num_wavelengths = len(NetworkWavelengthsMap[0][0])
+    
+    for vlid, lightpath in RoutingOfVirtualLinksOverWavelengths.items():
+        VLidTag = f"({','.join(map(str, vlid))})"
+        PLiDs = []
+        
+        for hop in lightpath:
+            # Assuming lightpath tuples are formatted as (src, dst, fiber_idx, wav_idx)
+            src, dst, f_idx, w_idx = hop[0], hop[1], hop[2], hop[3]
+            l_id = linknumber(L, src, dst)
+            
+            if l_id is not None:
+                # Dynamically expand the fibers on this link if the incoming assignment 
+                # references a fiber index we haven't instantiated yet
+                while len(NetworkWavelengthsMap[l_id]) <= f_idx:
+                    NetworkWavelengthsMap[l_id].append(['' for _ in range(num_wavelengths)])
+                
+                # Register the existing reservation into the map
+                NetworkWavelengthsMap[l_id][f_idx][w_idx] = VLidTag
+                PLiDs.append((src, dst, f_idx, w_idx))
+                
+                if GlobalPrintOutEnabled:
+                    print(f"<li>Registered existing assignment: fiber {f_idx} wavelength {w_idx} on link {l_id}")
+            else:
+                PLiDs.append((-1, -1, -1, -1))
+                
+        # Since we are just passing it through, the new routing is identical to the old
+        addRoutingOfVirtualLinksOverPhysicalLinks(newRoutings, vlid, PLiDs)
+        routingResults[vlid] = "Pass"
+        
+    return newRoutings, routingResults
+
+
+def assignUnlimitedFibers_FullWavContConstr(L, RoutingOfVirtualLinksOverWavelengths, NetworkWavelengthsMap):
+    """
+    Wavelength assignment for Unlimited Fibers per Link & No Wavelength Converters.
+    Enforces Wavelength Continuity (same wavelength on all links).
+    Dynamically adds fibers to links if existing fibers are fully occupied.
+
+    The algorithm first tries to find a continuous wavelength across existing fibers to minimize network expansion. 
+    If all wavelengths on the current fibers are occupied on one or more bottleneck links, 
+    the function simply dynamically "installs" (appends) a new fiber to those specific links and assigns the default wavelength to guarantee the request passes.
+    """
+
+    print("<li><em>Assigning wavelengths: Unlimited Fibers, No Converters (Wavelength Continuity Applies)</em>")
+    
+    newRoutings = {}
+    routingResults = {}
+    
+    # Determine the number of wavelengths per fiber from the initial map structure
+    num_wavelengths = len(NetworkWavelengthsMap[0][0])
+    
+    for vlid, lightpath in RoutingOfVirtualLinksOverWavelengths.items():
+        VLidTag = f"({','.join(map(str, vlid))})"
+        PLiDs = []
+        
+        # first step is to map the path to link IDs
+        linkIDs = []
+        valid_path = True
+        for hop in lightpath:
+            src, dst = hop[0], hop[1]
+            l_id = linknumber(L, src, dst)
+            if l_id is None:
+                valid_path = False
+                break
+            linkIDs.append(l_id)
+            
+        if not valid_path:
+            routingResults[vlid] = "InvalidPath"
+            addRoutingOfVirtualLinksOverPhysicalLinks(newRoutings, vlid, [(-1, -1, -1, -1)])
+            continue
+
+        # second step is to find a continuous wavelength across all links
+        assigned_w = None
+        assigned_fibers = []
+        
+        # first attempt is try to fit into EXISTING fibers to minimize capacity expansion
+        for w in range(num_wavelengths):
+            temp_fibers = []
+            can_fit_existing = True
+            
+            for l_id in linkIDs:
+                found_fiber = -1
+                # Check all current fibers on this link
+                for f_idx, fiber_wavs in enumerate(NetworkWavelengthsMap[l_id]):
+                    if fiber_wavs[w] == '':
+                        found_fiber = f_idx
+                        break
+                
+                if found_fiber != -1:
+                    temp_fibers.append(found_fiber)
+                else:
+                    can_fit_existing = False
+                    break
+                    
+            if can_fit_existing:
+                assigned_w = w
+                assigned_fibers = temp_fibers
+                break
+                
+        # second attempt is that if no existing fiber combination works, we force assignment on w=0 
+        # and dynamically add new fibers to the specific links that need them.
+        if assigned_w is None:
+            assigned_w = 0  # Default to the first wavelength
+            assigned_fibers = []
+            
+            for l_id in linkIDs:
+                found_fiber = -1
+                for f_idx, fiber_wavs in enumerate(NetworkWavelengthsMap[l_id]):
+                    if fiber_wavs[assigned_w] == '':
+                        found_fiber = f_idx
+                        break
+                        
+                if found_fiber == -1:
+                    # Unlimited fibers: Append a newly instantiated fiber to this link
+                    new_fiber = ['' for _ in range(num_wavelengths)]
+                    NetworkWavelengthsMap[l_id].append(new_fiber)
+                    found_fiber = len(NetworkWavelengthsMap[l_id]) - 1
+                    
+                    if GlobalPrintOutEnabled:
+                        print(f"<li>Added new fiber {found_fiber} to link {l_id} to support unlimited capacity.")
+                    
+                assigned_fibers.append(found_fiber)
+
+        # third step is to reserve the resources and record the routing
+        for i, l_id in enumerate(linkIDs):
+            f_idx = assigned_fibers[i]
+            NetworkWavelengthsMap[l_id][f_idx][assigned_w] = VLidTag
+            
+            # Fetch src/dst to reconstruct the physical hop for the routing table
+            src, dst = linkIDtoSrcDst(L, l_id)
+            PLiDs.append((src, dst, f_idx, assigned_w))
+            
+            if GlobalPrintOutEnabled:
+                print(f"<li>reserved fiber {f_idx} wavelength {assigned_w} on link {l_id}")
+            
+        addRoutingOfVirtualLinksOverPhysicalLinks(newRoutings, vlid, PLiDs)
+        routingResults[vlid] = "Pass"
+        
+    return newRoutings, routingResults
+
+
+def assignUnlimitedFibers_PartialWavContConstr(L, RoutingOfVirtualLinksOverWavelengths, NetworkWavelengthsMap, HasWavConv):
+    """
+    Wavelength assignment for Unlimited Fibers per Link & Partial Wavelength Converters.
+    Path is broken into segments separated by converter nodes. 
+    Wavelength continuity is enforced within segments, but wavelengths can change between segments.
+    Dynamically adds fibers to links if existing fibers are fully occupied.
+
+    When only some nodes have wavelength converters, a lightpath doesn't need to keep the same wavelength from end to end. 
+    Instead, it only needs to keep the same wavelength across continuous "transparent segments" (groups of links connecting nodes that do not have converters).
+    
+    Segment the Path: The function traces the lightpath and splits it into segments every time it encounters an intermediate node with a wavelength converter (HasWavConv[node] == 1).
+    
+    Solve per Segment: It treats each segment as an independent assignment problem where the strict wavelength continuity constraint applies.
+    
+    Expand Capacity if Needed: Because fibers are unlimited, if a segment cannot find a continuous wavelength across existing fibers, it defaults to wavelength 0 and dynamically adds a new fiber to the bottleneck links.
+    """
+    print("<li><em>Assigning wavelengths: Unlimited Fibers, Partial Converters (Wavelength Continuity Applies within transparent segments)</em>")
+    
+    newRoutings = {}
+    routingResults = {}
+    
+    # Determine the number of wavelengths per fiber from the initial map structure
+    num_wavelengths = len(NetworkWavelengthsMap[0][0])
+    
+    for vlid, lightpath in RoutingOfVirtualLinksOverWavelengths.items():
+        VLidTag = f"({','.join(map(str, vlid))})"
+        PLiDs = []
+        
+        # first step is to split the lightpath into segments separated by wavelength converters
+        segments = []
+        current_segment = []
+        valid_path = True
+        
+        for i, hop in enumerate(lightpath):
+            src, dst = hop[0], hop[1]
+            l_id = linknumber(L, src, dst)
+            
+            if l_id is None:
+                valid_path = False
+                break
+                
+            current_segment.append((src, dst, l_id))
+            
+            # Check if dst is an intermediate node (not the final destination of the whole path)
+            # and if it possesses a wavelength converter
+            if i < len(lightpath) - 1:
+                #if HasWavConv.get(dst, 0) == 1:
+                if HasWavConv[dst] == 1:
+                    # The node has a converter, so the current continuity segment ends here
+                    segments.append(current_segment)
+                    current_segment = []
+                    
+        if not valid_path:
+            routingResults[vlid] = "InvalidPath"
+            addRoutingOfVirtualLinksOverPhysicalLinks(newRoutings, vlid, [(-1, -1, -1, -1)])
+            continue
+            
+        # Append the final segment (or the only segment if no converters were found)
+        if current_segment:
+            segments.append(current_segment)
+            
+        # second step is to assign wavelengths per segment (enforcing continuity ONLY within the segment)
+        for segment in segments:
+            linkIDs = [item[2] for item in segment]
+            assigned_w = None
+            assigned_fibers = []
+            
+            # first attempt is to try to find a continuous wavelength across EXISTING fibers for this specific segment
+            for w in range(num_wavelengths):
+                temp_fibers = []
+                can_fit_existing = True
+                
+                for l_id in linkIDs:
+                    found_fiber = -1
+                    # Check all current fibers on this link
+                    for f_idx, fiber_wavs in enumerate(NetworkWavelengthsMap[l_id]):
+                        if fiber_wavs[w] == '':
+                            found_fiber = f_idx
+                            break
+                    
+                    if found_fiber != -1:
+                        temp_fibers.append(found_fiber)
+                    else:
+                        can_fit_existing = False
+                        break
+                        
+                if can_fit_existing:
+                    assigned_w = w
+                    assigned_fibers = temp_fibers
+                    break
+                    
+            # second attempt is that if no existing fiber combination works for the segment, 
+            # we force assignment on w=0 and dynamically add new fibers to the required links.
+            if assigned_w is None:
+                assigned_w = 0  # Default to the first wavelength
+                assigned_fibers = []
+                
+                for l_id in linkIDs:
+                    found_fiber = -1
+                    for f_idx, fiber_wavs in enumerate(NetworkWavelengthsMap[l_id]):
+                        if fiber_wavs[assigned_w] == '':
+                            found_fiber = f_idx
+                            break
+                            
+                    if found_fiber == -1:
+                        # Unlimited fibers: Append a newly instantiated fiber to this link
+                        new_fiber = ['' for _ in range(num_wavelengths)]
+                        NetworkWavelengthsMap[l_id].append(new_fiber)
+                        found_fiber = len(NetworkWavelengthsMap[l_id]) - 1
+                        
+                        if GlobalPrintOutEnabled:
+                            print(f"<li>Added new fiber {found_fiber} to link {l_id} to support unlimited capacity (Partial Wav Conv).")
+                        
+                    assigned_fibers.append(found_fiber)
+
+            # third step is to reserve the resources and record the routing for this segment
+            for i, (src, dst, l_id) in enumerate(segment):
+                f_idx = assigned_fibers[i]
+                NetworkWavelengthsMap[l_id][f_idx][assigned_w] = VLidTag
+                PLiDs.append((src, dst, f_idx, assigned_w))
+                
+                if GlobalPrintOutEnabled:
+                    print(f"<li>reserved fiber {f_idx} wavelength {assigned_w} on link {l_id} for segment hop {src}->{dst}")
+                    
+        addRoutingOfVirtualLinksOverPhysicalLinks(newRoutings, vlid, PLiDs)
+        routingResults[vlid] = "Pass"
+        
+    return newRoutings, routingResults
+
+
+def assignLimitedFibers_NoWavContConstr(L, RoutingOfVirtualLinksOverWavelengths, NetworkWavelengthsMap):
+    """
+    Wavelength assignment for Limited Fibers per Link & Wavelength Converters Everywhere.
+    NO Wavelength Continuity is enforced (wavelengths can change per link).
+    Blocks the request and rolls back if a link has no free capacity.
+
+    Since fibers are limited, blocking can occur. If a lightpath attempts to cross a link where all wavelengths on all fibers are already in use, the request must be blocked.
+    However, because there are wavelength converters on every node (no continuity constraint), the lightpath can change wavelengths from one link to the next. 
+    The function only needs to find any free wavelength on any free fiber independently for each link in the path. 
+    If it encounters a bottleneck link where no capacity exists, it rolls back all reservations for that specific lightpath and records it as blocked.
+    """
+    print("<li><em>Assigning wavelengths: Limited Fibers, Converters Everywhere (No Wavelength Continuity Constraint)</em>")
+    
+    newRoutings = {}
+    routingResults = {}
+    
+    for vlid, lightpath in RoutingOfVirtualLinksOverWavelengths.items():
+        VLidTag = f"({','.join(map(str, vlid))})"
+        PLiDs = []
+        reservations = [] # Keep track of current path's reservations for rollback
+        
+        # first step is to map the path to link IDs
+        linkIDs = []
+        valid_path = True
+        for hop in lightpath:
+            src, dst = hop[0], hop[1]
+            l_id = linknumber(L, src, dst)
+            if l_id is None:
+                valid_path = False
+                break
+            linkIDs.append(l_id)
+            
+        if not valid_path:
+            routingResults[vlid] = "Blocked: InvalidPath"
+            addRoutingOfVirtualLinksOverPhysicalLinks(newRoutings, vlid, [(-1, -1, -1, -1)])
+            continue
+
+        # second step is to assign ANY free wavelength per link independently
+        path_blocked = False
+        for l_id in linkIDs:
+            # find_any_free_wavelength returns the first empty spot it finds
+            fiber, wavelength = find_any_free_wavelength(l_id, VLidTag, NetworkWavelengthsMap)
+            
+            if fiber is not None and wavelength is not None:
+                reservations.append((l_id, fiber, wavelength))
+                src, dst = linkIDtoSrcDst(L, l_id)
+                PLiDs.append((src, dst, fiber, wavelength))
+            else:
+                # No capacity left on this specific link
+                path_blocked = True
+                break
+                
+        # third step is to handle Success or Failure (Rollback)
+        if path_blocked:
+            # Rollback all previous link reservations for this specific request
+            if GlobalPrintOutEnabled:
+                print(f"<li>Blocking VL {vlid}: Bottleneck encountered. Rolling back.")
+                
+            for r_link, r_fiber, r_w in reservations:
+                release_fiber(r_link, r_fiber, r_w, NetworkWavelengthsMap)
+                if GlobalPrintOutEnabled:
+                    print("<li>fiber released (rollback)")
+                    
+            routingResults[vlid] = "Blocked: path without wavelength continuity constraint (wavelength converters) - unavailable fiber capacity"
+            addRoutingOfVirtualLinksOverPhysicalLinks(newRoutings, vlid, [(-1, -1, -1, -1)])
+        else:
+            # Path fully succeeded
+            routingResults[vlid] = "Pass"
+            addRoutingOfVirtualLinksOverPhysicalLinks(newRoutings, vlid, PLiDs)
+            
+    return newRoutings, routingResults
+
+
+def assignLimitedFibers_PartialWavContConstr(L, RoutingOfVirtualLinksOverWavelengths, NetworkWavelengthsMap, HasWavConv):
+    """
+    Wavelength assignment for Limited Fibers per Link & Partial Wavelength Converters.
+    Path is broken into segments separated by converter nodes.
+    Wavelength continuity is enforced strictly within segments.
+    Blocks the request and rolls back if any segment lacks capacity.
+
+    This case combines the most realistic constraints:
+    Limited Capacity: We cannot dynamically add fibers. If the required capacity isn't available, the request must be blocked, and any partial reservations made for that path must be rolled back.
+    Partial Converters (Segmentation): The lightpath is split into "transparent segments" every time it encounters an intermediate node with a wavelength converter.
+    Continuity per Segment: Within a single segment, the exact same wavelength must be found across all links in that segment. Between segments, the wavelength is allowed to change.
+    If any single segment fails to find a continuous wavelength across its links, the entire path is deemed blocked.
+    """
+    print("<li><em>Assigning wavelengths: Limited Fibers, Partial Converters (Blocking applies, Wavelength Continuity within segments)</em>")
+    
+    newRoutings = {}
+    routingResults = {}
+    
+    num_fibers = len(NetworkWavelengthsMap[0])
+    num_wavelengths = len(NetworkWavelengthsMap[0][0])
+    
+    for vlid, lightpath in RoutingOfVirtualLinksOverWavelengths.items():
+        VLidTag = f"({','.join(map(str, vlid))})"
+        PLiDs = []
+        reservations = []  # Keep track of reservations for this specific request to allow rollback
+        
+        # first step is to split the lightpath into segments separated by wavelength converters
+        segments = []
+        current_segment = []
+        valid_path = True
+        
+        for i, hop in enumerate(lightpath):
+            src, dst = hop[0], hop[1]
+            l_id = linknumber(L, src, dst)
+            
+            if l_id is None:
+                valid_path = False
+                break
+                
+            current_segment.append((src, dst, l_id))
+            
+            # Check if dst is an intermediate node with a converter
+            if i < len(lightpath) - 1:
+                #if HasWavConv.get(dst, 0) == 1:
+                if HasWavConv[dst] == 1:
+                    segments.append(current_segment)
+                    current_segment = []
+                    
+        if not valid_path:
+            routingResults[vlid] = "Blocked: InvalidPath"
+            addRoutingOfVirtualLinksOverPhysicalLinks(newRoutings, vlid, [(-1, -1, -1, -1)])
+            continue
+            
+        if current_segment:
+            segments.append(current_segment)
+            
+        # second step is to assign wavelengths per segment (enforcing continuity within the segment)
+        path_blocked = False
+        
+        for segment in segments:
+            linkIDs = [item[2] for item in segment]
+            assigned_w = None
+            assigned_fibers = []
+            
+            # Try to find a continuous wavelength across the fibers for this segment
+            for w in range(num_wavelengths):
+                temp_fibers = []
+                can_fit_segment = True
+                
+                for l_id in linkIDs:
+                    found_fiber = -1
+                    # Look for a free slot on this specific wavelength across available fibers
+                    for f_idx in range(num_fibers):
+                        if NetworkWavelengthsMap[l_id][f_idx][w] == '':
+                            found_fiber = f_idx
+                            break
+                    
+                    if found_fiber != -1:
+                        temp_fibers.append(found_fiber)
+                    else:
+                        can_fit_segment = False
+                        break  # This wavelength doesn't work for this link, skip to next wavelength
+                        
+                if can_fit_segment:
+                    assigned_w = w
+                    assigned_fibers = temp_fibers
+                    break
+                    
+            if assigned_w is None:
+                # No continuous wavelength could be found for this segment
+                path_blocked = True
+                break
+            else:
+                # third step is to temporarily commit resources for this segment (so subsequent segments of the same path don't double-book)
+                for i, (src, dst, l_id) in enumerate(segment):
+                    f_idx = assigned_fibers[i]
+                    NetworkWavelengthsMap[l_id][f_idx][assigned_w] = VLidTag
+                    reservations.append((l_id, f_idx, assigned_w))
+                    PLiDs.append((src, dst, f_idx, assigned_w))
+                    
+                    if GlobalPrintOutEnabled:
+                        print(f"<li>reserved fiber {f_idx} wavelength {assigned_w} on link {l_id} for segment hop {src}->{dst}")
+
+        # forth step is to handle Success or Rollback
+        if path_blocked:
+            if GlobalPrintOutEnabled:
+                print(f"<li>Blocking VL {vlid}: Bottleneck encountered in a segment. Rolling back.")
+                
+            # Roll back all reservations made across all segments for this path
+            for r_link, r_fiber, r_w in reservations:
+                release_fiber(r_link, r_fiber, r_w, NetworkWavelengthsMap)
+                if GlobalPrintOutEnabled:
+                    print("<li>fiber released (rollback)")
+                    
+            routingResults[vlid] = "Blocked: path with partial wavelength continuity constraint - unavailable capacity in segment"
+            addRoutingOfVirtualLinksOverPhysicalLinks(newRoutings, vlid, [(-1, -1, -1, -1)])
+        else:
+            # Path fully succeeded
+            routingResults[vlid] = "Pass"
+            addRoutingOfVirtualLinksOverPhysicalLinks(newRoutings, vlid, PLiDs)
+            
+    return newRoutings, routingResults
+
+#10-4-2026___end
 
 
 #</25-9-2025>
@@ -11844,8 +13265,74 @@ def vlIDtoTag(vlid):
     return f"({','.join(map(str, vlid))})"
 
 
-#reserve wavelength for a single lightpath
+
+#10-4-2026
 def reserveWavelengthForLightpath(L, vlid, lightPath, NetworkWavelengthsMap, criterion, HasWavConv):
+    print(f"<hr><li><em>Trying to reserve wavelength(s) for lightpath: {lightPath} of VL with id: {vlid}")
+
+    linkIDs = []
+
+    for link in lightPath:  
+        src, dst = link[0], link[1]
+        linkID = linknumber(L, src, dst)
+        
+        if linkID is None:
+            return [(None, None, None, "InvalidPath")]
+        
+        linkIDs.append(linkID)
+
+    reservations = []  
+    VLidTag = f"({','.join(map(str, vlid))})"
+    returnValue = []
+
+    # FIX: Directly evaluate the explicit criterion passed from the main match block
+    if "FullWavContConstr" in criterion:
+        
+        w = find_the_same_free_wavelength_for_lightpath(linkIDs, NetworkWavelengthsMap)
+        print("<li>candidate wavelength", w)
+        
+        if w is None:            
+            return [(None, None, None, "path with wavelength continuity constraint (no conversion) - unavailable wavelength with the same channel number")]
+            
+        for link_id in linkIDs:
+            # Passing NetworkWavelengthsMap instead of L to match your map structure
+            fiber = reserve_fiber(link_id, w, VLidTag, NetworkWavelengthsMap) 
+            
+            if fiber is None:
+                # Rollback
+                for r_link, r_fiber, r_w in reservations:
+                    release_fiber(r_link, r_fiber, r_w, NetworkWavelengthsMap)
+                    print("<li>fiber released (rollback)")
+                return [(None, None, None, "path with wavelength continuity constraint (no conversion) - unavailable fiber capacity")]
+            
+            print("<li>reserved fiber", fiber, "wavelength", w)
+            reservations.append((link_id, fiber, w))
+            returnValue.append([link_id, fiber, w, "Pass"])
+            
+        return returnValue
+    
+    elif "NoWavContConstr" in criterion:
+        print("<li>No Wavelength Continuity Constraint (wavelength conversions) for the current path")
+        for link_id in linkIDs:
+            fiber, wavelength = find_any_free_wavelength(link_id, VLidTag, NetworkWavelengthsMap)
+            
+            if fiber is not None and wavelength is not None:
+                reservations.append((link_id, fiber, wavelength))
+                returnValue.append([link_id, fiber, wavelength, "Pass"])
+                print("<li>reserved fiber", fiber, "wavelength", wavelength)
+            else:
+                # Rollback
+                for r_link, r_fiber, r_w in reservations:
+                    release_fiber(r_link, r_fiber, r_w, NetworkWavelengthsMap)
+                    print("<li>fiber released (rollback)")
+                return [(None, None, None, "path without wavelength continuity constraint (wavelength converters) - unavailable fiber capacity")]
+                
+        return returnValue
+
+
+#reserve wavelength for a single lightpath
+def OLD_version_reserveWavelengthForLightpath(L, vlid, lightPath, NetworkWavelengthsMap, criterion, HasWavConv):
+#this is the first version of the function that considers total or no wavelength conversion, not partial.
 
     #"WavConvEverywhere-BlockingDueToLimitedFibers"         --> "numFibers"
     #"NoWavConv-BlockingDueToWavelengthContinuity"          --> "FullWavContinuity"
@@ -12767,7 +14254,7 @@ def generateTrafficRequestsVariableBalance(dbConnection, N, graphsPath, lenQs, X
                     if (x==y):
                         print("<td>%9.3f</td>" % (0.0), end=" ")
                     else:
-                        print("<td>%9.3f</td>" % (lamda[x*len(N)+y][2]), end=" ") #error out of range when load #2DO
+                        print("<td>%9.3f</td>" % (lamda[x*len(N)+y][2]), end=" ") #error out of range when load #2DO #βγάζει σφάλμα αν φορτώσω traffic demands και το πλήθος τους δεν επαρκεί για το τρέχον δίκτυο (είναι πιο λίγα)
                 print("</tr>")
             print ("</table>")
         #EOP
@@ -13565,7 +15052,7 @@ def VirtualPathLeadsToRevisitsOnPhysicalTopology(virtualpath, N, Nt, NmC):
         #EOP
         subpaths.append(shortestsubpath)
 
-    # 1. Concatenate all sub-paths into one full path
+    # Concatenate all sub-paths into one full path
 
     fullpath = subpaths[0][:]
     visitednodes = set(fullpath)
@@ -14273,6 +15760,13 @@ def evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, D
 
     ValueOfPower = 0.0
 
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        print ("<table class='tablePow'>")
+        print ("<tr><th colspan=2>Energy consumption evaluation in the IP layer</th></tr>")
+        print ("<tr><th>Node</th><th>Power consumption ",mathPowerFormulaIP()," in Watts</th></tr>")
+    #EOP
+
     PowerIP = 0.0
     keys = list(SigmaCij.keys())
     keys.sort()
@@ -14282,12 +15776,42 @@ def evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, D
         ValueOfPower = Er * ( valDi + valSigmaCij )
         PowerIP += ValueOfPower
 
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print("<tr><td>",N[k],"</td><td>",Er, "* (",valDi,"+",valSigmaCij,") =",ValueOfPower,"</td></tr>")
+        #EOP
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        print("<tr><th colspan=2>Total:",PowerIP,"Watts</th></tr>")
+        print("</table>")
+
+        print ("<table class='tablePow'>")
+        print ("<tr><th colspan=2>Energy consumption evaluation in the optical layer (Transponders)</th></tr>")
+        print ("<tr><th>Node</th><th>Power consumption ",mathPowerFormulaTransponders(),"in Watts</th></tr>")
+    #EOP
+
     PowerTransponders = 0.0
     for i in range(len(L)):
         key = linknumber(L, L[i][0],L[i][1])
         valWmn = Wmn.get(key)
         ValueOfPower = Et * (valWmn if valWmn is not None else 0.0)
         PowerTransponders += ValueOfPower
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print("<tr><td>",N[L[i][0]],"-",N[L[i][1]],"</td><td>",Et, "*",valWmn,"=",ValueOfPower,"</td></tr>")
+        #EOP
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        print("<tr><th colspan=2>Total:",PowerTransponders,"Watts</th></tr>")
+        print("</table>")
+
+        print ("<table class='tablePow'>")
+        print ("<tr><th colspan=2>Energy consumption evaluation in the optical layer (EDFAs)</th></tr>")
+        print ("<tr><th>Node</th><th>Power consumption ",mathPowerFormulaEDFA()," in Watts</th></tr>")
+    #EOP
 
     PowerEDFAs = 0.0
     for i in range(len(L)):
@@ -14297,6 +15821,17 @@ def evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, D
         ValueOfPower = Ee * valAmn * valfmn
         PowerEDFAs += ValueOfPower
 
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print("<tr><td>",N[L[i][0]],"-",N[L[i][1]],"</td><td>",Ee, "*",valAmn,"*",valfmn,"=",ValueOfPower,"</td></tr>")
+        #EOP
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        print("<tr><th colspan=2>Total:",PowerEDFAs,"Watts</th></tr>")
+        print("</table>")
+    #EOP
+
     PowerTotal = PowerIP + PowerTransponders + PowerEDFAs
     PowerTotal = roundatdecimals(PowerTotal/1000.0,3)
 
@@ -14304,10 +15839,20 @@ def evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, D
     PowerTransponders = roundatdecimals(PowerTransponders/1000.0,3)
     PowerEDFAs = roundatdecimals(PowerEDFAs/1000.0,3)
 
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        print ("<table class='tablePow'>")
+        print ("<tr><th>Evaluation of total energy consumption in the network</th></tr>")
+        print ("<tr><td>",mathPowerFormula(),"</td></tr>")
+        print ("<tr><th>Total power consumption",PowerTotal,"kWatts</th></tr>")
+        print ("</table>")
+    #EOP
+
     # >>> Evaluate Power (end)
 
     return PowerIP, PowerTransponders, PowerEDFAs, PowerTotal
 
+#8-2-2026
 def getSigmaCijPerQueue(dbConnection, queue):
     if queue=="HP":
         Q=0
@@ -14335,6 +15880,9 @@ def getSigmaCijPerQueue(dbConnection, queue):
 
     return SCijQ
 
+
+
+#8-2-2026
 def getWmnPerQueue(dbConnection, queue):
     if queue=="HP":
         Q=0
@@ -14364,6 +15912,9 @@ def getWmnPerQueue(dbConnection, queue):
 
     return WmnQ
 
+
+
+#7-2-2026
 def evaluatePowerConsumptionPerQueue(dbConnection, Di, Di_Q0, Di_Q1, Er, Et, Ee, SigmaCij, N, L):
 
     """
@@ -14420,12 +15971,21 @@ def evaluatePowerConsumptionPerQueue(dbConnection, Di, Di_Q0, Di_Q1, Er, Et, Ee,
     PowerQ_HP_fbr = 0.0
     PowerQ_LP_fbr = 0.0
 
-
+    #print ("<li>Nodes N",N)
+    #print ("<li>Links L",L)
+    #print ("<li>Delta i",Di)
+    #print ("<li>Delta i QHP Q0",Di_Q0)
+    #print ("<li>Delta i QLP Q1",Di_Q1)
+    #print ("<li>SigmaCij",SigmaCij)
     SigmaCij_Q0 = getSigmaCijPerQueue(dbConnection, "HP")
+    #print ("<li>SigmaCij QHP Q0",SigmaCij_Q0)
     SigmaCij_Q1 = getSigmaCijPerQueue(dbConnection, "LP")
+    #print ("<li>SigmaCij QLP Q1",SigmaCij_Q1)
 
     Wmn_Q0 = getWmnPerQueue(dbConnection, "HP")
+    #print ("<li>Wmn QHP Q0",Wmn_Q0)
     Wmn_Q1 = getWmnPerQueue(dbConnection, "LP")
+    #print ("<li>Wmn QLP Q0",Wmn_Q1)
 
     sqlGetHP_LPs = """
                     select 
@@ -14523,6 +16083,9 @@ def evaluatePowerConsumptionPerQueue(dbConnection, Di, Di_Q0, Di_Q1, Er, Et, Ee,
  
     #OK calculate power of IP router ports
 
+    # I use the Di keys in case Di_Q0 or Di_Q0 or SigmaCij_Q0 or SigmaCij_Q1 
+    # does not have one key because there is no data for a node of the network
+    #keys = list(Di.keys()) 
     keys = list(range(len(N)))
     #print ("<li>keys",keys)
     for key in keys:
@@ -14575,6 +16138,12 @@ def evaluatePowerConsumptionPerQueue(dbConnection, Di, Di_Q0, Di_Q1, Er, Et, Ee,
         Asd = float(row[8])
         PowerQ_LP_fbr += Asd * Ee
 
+    #old calculation of IPand WDM
+    #cursor = dbConnection.execute(sqlGetLP_LPs)
+    #dataset = cursor.fetchall()
+    #PowerQ_LP_IP += len(dataset) * ( (2 * Er) )
+    #PowerQ_LP_WDM += len(dataset) * ( (2 * Et) )
+
     PowerQ_HP_IP  = roundatdecimals(PowerQ_HP_IP/1000, 3)
     PowerQ_HP_WDM = roundatdecimals(PowerQ_HP_WDM/1000, 3)
     PowerQ_HP_fbr = roundatdecimals(PowerQ_HP_fbr/1000, 3)
@@ -14586,16 +16155,24 @@ def evaluatePowerConsumptionPerQueue(dbConnection, Di, Di_Q0, Di_Q1, Er, Et, Ee,
     PowerQ_HP = roundatdecimals(PowerQ_HP_IP + PowerQ_HP_WDM + PowerQ_HP_fbr, 3)
     PowerQ_LP = roundatdecimals(PowerQ_LP_IP + PowerQ_LP_WDM + PowerQ_LP_fbr, 3)
 
-    print (f"""
-           <table class='table1c'>
-           <tr><th>Queue</th><th>Power IP</th><th>Power WDM</th><th>Power EDFA</th><th>Power Total</th></tr>
-           <tr><td>HP</td><td>{PowerQ_HP_IP}</td><td>{PowerQ_HP_WDM}</td><td>{PowerQ_HP_fbr}</td><td>{PowerQ_HP}</td></tr>
-           <tr><td>LP</td><td>{PowerQ_LP_IP}</td><td>{PowerQ_LP_WDM}</td><td>{PowerQ_LP_fbr}</td><td>{PowerQ_LP}</td></tr>
-           </table>
-           """)
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        print ("<table class='tablePow'>")
+        print ("<tr><th colspan=5>Evaluation of power consumption in the network per traffic class</th></tr>")
+        print ("<tr><td colspan=5>",mathPowerFormulaPerQueue(),"</td></tr>")
+        print ("<tr><th colspan=5>Total power consumption",(PowerQ_HP+PowerQ_LP),"kWatts</th></tr>")
+        #print ("</table>")
+
+        print (f"""
+            <!--<table class='tablePow'>-->
+            <tr><th>Queue</th><th>Power IP</th><th>Power WDM</th><th>Power EDFA</th><th>Power Total</th></tr>
+            <tr><td>HP</td><td>{PowerQ_HP_IP}</td><td>{PowerQ_HP_WDM}</td><td>{PowerQ_HP_fbr}</td><td>{PowerQ_HP}</td></tr>
+            <tr><td>LP</td><td>{PowerQ_LP_IP}</td><td>{PowerQ_LP_WDM}</td><td>{PowerQ_LP_fbr}</td><td>{PowerQ_LP}</td></tr>
+            </table>
+            """)
+    #EOP
 
     return PowerQ_HP, PowerQ_LP
-
 
 
 
@@ -14885,5 +16462,108 @@ def getListOfLatenciesForAllTrafficRequestsOLDformula(dbConnection):
     strOutput += "]"
 
     return strOutput
+
+
+def printRunConfiguration():
+    trafficload = [2, 4, 6, 8, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120, 160, 200, 320, 640, 960, 1280]
+    output = f"""
+                <div>
+                <table class='table1c' id='results'>
+                    <thead>
+                        <tr><th colspan=3>Run configuration</th></tr>
+                        <tr>
+                            <th class='arg'> argument </th>
+                            <th class='use'> use      </th>
+                            <th class='val'> value(s) </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td class='arg'>    argv[0]  </td><td class='use'>  program file name       </td><td class='val'>   {sys.argv[0]}</td></tr>
+                        <tr><td class='arg'>    argv[1]  </td><td class='use'>  network definition text file name       </td><td class='val'>  {sys.argv[1]}</td></tr>
+                        <tr><td class='arg'>    argv[2]  </td><td class='use'>  index of average traffic load array </td><td class='val'> {sys.argv[2]}, i.e., {trafficload[int(sys.argv[2])]} Gbps</td></tr>
+                        <tr><td class='arg'>    argv[3]  </td><td class='use'>  set the name of the experment   </td><td class='val'>   {sys.argv[3]}</td></tr>
+                        <tr><td class='arg'>    argv[4]  </td><td class='use'>  execution report details        </td><td class='val'>   {sys.argv[4]}</td></tr>
+                        <tr><td class='arg'>    argv[5]  </td><td class='use'>  generate random traffic demands or load them    </td><td class='val'>  {sys.argv[5]}</td></tr>
+                        <tr><td class='arg'>    argv[6]  </td><td class='use'>  traffic demands text file name  </td><td class='val'>   {sys.argv[6]}</td></tr>
+                        <tr><td class='arg'>    argv[7]  </td><td class='use'>  output execution report as pdf  </td><td class='val'>   {sys.argv[7]}</td></tr>
+                        <tr><td class='arg'>    argv[8]  </td><td class='use'>  traffic demand queues (number)  </td><td class='val'>   {sys.argv[8]}</td></tr>
+                        <tr><td class='arg'>    argv[9]  </td><td class='use'>  keep the report and other generated files after the execution of the program    </td><td class='val'> {sys.argv[9]}</td></tr>
+                        <tr><td class='arg'>    argv[10] </td><td class='use'>  name of the computer that execution takes place  </td><td class='val'>  {sys.argv[10]}</td></tr>
+                        <tr><td class='arg'>    argv[11] </td><td class='use'>  program folder path under: the root folder (on MS Windows), or the home folder (on GNU/Linux)    </td><td class='val'>  {sys.argv[11]} </td></tr>
+                        <tr><td class='arg'>    argv[12] </td><td class='use'>  distribution of random traffic loads     </td><td class='val'>  {sys.argv[12]}</td></tr>
+                        <tr><td class='arg'>    argv[13] </td><td class='use'>  scheduling strategy      </td><td class='val'> {sys.argv[13]} </td></tr>
+                        <tr><td class='arg'>    argv[14] </td><td class='use'>  number of fibers per link (f) (number)   </td><td class='val'> {sys.argv[14]} </td></tr>
+                        <tr><td class='arg'>    argv[15] </td><td class='use'>  number of wavelengths per fiber (W) (number)     </td><td class='val'> {sys.argv[15]} </td></tr>
+                        <tr><td class='arg'>    argv[16] </td><td class='use'>  wavelength capacity (C) (Gbps)   </td><td class='val'> {sys.argv[16]}</td></tr>
+                        <tr><td class='arg'>    argv[17] </td><td class='use'>  IP router port latency (Lr) (microsecond)        </td><td class='val'> {sys.argv[17]} </td></tr>
+                        <tr><td class='arg'>    argv[18] </td><td class='use'>  WDM transponder latency (Lt) (microsecond)       </td><td class='val'> {sys.argv[18]}</td></tr>
+                        <tr><td class='arg'>    argv[19] </td><td class='use'>  traffic share percent of Q<sub>HP</sub> (percent) (traffic of Q<sub>LP</sub> is 100-argv[19])      </td><td class='val'>  {sys.argv[19]}</td></tr>
+                        <tr><td class='arg'>    argv[20] </td><td class='use'>  consider traffic grooming rejection criterion (TGRC) </td><td class='val'> {sys.argv[20]}</td></tr>
+                        <tr><td class='arg'>    argv[21] </td><td class='use'>  hard latency cap threshold for Q<sub>HP</sub> (microsecond)      </td><td class='val'>  {sys.argv[21]}</td></tr>
+                        <tr><td class='arg'>    argv[22] </td><td class='use'>  hard latency cap threshold for Q<sub>LP</sub> (microsecond)      </td><td class='val'>  {sys.argv[22]}</td></tr>
+                        <tr><td class='arg'>    argv[23] </td><td class='use'>  virtual wavelength capacity (VWC) (Gbps)  </td><td class='val'>  {sys.argv[23]}</td></tr>
+                    </tbody>
+                </table>
+                </div>
+             """
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        print (output)
+    #EOP
+
+
+def numberOfusesPerLightpath():
+    query="""
+        SELECT 
+            VLsrc,
+            VLdst,
+            VLnum,
+            --COUNT(DISTINCT TReqQueNum || '-' || TReqReqNum) AS NumberOfUses
+            COUNT(DISTINCT TReqQueNum || TReqReqNum) AS NumberOfUses
+        FROM 
+            route_traffic_requests_over_virtual_and_physical_topology
+        WHERE 
+            TReqResult = 'Pass'
+        GROUP BY 
+            VLsrc,
+            VLdst,
+            VLnum
+        ORDER BY 
+            NumberOfUses DESC;
+    """
+
+
+
+def latencyPerQueueNewFormula(sqliteConnection):
+    #18-5-2026
+    query="""
+        SELECT 
+            TReqQueNum,
+            COUNT(TReqReqNum) AS NumberOfRequests,
+            AVG(TrafficRequestLatency) AS AvgQueueLatency,
+            MAX(TrafficRequestLatency) AS MaxQueueLatency,
+            MIN(TrafficRequestLatency) AS MinQueueLatency
+        FROM 
+            LatencyOfTrafficRequest
+        GROUP BY 
+            TReqQueNum
+        ORDER BY 
+            TReqQueNum ASC;
+    """
+
+    cursor = sqliteConnection.execute(query)
+    
+    data = []
+
+    dataset = cursor.fetchall() 
+    for row in dataset:
+        #print ("<li>row=",row)
+        #key = row[0]
+        value = row[2]
+        data.append(roundatdecimals(value,3)) #dict.update({key:value})
+
+    #print("<li>latency per Queue",data)
+
+    return data
 
 

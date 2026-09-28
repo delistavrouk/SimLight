@@ -1,0 +1,50 @@
+[Config_start]
+[Name]
+TestingForPower
+[Description]
+Run_HyB_Of_The_SimLight_Simulator
+[Version]
+283: latest update; correct histogram integration to HTML report using path to current folder
+[Runs]
+1
+[Xindex(Xi): 0  1  2  3   4   5   6   7   8   9  10  11   12   13   14   15   16   17   18   19,   20 ]
+[Xi where X={2, 4, 6, 8, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120, 160, 200, 320, 400, 640, 960, 1280}]
+6, 8, 10, 11, 12, 13
+[Nets_start]
+N6L8_STnet_AllWavConv.txt
+[Nets_end]
+[Printout]
+detailreport
+[KeepEveryNthReport]
+1
+[Lambda]
+gensave
+[LambdaTextFile]
+trafficdemands.txt
+[PDFout]
+nopdf
+[RunConfigurations(Program,Queues,Strategy)_start]
+codeHybridBypass.py,2,Hybrid2Q
+[RunConfigurations(Program,Queues,Strategy)_end]
+[ComputerName]
+TMKws
+[ProgramFolder]
+C:\simLight
+[Distributions_start]
+Uniform
+[Distributions_end]
+[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_start]
+-1, 16, 40
+[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_end]
+[LatencyComponentConfig(LRouterport,LTransponder)_start]
+30, 100
+[LatencyComponentConfig(LRouterport,LTransponder)_end]
+[QHP_percent_of_traffic_split]
+50
+[CheckForRevisits]
+CheckForRevisits
+[HardLatencyCap_Q_HP microsec]
+-1
+[HardLatencyCap_Q_LP microsec]
+-1
+[Config_end]

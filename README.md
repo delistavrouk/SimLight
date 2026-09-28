@@ -27,7 +27,7 @@ You may run each algorithm (a) via the command line, or (b) use codeUtilCLIrunne
 
 Option (a):
 
-Information about the command line parameters is provided in the [HTML page about command line parameters](https://195-251-209-155.uom.gr/READABOUTPARAMETERS.html).
+Information about the command line parameters is provided in the [HTML page about command line parameters](READABOUTPARAMETERS.html).
 
 Examples of command lines to run the programs:
 
@@ -43,7 +43,12 @@ Option (b):
 
 For batch mode use the config.txt file to set runtime configuration and number of execution repetitions. Then run on the command line prompt "python codeUtilCLIrunner.py"
 
-Dependencies for running each simulated algorithm are described in the corresponding source files.
+Dependencies for running each simulated algorithm are described in the corresponding source files, including:
+- numpy
+- scipy
+- pyvis
+- matplotlib
+- pdfkit (requires an HTML to PDF conversion engine, e.g., wkhtmltopdf from https://wkhtmltopdf.org/)
 
 [id1]: ## "spam proof e-mail address, type it yourself"
 For assistance feel free to contact me at [delistaνrου(α)υοm.edυ.gr][id1]
