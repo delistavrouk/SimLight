@@ -490,19 +490,6 @@ TReqsForQueue.append(tempQ) # krataei ta traffic reqquests gia kathe queue
 tempQ = generateTrafficRequestsVariableBalance(dbConnection, N, graphsPath, lenQs, X, xi, QueueNames[1], 1, distributionForTReqs, trafficPercentOfQueueLP)
 TReqsForQueue.append(tempQ) # krataei ta traffic reqquests gia kathe queue
 
-#18-8-2026 example of validation of values for a distribution
-'''
-# # 1. Generate the entire array of traffic requests
-generated_traffic_array = generateParetoDistributedTrafficRequestValues(apo, alpha, megethosdeigmatos)
-
-# 2. Pass the entire array into the validation function
-is_valid, p_value = validateParetoDistribution(generated_traffic_array, alpha, apo)
-
-if is_valid:
-    print(f"Validation Passed! p-value: {p_value}")
-else:
-    print(f"Validation Failed! p-value: {p_value}") 
-''' 
 
 
 if lenQs==1:
@@ -909,209 +896,6 @@ if (GlobalSOP==True) :
 
 #10-4-2026
 
-#21-8-2026: Trying to replace the 6 cases with a uniform solution that considers large number of fibers instead of unlimited, and no wavelength converters as sparse where all converters are 0, and all wavelength converters as sparse where all converters are 1.
-'''
-match limitations:
-    #case 1
-    case ["UnlimitedFibersPerLink", "NoWavContConstr"] :
-        #SOP
-        if (GlobalSOP==True) :
-            print ("<div><li>No Blocking of any traffic requests. Considering unlimited fibers per link. Consider wavelength converters exist on every node. (case: UnlimitedFibersPerLink, NoWavContConstr)</div>")
-        #EOP
-
-        # Initialize a base map with 1 fiber per link (it will expand if needed)
-        NetworkWavelengthsMap = [[["" for _ in range(maxWavelengthsPerFiber)] for _ in range(1)] for _ in range(len(L))]
-        
-        newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults = assignUnlimitedFibers_NoWavContConstr(
-            L, 
-            RoutingOfVirtualLinksOverWavelengths, 
-            NetworkWavelengthsMap
-        )
-        
-        #SOP
-        if (GlobalSOP==True) :
-            print_reservations(NetworkWavelengthsMap, L)
-        #EOP
-
-    #case 2
-    case ["UnlimitedFibersPerLink", "FullWavContConstr"] :
-        #SOP
-        if (GlobalSOP==True) :
-            print ("<div><li>No Blocking of any traffic requests. Considering unlimited fibers per link. Consider no wavelength converters exist.</div>")
-        #EOP
-        
-        # Initialize a base map with 1 fiber per link (it will expand if needed)
-        NetworkWavelengthsMap = [[["" for _ in range(maxWavelengthsPerFiber)] for _ in range(1)] for _ in range(len(L))]
-        
-        newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults = assignUnlimitedFibers_FullWavContConstr(
-            L, 
-            RoutingOfVirtualLinksOverWavelengths, 
-            NetworkWavelengthsMap
-        )
-        
-        #SOP
-        if (GlobalSOP==True) :
-            print_reservations(NetworkWavelengthsMap, L)
-        #EOP
-
-    #case 3
-    case ["UnlimitedFibersPerLink", "PartialWavContConstr"] :
-        #SOP
-        if (GlobalSOP==True) :
-            print ("<div><li>No Blocking of any traffic requests. Considering unlimited fibers per link. Consider that only some nodes have wavelength converters, while the rest of the nodes do not.</div>")
-        #EOP
-        
-        # Initialize a base map with 1 fiber per link (it will expand if needed)
-        NetworkWavelengthsMap = [[["" for _ in range(maxWavelengthsPerFiber)] for _ in range(1)] for _ in range(len(L))]
-                
-        newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults = assignUnlimitedFibers_PartialWavContConstr(
-            L, 
-            RoutingOfVirtualLinksOverWavelengths, 
-            NetworkWavelengthsMap,
-            HasWavConv # <--- Pass the converters mapping here
-        )
-        
-        #SOP
-        if (GlobalSOP==True) :
-            print_reservations(NetworkWavelengthsMap, L)
-        #EOP
-
-    #case 4
-    case ["LimitedFibersPerLink", "NoWavContConstr"]:
-        #SOP
-        if (GlobalSOP==True) :
-            print ("<div><li>Blocking of traffic requests. Considering limited fibers per link. Consider wavelength converters exist on every node.</div>")
-        #EOP
-        
-        # Initialize the network map with STRICT limits (it will NOT expand)
-        NetworkWavelengthsMap = [[["" for _ in range(maxWavelengthsPerFiber)] for _ in range(maxFibersPerLink)] for _ in range(len(L))]
-        
-        newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults = assignLimitedFibers_NoWavContConstr(
-            L, 
-            RoutingOfVirtualLinksOverWavelengths, 
-            NetworkWavelengthsMap
-        )
-        
-        #SOP
-        if (GlobalSOP==True) :
-            print_reservations(NetworkWavelengthsMap, L)
-        #EOP
-
-    #case 5
-    case ["LimitedFibersPerLink", "FullWavContConstr"]:
-        #SOP
-        if (GlobalSOP==True) :
-            print ("<div><li>Blocking of traffic requests. Considering limited fibers per link. Consider no wavelength converters exist.</div>")
-        #EOP
-
-        newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults, netmap = blockTrafficAccordingToCriteria(L, RoutingOfVirtualLinksOverWavelengths, limitations, HasWavConv)
-
-
-
-    #case 6
-    case ["LimitedFibersPerLink", "PartialWavContConstr"]:
-        #SOP
-        if (GlobalSOP==True) :
-            print ("<div><li>Blocking of traffic requests. Considering limited fibers per link. Consider that only some nodes have wavelength converters, while the rest of the nodes do not.</div>")
-        #EOP
-        
-        # Initialize the network map with STRICT limits (it will NOT expand)
-        NetworkWavelengthsMap = [[["" for _ in range(maxWavelengthsPerFiber)] for _ in range(maxFibersPerLink)] for _ in range(len(L))]
-
-        #15-7-2026
-        #Lwc = sys.argv[24] if sys.argv[24]!=None else 100.0
-        #Ewc = sys.argv[25] if sys.argv[25]!=None else 50.0        ``
-        
-        #old function (a) First function (it was designed just to assign wavelengths without considering traffic limitations):
-        #phyLinks, RoutingOfVirtualLinksOverWavelengths = WavelengthsAssignmentWithoutLimitsConsideration(VT,  N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, 
-        #                                                                                                 Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, 
-        #                                                                                                 EDFAdist, Dist, wavelegthids, LatRouterPort, LatTransponder, dbConnection)
-
-        #old function (b) Second function (it was designed just to apply traffic limitations after the original assignment of wavelengths):
-        #newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResult = assignLimitedFibers_PartialWavContConstr(
-        #    L, 
-        #    RoutingOfVirtualLinksOverWavelengths, 
-        #    NetworkWavelengthsMap,
-        #    HasWavConv) # <--- Pass the converters mapping here
-
-        #new integrated function
-        #16-7-2026
-
-        NumberOfShortestPaths = 1 if sys.argv[26]==None else int(sys.argv[26])
-
-        if NumberOfShortestPaths==1:
-            phyLinks, RoutingOfVirtualLinksOverWavelengths, routingResults = WavelengthsAssignmentWithConstraints(VT, N, Nt, maxGbpsPerWavelength, NetworkWavelengthsMap, HasWavConv,
-                                                                                                                  Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, EDFAdist,
-                                                                                                                  networkWithCosts, LatRouterPort, LatTransponder, dbConnection)
-        else:
-            #16-7-2026 rely on k-shortest paths, not a single shortest path 
-            phyLinks, RoutingOfVirtualLinksOverWavelengths, routingResults = WavelengthsAssignmentWithConstraintsUsingKShortestPaths(VT, N, Nt, maxGbpsPerWavelength, NetworkWavelengthsMap, HasWavConv,
-                                                                                                                                     Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, EDFAdist,
-                                                                                                                                     networkWithCosts, LatRouterPort, LatTransponder, dbConnection, NumberOfShortestPaths)
-            
-        #SOP
-        if (GlobalSOP==True) :
-            print_reservations(NetworkWavelengthsMap, L)
-            #1-7-2026 new function to print lightpaths' route of wavelenghts
-            print_lightpath_routes(NetworkWavelengthsMap, L)
-        #EOP
-
-
-
-    case _:
-        error("Invalid Combination of Limitations!",555)
-        exit(555)
-'''
-
-
-'''
-#21-8-2026 alternative to match limitations
-# 1. Determine the effective Wavelength Converter map
-if limitations[1] == "NoWavContConstr":
-    effective_HasWavConv = [1] * len(N) # Converters at every node
-elif limitations[1] == "FullWavContConstr":
-    effective_HasWavConv = [0] * len(N) # No converters anywhere
-else:
-    effective_HasWavConv = HasWavConv   # Use the actual network hardware map
-
-# 2. Determine the effective Fiber Limits
-if limitations[0] == "UnlimitedFibersPerLink":
-    effective_fibers = 999 # A practically unlimited ceiling
-else:
-    effective_fibers = maxFibersPerLink # Strict hardware limit
-
-# 3. Initialize the universal map
-NetworkWavelengthsMap = [[["" for _ in range(maxWavelengthsPerFiber)] for _ in range(effective_fibers)] for _ in range(len(L))]
-
-# 4. Execute the integrated routing function
-NumberOfShortestPaths = 1 if sys.argv[26]==None else int(sys.argv[26])
-
-if NumberOfShortestPaths == 1:
-    phyLinks, RoutingOfVirtualLinksOverWavelengths, routingResults = WavelengthsAssignmentWithConstraints(
-        VT, N, Nt, maxGbpsPerWavelength, NetworkWavelengthsMap, effective_HasWavConv,
-        Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, EDFAdist,
-        networkWithCosts, LatRouterPort, LatTransponder, dbConnection
-    )
-else:
-    phyLinks, RoutingOfVirtualLinksOverWavelengths, routingResults = WavelengthsAssignmentWithConstraintsUsingKShortestPaths(
-        VT, N, Nt, maxGbpsPerWavelength, NetworkWavelengthsMap, effective_HasWavConv,
-        Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, EDFAdist,
-        networkWithCosts, LatRouterPort, LatTransponder, dbConnection, NumberOfShortestPaths
-    )
-
-# SOP
-if (GlobalSOP==True) :
-    print(f"<div><li>Applying limits: {limitations[0]}, {limitations[1]}</div>")
-    print_reservations(NetworkWavelengthsMap, L)
-    print_lightpath_routes(NetworkWavelengthsMap, L)
-# EOP
-
-#SOP
-#if (GlobalSOP==True) :
-    #print (f"<div>After limitations: newRoutingOfVirtualLinksOverWavelengthsWithLimits={newRoutingOfVirtualLinksOverWavelengthsWithLimits}</div>")
-    #print (f"<div>After limitations: NetworkWavelengthsMap={NetworkWavelengthsMap}</div>")
-#EOP
-'''
 
 # Define this globally before the match block so all cases and loggers can access it
 NumberOfShortestPaths = 1 if sys.argv[26]==None else int(sys.argv[26])
@@ -1124,17 +908,14 @@ match limitations:
             print ("<div><li>No Blocking of any traffic requests. Considering unlimited fibers per link. Consider wavelength converters exist on every node. (case: UnlimitedFibersPerLink, NoWavContConstr)</div>")
         #EOP
 
-        # 1. FIRST, generate the base routing and phyLinks using your original function
         phyLinks, RoutingOfVirtualLinksOverWavelengths = WavelengthsAssignmentWithoutLimitsConsideration(
             VT, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, 
             Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, 
             EDFAdist, networkWithCosts, wavelegthids, LatRouterPort, LatTransponder, dbConnection
         )
 
-        # 2. Initialize a base map with 1 fiber per link (it will expand if needed)
         NetworkWavelengthsMap = [[["" for _ in range(maxWavelengthsPerFiber)] for _ in range(1)] for _ in range(len(L))]
         
-        # 3. Apply the pass-through assignment (which doesn't alter phyLinks)
         newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults = assignUnlimitedFibers_NoWavContConstr(
             L, 
             RoutingOfVirtualLinksOverWavelengths, 
@@ -1153,17 +934,14 @@ match limitations:
             print ("<div><li>No Blocking of any traffic requests. Considering unlimited fibers per link. Consider no wavelength converters exist.</div>")
         #EOP
         
-        # 1. FIRST, generate the base routing and phyLinks using your original function
         phyLinks, RoutingOfVirtualLinksOverWavelengths = WavelengthsAssignmentWithoutLimitsConsideration(
             VT, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, 
             Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, 
             EDFAdist, networkWithCosts, wavelegthids, LatRouterPort, LatTransponder, dbConnection
         )
 
-        # 2. Initialize a base map with 1 fiber per link (it will expand if needed)
         NetworkWavelengthsMap = [[["" for _ in range(maxWavelengthsPerFiber)] for _ in range(1)] for _ in range(len(L))]
         
-        # 3. Apply the pass-through assignment to simulate Full Wavelength Continuity Constraints
         newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults = assignUnlimitedFibers_FullWavContConstr(
             L, 
             RoutingOfVirtualLinksOverWavelengths, 
@@ -1182,17 +960,14 @@ match limitations:
             print ("<div><li>No Blocking of any traffic requests. Considering unlimited fibers per link. Consider that only some nodes have wavelength converters, while the rest of the nodes do not.</div>")
         #EOP
         
-        # 1. FIRST, generate the base routing and phyLinks using your original function
         phyLinks, RoutingOfVirtualLinksOverWavelengths = WavelengthsAssignmentWithoutLimitsConsideration(
             VT, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, 
             Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, 
             EDFAdist, networkWithCosts, wavelegthids, LatRouterPort, LatTransponder, dbConnection
         )
 
-        # 2. Initialize a base map with 1 fiber per link (it will expand if needed)
         NetworkWavelengthsMap = [[["" for _ in range(maxWavelengthsPerFiber)] for _ in range(1)] for _ in range(len(L))]
                 
-        # 3. Apply the pass-through assignment to simulate Partial Wavelength Continuity Constraints
         newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults = assignUnlimitedFibers_PartialWavContConstr(
             L, 
             RoutingOfVirtualLinksOverWavelengths, 
@@ -1212,17 +987,14 @@ match limitations:
             print ("<div><li>Blocking of traffic requests. Considering limited fibers per link. Consider wavelength converters exist on every node.</div>")
         #EOP
         
-        # 1. First, generate the base routing and phyLinks using the original function
         phyLinks, RoutingOfVirtualLinksOverWavelengths = WavelengthsAssignmentWithoutLimitsConsideration(
             VT, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, 
             Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, 
             EDFAdist, networkWithCosts, wavelegthids, LatRouterPort, LatTransponder, dbConnection
         )
         
-        # 2. Next, initialize the network map with STRICT limits (it will NOT expand)
         NetworkWavelengthsMap = [[["" for _ in range(maxWavelengthsPerFiber)] for _ in range(maxFibersPerLink)] for _ in range(len(L))]
         
-        # 3. Finally, apply the limits to the pre-calculated paths
         newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults = assignLimitedFibers_NoWavContConstr(
             L, 
             RoutingOfVirtualLinksOverWavelengths, 
@@ -1241,14 +1013,12 @@ match limitations:
             print ("<div><li>Blocking of traffic requests. Considering limited fibers per link. Consider no wavelength converters exist.</div>")
         #EOP
 
-        # 1. FIRST, generate the base routing and phyLinks using your original function
         phyLinks, RoutingOfVirtualLinksOverWavelengths = WavelengthsAssignmentWithoutLimitsConsideration(
             VT, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, 
             Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, 
             EDFAdist, networkWithCosts, wavelegthids, LatRouterPort, LatTransponder, dbConnection
         )
 
-        # 2. Apply legacy blocking logic
         newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults, netmap = blockTrafficAccordingToCriteria(
             L, 
             RoutingOfVirtualLinksOverWavelengths, 
@@ -1256,7 +1026,6 @@ match limitations:
             HasWavConv
         )
         
-        # 3. Synchronize variable names for downstream visualizers
         NetworkWavelengthsMap = netmap
         
         #SOP
@@ -1325,9 +1094,8 @@ match limitations:
 
 
 #22-8-2026 
-# --- CALCULATE DETAILED OVERHEADS PER TRAFFIC REQUEST ---
 
-# 1. Count total converters used per Virtual Link (Lightpath)
+# Count total converters used per Virtual Link (Lightpath)
 vl_converter_counts = {}
 for vl_key, value in RoutingOfVirtualLinksOverWavelengths.items():
     converters = 0
@@ -1356,7 +1124,7 @@ lat_overheads_LP = []
 # List to hold detailed DB records: (TReqQueNum, TReqReqNum, ConvertersUsed, LatencyOverhead, PowerOverhead)
 detailed_request_overheads = []
 
-# 2. Map converters back to specific Traffic Requests
+# Map converters back to specific Traffic Requests
 for (que, req), route_info_list in ReqRouteInfo.items():
     req_converters = 0
     for step_data in route_info_list:
@@ -1371,7 +1139,7 @@ for (que, req), route_info_list in ReqRouteInfo.items():
     # Save to the detailed list for the database
     detailed_request_overheads.append((que, req, req_converters, req_lat_overhead, req_pow_overhead))
     
-    # 3. Aggregate metrics by Queue
+    # Aggregate metrics by Queue
     if que == 0:
         total_pow_overhead_HP += req_pow_overhead
         lat_overheads_HP.append(req_lat_overhead)
@@ -1379,83 +1147,16 @@ for (que, req), route_info_list in ReqRouteInfo.items():
         total_pow_overhead_LP += req_pow_overhead
         lat_overheads_LP.append(req_lat_overhead)
 
-# 4. Save the detailed metrics to SQLite
+# Save the detailed metrics to SQLite
 saveConverterOverheads2sqlite(dbConnection, detailed_request_overheads)
 
-# 5. Calculate Mean Latency Overheads
+# Calculate Mean Latency Overheads
 mean_lat_overhead_HP = sum(lat_overheads_HP) / len(lat_overheads_HP) if lat_overheads_HP else 0.0
 mean_lat_overhead_LP = sum(lat_overheads_LP) / len(lat_overheads_LP) if lat_overheads_LP else 0.0
 
 if GlobalSOP:
     print(f"<li>Saved {len(detailed_request_overheads)} detailed request overheads to WavelengthConverterOverheads table.</li>")
-# -----------------------------------------------------------------
 
-
-'''  
-#22-8-2026 --- THIS BLOCK CALCULATES OVERHEADS PER TRAFFIC REQUEST ---VVV  
-# 1. Count total converters used per Virtual Link (Lightpath)
-vl_converter_counts = {}
-for vl_key, hops in RoutingOfVirtualLinksOverWavelengths.items():
-    converters = 0
-    if len(hops) > 1:
-        # Assuming waveid is at the end of your hop tuple (adjust index if needed)
-        wave_index = -1 
-        for i in range(len(hops) - 1):
-            if hops[i][wave_index] != hops[i+1][wave_index]:
-                converters += 1
-    vl_converter_counts[vl_key] = converters
-
-# 2. Map Virtual Link converters back to specific Traffic Requests
-total_pow_overhead_HP = 0.0
-total_pow_overhead_LP = 0.0
-lat_overheads_HP = []
-lat_overheads_LP = []
-
-for (que, req), route_info_list in ReqRouteInfo.items():
-    req_converters = 0
-    for step_data in route_info_list:
-        # Reconstruct the Virtual Link tuple: (vlsrc, vldst, vlnum)
-        vl_tuple = (step_data[0], step_data[1], step_data[2]) 
-        
-        if vl_tuple in vl_converter_counts:
-            req_converters += vl_converter_counts[vl_tuple]
-    
-    # Calculate exact overheads for this specific traffic request
-    req_lat_overhead = req_converters * float(Lwc)
-    req_pow_overhead = req_converters * float(Ewc)
-    
-    # 3. Aggregate metrics by Queue (0 = High Priority, 1 = Low Priority)
-    if que == 0:
-        total_pow_overhead_HP += req_pow_overhead
-        lat_overheads_HP.append(req_lat_overhead)
-    elif que == 1:
-        total_pow_overhead_LP += req_pow_overhead
-        lat_overheads_LP.append(req_lat_overhead)
-
-# 4. Calculate Mean Latency Overheads
-mean_lat_overhead_HP = sum(lat_overheads_HP) / len(lat_overheads_HP) if lat_overheads_HP else 0.0
-mean_lat_overhead_LP = sum(lat_overheads_LP) / len(lat_overheads_LP) if lat_overheads_LP else 0.0
-
-# Optional: Log the results for debugging
-if GlobalSOP:
-    print(f"<li>Mean Latency Overhead Q_HP: {mean_lat_overhead_HP:.3f} μs | Total Power Overhead Q_HP: {total_pow_overhead_HP:.3f} W</li>")
-    print(f"<li>Mean Latency Overhead Q_LP: {mean_lat_overhead_LP:.3f} μs | Total Power Overhead Q_LP: {total_pow_overhead_LP:.3f} W</li>")
-    
-# -----------------------------------------------------------------
-#22-8-2026 --- THIS BLOCK CALCULATES OVERHEADS PER TRAFFIC REQUEST ---^^^
-'''
-
-
-''' old version (pre 9-4-2026) only blocking or full/no Wavelength Continuity Constraint (WCC)
-if limitations[0] == "NoBlocking":
-    newRoutingOfVirtualLinksOverWavelengthsWithLimits = RoutingOfVirtualLinksOverWavelengths
-    routingResult = {}
-    for k in RoutingOfVirtualLinksOverWavelengths.keys():
-        routingResult[k] = "Pass"
-else:
-    # edw pws tha xrisimopoiisw to output pinaka tou latency cap?
-    newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResult, netmap = blockTrafficAccordingToCriteria(L, RoutingOfVirtualLinksOverWavelengths, limitations, HasWavConv)
-'''
 
 #SOP
 #if (GlobalSOP==True) :    
@@ -1473,40 +1174,13 @@ if (GlobalSOP==True) :
 
     print ("<p><li><em>Routing of VLs over PT table (-1 on wavelength ID means the VL is blocked):")
 
-
     
-    '''
-    #22-8-2025 calculate the overhead introduced by using wavelength converters
-    # Initialize accumulators before the loop
-    total_network_power_overhead = 0.0
-    total_network_latency_overhead = 0.0
 
-    # --- ADD THIS BLOCK TO FLATTEN NESTED LISTS ---
+
     for k, v in RoutingOfVirtualLinksOverWavelengths.items():
         if len(v) > 0 and isinstance(v[0], list):
             RoutingOfVirtualLinksOverWavelengths[k] = v[0]
-            
-        # 1. Extract the sequence of wavelengths assigned to this specific virtual link
-        # (Assuming 'v' contains your wavelength IDs as the last element of a hop tuple/list)
-        path_wavelengths = [hop_data[-1] for hop_data in RoutingOfVirtualLinksOverWavelengths[k]]
-        
-        # 2. Invoke the calculation
-        wc_count, lat_overhead, pow_overhead = calculate_converter_overhead(path_wavelengths, float(Lwc), float(Ewc))
-        
-        # 3. Accumulate total network overheads
-        total_network_latency_overhead += lat_overhead
-        total_network_power_overhead += pow_overhead
-        
-        # 4. Optional: Save lat_overhead to a dictionary keyed by 'k' to inject into your database later
-        
-    # ----------------------------------------------
-    '''
-
-    # --- FLATTEN THE DICTIONARY FOR THE HTML TABLE ---
-    for k, v in RoutingOfVirtualLinksOverWavelengths.items():
-        if len(v) > 0 and isinstance(v[0], list):
-            RoutingOfVirtualLinksOverWavelengths[k] = v[0]
-    # -------------------------------------------------
+    
 
     printRoutingOfVirtualLinksOverWavelengthsAsTable(RoutingOfVirtualLinksOverWavelengths)   
     
@@ -1730,15 +1404,13 @@ txtfUaverage = str(fUaverage)
 saveLatencyPerTrafficRequestToDatabase(dbConnection)
 saveLatencyPerTrafficRequestToDatabase_according_to_the_old_latency_formula(dbConnection)
 
-'''
-#18-5-2026
+
+#22-8-2026
 #PROSOXI! Η ΚΛΗΣΗ ΤΗΣ latencyPerQueueNewFormula() ΠΡΕΠΕΙ ΝΑ ΕΠΕΤΑΙ ΤΩΝ saveLatencyPerTrafficRequestToDatabase() ΚΑΙ saveLatencyPerTrafficRequestToDatabase_according_to_the_old_latency_formula() ΓΙΑΤΙ ΧΡΗΣΙΜΟΠΟΙΕΙ ΤΟΝ ΠΙΝΑΚΑ ΒΑΣΗΣ ΔΕΔΟΜΕΝΩΝ ΠΟΥ ΟΡΙΖΟΥΝ ΑΥΤΕΣ ΟΙ ΣΥΝΑΡΤΗΣΕΙΣ!
 averageLatPerQueue = latencyPerQueueNewFormula(dbConnection)
 
-
 #22-8-2026
-# --- ADD THIS BLOCK HERE ---
-# Add wavelength converter overheads to average latencies safely
+
 if len(averageLatPerQueue) > 1:
     avgLatQ_HP = roundatdecimals(averageLatPerQueue[0] + mean_lat_overhead_HP, 3)
     avgLatQ_LP = roundatdecimals(averageLatPerQueue[1] + mean_lat_overhead_LP, 3)
@@ -1748,37 +1420,7 @@ elif len(averageLatPerQueue) == 1:
 else:
     avgLatQ_HP = roundatdecimals(mean_lat_overhead_HP, 3)
     avgLatQ_LP = roundatdecimals(mean_lat_overhead_LP, 3)
-# ---------------------------
 
-
-
-#22-8-2026
-if len(averageLatPerQueue) > 0:
-    avgLatQ_HP = roundatdecimals(averageLatPerQueue[0], 3)
-else:
-    avgLatQ_HP = 0.0  # Or "N/A" if you prefer to log it as unused
-#avgLatQ_HP = roundatdecimals(averageLatPerQueue[0],3)
-
-avgLatQ_LP = roundatdecimals(averageLatPerQueue[1],3)
-#18-5-2026 end of markup
-'''
-
-#22-8-2026
-#PROSOXI! Η ΚΛΗΣΗ ΤΗΣ latencyPerQueueNewFormula() ΠΡΕΠΕΙ ΝΑ ΕΠΕΤΑΙ ΤΩΝ saveLatencyPerTrafficRequestToDatabase() ΚΑΙ saveLatencyPerTrafficRequestToDatabase_according_to_the_old_latency_formula() ΓΙΑΤΙ ΧΡΗΣΙΜΟΠΟΙΕΙ ΤΟΝ ΠΙΝΑΚΑ ΒΑΣΗΣ ΔΕΔΟΜΕΝΩΝ ΠΟΥ ΟΡΙΖΟΥΝ ΑΥΤΕΣ ΟΙ ΣΥΝΑΡΤΗΣΕΙΣ!
-averageLatPerQueue = latencyPerQueueNewFormula(dbConnection)
-
-#22-8-2026
-# --- NEW BLOCK: Add wavelength converter overheads to average latencies safely ---
-if len(averageLatPerQueue) > 1:
-    avgLatQ_HP = roundatdecimals(averageLatPerQueue[0] + mean_lat_overhead_HP, 3)
-    avgLatQ_LP = roundatdecimals(averageLatPerQueue[1] + mean_lat_overhead_LP, 3)
-elif len(averageLatPerQueue) == 1:
-    avgLatQ_HP = roundatdecimals(averageLatPerQueue[0] + mean_lat_overhead_HP, 3)
-    avgLatQ_LP = roundatdecimals(mean_lat_overhead_LP, 3)
-else:
-    avgLatQ_HP = roundatdecimals(mean_lat_overhead_HP, 3)
-    avgLatQ_LP = roundatdecimals(mean_lat_overhead_LP, 3)
-# -------------------------------------------------------------------------------
 
 #18-5-2026 end of markup
 
