@@ -7,9 +7,13 @@ import ast
 
 
 class Spreadsheet:
-    # class to handle exporting network topology and routing dictionaries to a multi-sheet Microsoft Excel workbook.
+    """
+    A class to handle exporting network topology and routing dictionaries 
+    to a multi-sheet Microsoft Excel workbook.
+    """
 
     def __init__(self):
+        """Initializes the Exporter with a fresh, empty Workbook."""
         self.wb = Workbook()
         
         # Pre-define reusable styles
@@ -21,10 +25,15 @@ class Spreadsheet:
                                   top=Side(style='thin'), bottom=Side(style='thin'))
 
     def save(self, filename):
+        """Saves the workbook to the specified filepath."""
         self.wb.save(filename)
-    
+
+    # ==========================================
+    # Internal Helper Methods
+    # ==========================================
 
     def _get_or_create_sheet(self, sheet_name):
+        """Reuses the default 'Sheet' if empty, otherwise creates a new one."""
         if "Sheet" in self.wb.sheetnames and len(self.wb.sheetnames) == 1:
             ws = self.wb["Sheet"]
             if ws.max_row == 1 and ws.max_column == 1 and ws.cell(1,1).value is None:
@@ -33,6 +42,7 @@ class Spreadsheet:
         return self.wb.create_sheet(title=sheet_name)
 
     def _apply_styling(self, ws, start_row, start_col, end_row, end_col, is_header=False):
+        """Applies borders and styles to a range of cells, crucial for merged blocks."""
         for r in range(start_row, end_row + 1):
             for c in range(start_col, end_col + 1):
                 cell = ws.cell(row=r, column=c)
@@ -42,8 +52,11 @@ class Spreadsheet:
                     cell.fill = self.header_fill
                     cell.font = self.header_font
 
+    # ==========================================
+    # Public Export Methods
+    # ==========================================
 
-    def export_vt_dictionary(self, data_dict, sheet_name="VT"):
+    def export_vt_dictionary(self, data_dict, sheet_name="VT_postR_preWA_woLmtn"):
         ws = self._get_or_create_sheet(sheet_name)
 
         if len(data_dict) > 0:
@@ -72,7 +85,7 @@ class Spreadsheet:
         else:
             ws.append(["∅ Empty"])
 
-    def export_request_routing_info(self, data_dict, sheet_name="VLperTR"):
+    def export_request_routing_info(self, data_dict, sheet_name="VLperTR_postR_preWA_woLmtn"):
         ws = self._get_or_create_sheet(sheet_name)
 
         if len(data_dict) > 0:
@@ -103,7 +116,7 @@ class Spreadsheet:
         else:
             ws.append(["∅ Empty"])
 
-    def export_vl_ids(self, data_dict, sheet_name="VLIDs"):
+    def export_vl_ids(self, data_dict, sheet_name="VLIDs_postR_preWA_woLmtn"):
         ws = self._get_or_create_sheet(sheet_name)
 
         if len(data_dict) > 0:
@@ -136,7 +149,7 @@ class Spreadsheet:
         else:
             ws.append(["∅ Empty"])
 
-    def export_vl_traffic_reqs(self, data_dict, sheet_name="TRperVL"):
+    def export_vl_traffic_reqs(self, data_dict, sheet_name="TRperVL_postR_preWA_woLmtn"):
         ws = self._get_or_create_sheet(sheet_name)
 
         if len(data_dict) > 0:
@@ -185,7 +198,7 @@ class Spreadsheet:
         else:
             ws.append(["∅ Empty"])
 
-    def export_vl_totals(self, data_dict, sheet_name="VLtotals"):
+    def export_vl_totals(self, data_dict, sheet_name="VLtotals_postR_preWA_woLmtn"):
         ws = self._get_or_create_sheet(sheet_name)
 
         if len(data_dict) > 0:
@@ -217,9 +230,17 @@ class Spreadsheet:
         else:
             ws.append(["∅ Empty"])
 
-    
+
+
+    # ==========================================
+    # Added Internal Helpers
+    # ==========================================
 
     def _get_excel_pastel_color(self, identifier):
+        """
+        Generates a consistent pastel hex color for openpyxl (ARGB format).
+        Returns string format: FFRRGGBB
+        """
         hash_object = hashlib.md5(str(identifier).encode())
         hex_color = hash_object.hexdigest()[:6]
         
@@ -231,6 +252,7 @@ class Spreadsheet:
         return f"FF{r:02x}{g:02x}{b:02x}".upper()
 
     def _parse_lightpath_identifier(self, lp):
+        """Safely parses a lightpath identifier into (src, dst, id)."""
         if isinstance(lp, tuple) or isinstance(lp, list):
             return lp[0], lp[1], lp[2]
         
@@ -242,8 +264,12 @@ class Spreadsheet:
             # Absolute fallback if it's just a raw string
             return str(lp), "N/A", "N/A"
 
+    # ==========================================
+    # Added Public Export Methods
+    # ==========================================
 
     def export_reservations(self, links, link_list, sheet_name="WAs"):
+        """Exports the current network reservations map to Excel."""
         ws = self._get_or_create_sheet(sheet_name)
         
         # Title
@@ -289,10 +315,12 @@ class Spreadsheet:
 
 
     def export_lightpath_routes(self, links, link_list, sheet_name="WAperLP"):
+        """Extracts and exports the physical path and assigned wavelengths for each lightpath."""
         ws = self._get_or_create_sheet(sheet_name)
         
         lightpaths = {}
         
+        # 1. Map the network state
         for i, link in enumerate(link_list):
             for fiber_idx, fiber in enumerate(links[i]):
                 for wave_idx, slot in enumerate(fiber):
@@ -308,6 +336,7 @@ class Spreadsheet:
             ws.append(["No active lightpaths found."])
             return
 
+        # 2. Write Headers
         ws.cell(row=1, column=1, value="Lightpath (Source, Dest, ID)")
         ws.merge_cells("A1:C1")
         ws.cell(row=1, column=4, value="Wavelength ID (Source, Dest, Fiber, Channel)")
@@ -396,6 +425,9 @@ class Spreadsheet:
             adjusted_width = (max_length + 2)
             ws.column_dimensions[column_letter].width = adjusted_width
 
+    # ==========================================
+    # Specific Data Export Wrappers
+    # ==========================================
 
     def export_network_nodes(self, data_rows):
         headers = ["Node Num", "Name"]
@@ -434,7 +466,7 @@ class Spreadsheet:
             "PL Direction", "PL Current Src", "PL Current Dst", 
             "Lat IP", "Lat Transp", "Result"
         ]
-        self._export_generic_data("routingVLoverPT_onlyPass", headers, data_rows)
+        self._export_generic_data("routingVLoverPT", headers, data_rows)
 
     def export_routing_tr_over_vt(self, data_rows):
         headers = [
@@ -467,5 +499,33 @@ class Spreadsheet:
         ]
         self._export_generic_data("routeTRoverVTandPT", headers, data_rows)
 
+
+
+# ==========================================
+# Example Usage
+# ==========================================
+if __name__ == "__main__":
+    # 1. Initialize your exporter
+    exporter = Spreadsheet()
+    
+    # 2. Mock Data
+    vt_dict = {"NodeA": ["NodeB", "NodeC"], "NodeB": ["NodeC"]}
+    routing_dict = {(1, 101): [("L1", "T1", 50, 1, 10), ("L2", "T1", 50, 2, 11)]}
+    vlids_dict = {("Src1", "Dst1"): [10, 11, 12], ("Src2", "Dst2"): [13]}
+    vlt_reqs_dict = {("S1", "D1", 1): [(1, 101, 5.555, "TypeA"), (1, 102, 2.222, "TypeB")]}
+    vl_totals_dict = {("S1", "D1", 1): [10.123, 89.877, 5]}
+
+    # 3. Add your tables to the workbook
+    exporter.export_vt_dictionary(vt_dict)
+    exporter.export_request_routing_info(routing_dict)
+    exporter.export_vl_ids(vlids_dict)
+    exporter.export_vl_traffic_reqs(vlt_reqs_dict)
+    exporter.export_vl_totals(vl_totals_dict)
+    
+    # 4. Save the file
+    target_filename = "Network_Workbench_Export_OOP.xlsx"
+    exporter.save(target_filename)
+    
+    print(f"Export complete! Check out {target_filename}")
 
 

@@ -589,6 +589,22 @@ def createSQLiteDB_withoutBlocking(path):
         ''')
 
         sqliteConnection.execute('''
+                    CREATE TABLE IF NOT EXISTS RunID (
+                        uuid text NOT NULL,
+                        PRIMARY KEY (uuid)
+                    );
+        ''')
+        
+        sqliteConnection.execute('''
+            CREATE TABLE IF NOT EXISTS RunConfiguration (
+                argument text NOT NULL,
+                explanation text NOT NULL,
+                value text NOT NULL,                                 
+                PRIMARY KEY (argument)
+            );
+        ''')
+
+        sqliteConnection.execute('''
             CREATE TABLE IF NOT EXISTS RoutingTrafficRequestsOverVirtualTopology (
                 reqquenum integer NOT NULL,
                 reqnum integer NOT NULL,
@@ -631,340 +647,27 @@ def createSQLiteDB_withoutBlocking(path):
             );
         ''')
 
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS route_traffic_requests_over_virtual_and_physical_topology 
-            AS
-            SELECT
-                Queues.name,
-                Queues.num,
-            
-                TrafficRequests.quenum as TReqQueNum,
-                TrafficRequests.num as TReqReqNum,
-                TrafficRequests.src as TReqSrc,
-                TrafficRequests.dst as TReqDst,
-                TrafficRequests.cap as TReqCap,
-            
-                RoutingTrafficRequestsOverVirtualTopology.reqquenum as routeTReqOverVTreqquenum,
-                RoutingTrafficRequestsOverVirtualTopology.reqnum as routeTReqOverVTreqnum,
-                RoutingTrafficRequestsOverVirtualTopology.vlsrc as routeTReqOverVT_VLsrc,
-                RoutingTrafficRequestsOverVirtualTopology.vldst as routeTReqOverVT_VLdst,
-                RoutingTrafficRequestsOverVirtualTopology.vlnum as routeTReqOverVT_VLnum,
-                RoutingTrafficRequestsOverVirtualTopology.utilcap as routeTReqOverVTutilCap,
-                RoutingTrafficRequestsOverVirtualTopology.freecap as routeTReqOverVTfreeCap,
-                RoutingTrafficRequestsOverVirtualTopology.type as routeTReqOverVTtype,
-                RoutingTrafficRequestsOverVirtualTopology.routingStep as routeTReqOverVTroutingStep,
-                RoutingTrafficRequestsOverVirtualTopology.routStepVLseqnum as routeTReqOverVTroutStepVLseqnum,
-                            
-                VirtualLinks.src as VLsrc,
-                VirtualLinks.dst as VLdst,
-                VirtualLinks.num as VLnum,
-                VirtualLinks.caputil as VLcaputil,
-                VirtualLinks.capfree as VLcapfree,
-            
-                RoutingVirtualLinksOverPhysicalTopology.vlsrc as routeVLoverPT_VLsrc,
-                RoutingVirtualLinksOverPhysicalTopology.vldst as routeVLoverPT_VLdst,
-                RoutingVirtualLinksOverPhysicalTopology.vlnum as routeVLoverPT_VLnum,
-                RoutingVirtualLinksOverPhysicalTopology.plsrc as routeVLoverPT_PLsrc,
-                RoutingVirtualLinksOverPhysicalTopology.pldst as routeVLoverPT_PLdst,
-                RoutingVirtualLinksOverPhysicalTopology.fiberid as routeVLoverPT_fiberID,
-                RoutingVirtualLinksOverPhysicalTopology.waveid as routeVLoverPT_waveID,
-                RoutingVirtualLinksOverPhysicalTopology.type as routeVLoverPT_type,
-                RoutingVirtualLinksOverPhysicalTopology.HopSeqNum as routeVLoverPT_HopSeqNum,                 
-                RoutingVirtualLinksOverPhysicalTopology.NumberOfHops as routeVLoverPT_NumOfHops,
-                RoutingVirtualLinksOverPhysicalTopology.ShortestpathAsInt as routeVLoverPT_shPathAsInt,
-                RoutingVirtualLinksOverPhysicalTopology.ShortestpathAsStr  as routeVLoverPT_shPathAsStr,
-                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkDirection as routeVLoverPT_PLdir, 
-                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkCurrentSource as routeVLoverPT_currSrc, 
-                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkCurrentDestination as routeVLoverPT_currDest,
-                RoutingVirtualLinksOverPhysicalTopology.LatIP as routeVLoverPT_LatIP,
-                RoutingVirtualLinksOverPhysicalTopology.LatTransp as routeVLoverPT_LatTransp,
-            
-                PhysicalLinks.src as PLsrc,
-                PhysicalLinks.dst as PLdst,
-                PhysicalLinks.dist as PLdistance,
-                PhysicalLinks.LatEDFAs as PLlatEDFA,
-                PhysicalLinks.LatFibLen as PLlatFibLen
-            
-            FROM
-                Queues, 
-                TrafficRequests, 
-                VirtualLinks,
-                PhysicalLinks,
-                RoutingTrafficRequestsOverVirtualTopology,
-                RoutingVirtualLinksOverPhysicalTopology
-            
-            WHERE
-                    Queues.num = TrafficRequests.quenum
-            
-                AND TrafficRequests.quenum = RoutingTrafficRequestsOverVirtualTopology.reqquenum
-                AND TrafficRequests.num = RoutingTrafficRequestsOverVirtualTopology.reqnum
-                AND RoutingTrafficRequestsOverVirtualTopology.vlsrc = VirtualLinks.src
-                AND RoutingTrafficRequestsOverVirtualTopology.vldst = VirtualLinks.dst
-                AND RoutingTrafficRequestsOverVirtualTopology.vlnum = VirtualLinks.num
-            
-                AND VirtualLinks.src = RoutingVirtualLinksOverPhysicalTopology.vlsrc
-                AND VirtualLinks.dst = RoutingVirtualLinksOverPhysicalTopology.vldst
-                AND VirtualLinks.num = RoutingVirtualLinksOverPhysicalTopology.vlnum
-            
-                AND RoutingVirtualLinksOverPhysicalTopology.plsrc = PhysicalLinks.src
-                AND RoutingVirtualLinksOverPhysicalTopology.pldst = PhysicalLinks.dst
-            
-            ORDER BY
-                TrafficRequests.quenum,
-                TrafficRequests.num
-                ASC;
-        ''')
-
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS RouteTRoverVTandPT 
-            AS
-            SELECT
-                Queues.name,
-            
-                TrafficRequests.quenum as TReqQueNum,
-                TrafficRequests.num as TReqReqNum,
-                TrafficRequests.src as TReqSrc,
-                TrafficRequests.dst as TReqDst,
-                TrafficRequests.cap as TReqCap,
-
-                VirtualLinks.src as VLsrc,
-                VirtualLinks.dst as VLdst,
-                VirtualLinks.num as VLnum,
-                VirtualLinks.caputil as VLcaputil,
-                VirtualLinks.capfree as VLcapfree,
-                RoutingTrafficRequestsOverVirtualTopology.type as rtTRoverVT_type,
-                RoutingTrafficRequestsOverVirtualTopology.routingStep as rtTRoverVTroutingStep,
-                RoutingTrafficRequestsOverVirtualTopology.routStepVLseqnum as rtTRoverVTroutStpVLseqnum,
-                                 
-                PhysicalLinks.src as PLsrc,
-                PhysicalLinks.dst as PLdst,
-                PhysicalLinks.dist as PLdistance,
-                PhysicalLinks.LatEDFAs as PLlatEDFA,
-                PhysicalLinks.LatFibLen as PLlatFibLen,
-            
-                RoutingVirtualLinksOverPhysicalTopology.fiberid as rtVLoverPTfiberID,
-                RoutingVirtualLinksOverPhysicalTopology.waveid as rtVLoverPTwaveID,
-                RoutingVirtualLinksOverPhysicalTopology.type as rtVLoverPTtype,
-                RoutingVirtualLinksOverPhysicalTopology.HopSeqNum as rtVLoverPTHopSeqNum,
-                RoutingVirtualLinksOverPhysicalTopology.NumberOfHops as rtVLoverPTnumOfHops,
-                RoutingVirtualLinksOverPhysicalTopology.ShortestpathAsInt as rtVLoverPTshrtPathAsInt,
-                RoutingVirtualLinksOverPhysicalTopology.ShortestpathAsStr  as rtVLoverPTshrtPathAsStr,
-                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkDirection as rtVLoverPTphysLinkDir, 
-                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkCurrentSource as rtVLoverPTcurrSrc, 
-                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkCurrentDestination as rtVLoverPTcurrDst,
-                RoutingVirtualLinksOverPhysicalTopology.LatIP as rtVLoverPTlatIP,
-                RoutingVirtualLinksOverPhysicalTopology.LatTransp as rtVLoverPTlatTranspndr
-            
-            FROM
-                Queues, 
-                TrafficRequests, 
-                VirtualLinks,
-                PhysicalLinks,
-                RoutingTrafficRequestsOverVirtualTopology,
-                RoutingVirtualLinksOverPhysicalTopology
-            
-            WHERE
-                    Queues.num = TrafficRequests.quenum
-            
-                AND TrafficRequests.quenum = RoutingTrafficRequestsOverVirtualTopology.reqquenum
-                AND TrafficRequests.num = RoutingTrafficRequestsOverVirtualTopology.reqnum
-                AND RoutingTrafficRequestsOverVirtualTopology.vlsrc = VirtualLinks.src
-                AND RoutingTrafficRequestsOverVirtualTopology.vldst = VirtualLinks.dst
-                AND RoutingTrafficRequestsOverVirtualTopology.vlnum = VirtualLinks.num
-            
-                AND VirtualLinks.src = RoutingVirtualLinksOverPhysicalTopology.vlsrc
-                AND VirtualLinks.dst = RoutingVirtualLinksOverPhysicalTopology.vldst
-                AND VirtualLinks.num = RoutingVirtualLinksOverPhysicalTopology.vlnum
-            
-                AND RoutingVirtualLinksOverPhysicalTopology.plsrc = PhysicalLinks.src
-                AND RoutingVirtualLinksOverPhysicalTopology.pldst = PhysicalLinks.dst
-            
-            ORDER BY
-                TrafficRequests.quenum,
-                TrafficRequests.num
-                ASC;
-        ''')
-
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_allQueues
-            AS
-            SELECT
-            TReqQueNum,
-            TReqReqNum,
-            routeTReqOverVTroutingStep,
-            routeTReqOverVTtype,
-
-            /*
-            TReqSrc,
-            TReqDst,
-            VLsrc,
-            VLdst,
-            VLnum,
-            routeTReqOverVTtype,
-            PLsrc,
-            PLdst,
-            routeVLoverPT_PLdir,
-            routeTReqOverVTroutStepVLseqnum,
-            --(routeTReqOverVTroutStepVLseqnum + 1) as routeVLoverPT_NumOfOpticalHops,
-            routeVLoverPT_HopSeqNum
-            routeVLoverPT_NumOfHops,
-            routeVLoverPT_LatIP,
-            routeVLoverPT_LatTransp,
-            PLlatEDFA,
-            PLlatFibLen,
-            (routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) as Latency,
-            */
-
-            sum (routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) as TotalLatency
-
-            from 
-                (
-                    select 
-                        * 
-                    from 
-                        route_traffic_requests_over_virtual_and_physical_topology 
-
-                    --where
-                    --		TReqQueNum = 0
-                    --	and TReqReqNum = 10
-                    order by
-                        TReqQueNum,
-                        TReqReqNum
-                )
-            /*
-            WHERE
-                routeTReqOverVTtype = 'Grm'
-            */
-            group by
-                TReqQueNum,
-                TReqReqNum,
-                routeTReqOverVTroutingStep
-            order by
-                TReqQueNum ASC,
-                TReqReqNum ASC
-                --routeTReqOverVTroutingStep DESC, routeTReqOverVTroutStepVLseqnum DESC
-        ''')
-
-        sqliteConnection.execute('''        
-            Create View If not EXISTS LatenciesPerTrafficRequest
-            AS SELECT
-                TReqQueNum,
-                TReqReqNum,
-                routeTReqOverVTroutingStep,
-                routeTReqOverVTtype,
-                sum (routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) as TotalLatency
-                from (select * from route_traffic_requests_over_virtual_and_physical_topology 
-                    order by TReqQueNum,
-                            TReqReqNum)
-                group by
-                    TReqQueNum,
-                    TReqReqNum,
-                    routeTReqOverVTroutingStep
-                order by
-                    TReqQueNum ASC,
-                    TReqReqNum ASC;
-        ''')
-
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_allQueues_NewVL
-            AS
-            SELECT * From GetTotalLatencyPerTrafficRequest_allQueues Where routeTReqOverVTtype = 'New'
-        ''')
-        
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_allQueues_Grm
-            AS
-            SELECT * From GetTotalLatencyPerTrafficRequest_allQueues Where routeTReqOverVTtype = 'Grm'
-        ''')
-        
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q0_Grm
-            AS
-            SELECT * From GetTotalLatencyPerTrafficRequest Where TReqQueNum = 0 AND routeTReqOverVTtype = 'Grm'
-        ''')
-        
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q1_Grm
-            AS
-            SELECT * From GetTotalLatencyPerTrafficRequest Where TReqQueNum = 1 AND routeTReqOverVTtype = 'Grm'
-        ''')
-        
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q0_NewVL
-            AS
-            SELECT * From GetTotalLatencyPerTrafficRequest Where TReqQueNum = 0 AND routeTReqOverVTtype = 'New'
-        ''')
-        
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q1_NewVL
-            AS
-            SELECT * From GetTotalLatencyPerTrafficRequest Where TReqQueNum = 1 AND routeTReqOverVTtype = 'New'
-        ''')
-
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS LatencyStatsPerTrafficRequest_Q0_alltypes
-            AS
-            SELECT avg(TotalLatency) as avgLatencyQ0, min(TotalLatency) as minLatencyQ0, max(TotalLatency) as maxLatencyQ0
-            FROM (	SELECT
-                    TReqQueNum,
-                    TReqReqNum,
-                    routeTReqOverVTroutingStep,
-                    routeTReqOverVTtype,
-                    sum (routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) as TotalLatency
-                    FROM (
-                        select * 
-                        from route_traffic_requests_over_virtual_and_physical_topology 
-                        order by
-                            TReqQueNum,
-                            TReqReqNum
-                    )
-                    WHERE
-                        TReqQueNum = 0
-                        --routeTReqOverVTtype = 'Grm'
-
-                    group by
-                        TReqQueNum,
-                        TReqReqNum,
-                        routeTReqOverVTroutingStep
-                    order by
-                        TReqQueNum ASC,
-                        TReqReqNum ASC
-            )
-        ''')
-        
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS LatencyStatsPerTrafficRequest_Q1_alltypes
-            AS
-            SELECT avg(TotalLatency) as avgLatencyQ1, min(TotalLatency) as minLatencyQ1, max(TotalLatency) as maxLatencyQ1
-            FROM (	SELECT
-                    TReqQueNum,
-                    TReqReqNum,
-                    routeTReqOverVTroutingStep,
-                    routeTReqOverVTtype,
-                    sum (routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) as TotalLatency
-                    FROM (
-                        select * 
-                        from route_traffic_requests_over_virtual_and_physical_topology 
-                        order by
-                            TReqQueNum,
-                            TReqReqNum
-                    )
-                    WHERE
-                        TReqQueNum = 1
-                        --routeTReqOverVTtype = 'Grm'
-
-                    group by
-                        TReqQueNum,
-                        TReqReqNum,
-                        routeTReqOverVTroutingStep
-                    order by
-                        TReqQueNum ASC,
-                        TReqReqNum ASC
-            )
-        ''')
 
         sqliteConnection.execute('''
                 CREATE TABLE IF NOT EXISTS LatencyOfThreadOfTrafficRequest (
+                    TReqQueNum integer NOT NULL,
+                    TReqReqNum integer NOT NULL,
+                    routeTReqOverVTroutingStep integer NOT NULL,
+                    NumberOfLightpathHops integer NOT NULL,
+                    LatIP real NOT NULL,
+                    LatTransp real NOT NULL,
+                    LatEDFA real NOT NULL,
+                    LatFibLen real NOT NULL,
+                    ThreadLatency real NOT NULL,
+                                    
+                    PRIMARY KEY (TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep),
+                    FOREIGN key (TReqQueNum, TReqReqNum) REFERENCES TrafficRequests (quenum, num)
+                );
+        ''')
+
+        #13-10-2025
+        sqliteConnection.execute('''
+                CREATE TABLE IF NOT EXISTS LatencyOfThreadOfTrafficRequestTemp (
                     TReqQueNum integer NOT NULL,
                     TReqReqNum integer NOT NULL,
                     routeTReqOverVTroutingStep integer NOT NULL,
@@ -1003,16 +706,326 @@ def createSQLiteDB_withoutBlocking(path):
                 );
         ''')
 
+        #22-8-2026 not strictly needed in the case there is no blocking 
+        #          but added here for uniformity in order to merge later 
+        #          the createSQLiteDB() and createSQLiteDB_withoutBlocking() subprograms
+        sqliteConnection.execute('''
+            CREATE TABLE IF NOT EXISTS WavelengthConverterOverheads (
+                TReqQueNum integer NOT NULL,
+                TReqReqNum integer NOT NULL,
+                ConvertersUsed integer NOT NULL,
+                LatencyOverhead real NOT NULL,
+                PowerOverhead real NOT NULL,
+                PRIMARY KEY (TReqQueNum, TReqReqNum),
+                FOREIGN key (TReqQueNum, TReqReqNum) REFERENCES TrafficRequests (quenum, num)
+            );
+        ''')
 
-        #sqliteConnection.execute('''
-        #   write SQL here            
-        #''')
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest
+            AS
+            SELECT  TReqQueNum, TReqReqNum, TrafficRequestLatency from LatencyOfTrafficRequest;
+        ''')
+
+        #27-10-2026 new version considers only Pass
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS route_traffic_requests_over_virtual_and_physical_topology 
+            AS
+            SELECT
+                Queues.name,
+                Queues.num,
+            
+                TrafficRequests.quenum as TReqQueNum,
+                TrafficRequests.num as TReqReqNum,
+                TrafficRequests.src as TReqSrc,
+                TrafficRequests.dst as TReqDst,
+                TrafficRequests.cap as TReqCap,
+                TrafficRequests.result as TReqResult,
+            
+                RoutingTrafficRequestsOverVirtualTopology.reqquenum as routeTReqOverVTreqquenum,
+                RoutingTrafficRequestsOverVirtualTopology.reqnum as routeTReqOverVTreqnum,
+                RoutingTrafficRequestsOverVirtualTopology.vlsrc as routeTReqOverVT_VLsrc,
+                RoutingTrafficRequestsOverVirtualTopology.vldst as routeTReqOverVT_VLdst,
+                RoutingTrafficRequestsOverVirtualTopology.vlnum as routeTReqOverVT_VLnum,
+                RoutingTrafficRequestsOverVirtualTopology.utilcap as routeTReqOverVTutilCap,
+                RoutingTrafficRequestsOverVirtualTopology.freecap as routeTReqOverVTfreeCap,
+                RoutingTrafficRequestsOverVirtualTopology.type as routeTReqOverVTtype,
+                RoutingTrafficRequestsOverVirtualTopology.routingStep as routeTReqOverVTroutingStep,
+                RoutingTrafficRequestsOverVirtualTopology.routStepVLseqnum as routeTReqOverVTroutStepVLseqnum,
+                RoutingTrafficRequestsOverVirtualTopology.result as routeTReqOverVTresult,
+                            
+                VirtualLinks.src as VLsrc,
+                VirtualLinks.dst as VLdst,
+                VirtualLinks.num as VLnum,
+                VirtualLinks.caputil as VLcaputil,
+                VirtualLinks.capfree as VLcapfree,
+                VirtualLinks.result as VLresult,
+            
+                RoutingVirtualLinksOverPhysicalTopology.vlsrc as routeVLoverPT_VLsrc,
+                RoutingVirtualLinksOverPhysicalTopology.vldst as routeVLoverPT_VLdst,
+                RoutingVirtualLinksOverPhysicalTopology.vlnum as routeVLoverPT_VLnum,
+                RoutingVirtualLinksOverPhysicalTopology.plsrc as routeVLoverPT_PLsrc,
+                RoutingVirtualLinksOverPhysicalTopology.pldst as routeVLoverPT_PLdst,
+                RoutingVirtualLinksOverPhysicalTopology.fiberid as routeVLoverPT_fiberID,
+                RoutingVirtualLinksOverPhysicalTopology.waveid as routeVLoverPT_waveID,
+                RoutingVirtualLinksOverPhysicalTopology.type as routeVLoverPT_type,
+                RoutingVirtualLinksOverPhysicalTopology.HopSeqNum as routeVLoverPT_HopSeqNum,                 
+                RoutingVirtualLinksOverPhysicalTopology.NumberOfHops as routeVLoverPT_NumOfHops,
+                RoutingVirtualLinksOverPhysicalTopology.ShortestpathAsInt as routeVLoverPT_shPathAsInt,
+                RoutingVirtualLinksOverPhysicalTopology.ShortestpathAsStr  as routeVLoverPT_shPathAsStr,
+                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkDirection as routeVLoverPT_PLdir, 
+                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkCurrentSource as routeVLoverPT_currSrc, 
+                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkCurrentDestination as routeVLoverPT_currDest,
+                RoutingVirtualLinksOverPhysicalTopology.LatIP as routeVLoverPT_LatIP,
+                RoutingVirtualLinksOverPhysicalTopology.LatTransp as routeVLoverPT_LatTransp,
+                RoutingVirtualLinksOverPhysicalTopology.result as routeVLoverPT_result,
+            
+                PhysicalLinks.src as PLsrc,
+                PhysicalLinks.dst as PLdst,
+                PhysicalLinks.dist as PLdistance,
+                PhysicalLinks.LatEDFAs as PLlatEDFA,
+                PhysicalLinks.LatFibLen as PLlatFibLen
+            
+            FROM
+                Queues, 
+                TrafficRequests, 
+                VirtualLinks,
+                PhysicalLinks,
+                RoutingTrafficRequestsOverVirtualTopology,
+                RoutingVirtualLinksOverPhysicalTopology
+            
+            WHERE
+                    Queues.num = TrafficRequests.quenum
+            
+                AND TrafficRequests.quenum = RoutingTrafficRequestsOverVirtualTopology.reqquenum
+                AND TrafficRequests.num = RoutingTrafficRequestsOverVirtualTopology.reqnum
+                AND RoutingTrafficRequestsOverVirtualTopology.vlsrc = VirtualLinks.src
+                AND RoutingTrafficRequestsOverVirtualTopology.vldst = VirtualLinks.dst
+                AND RoutingTrafficRequestsOverVirtualTopology.vlnum = VirtualLinks.num
+            
+                AND VirtualLinks.src = RoutingVirtualLinksOverPhysicalTopology.vlsrc
+                AND VirtualLinks.dst = RoutingVirtualLinksOverPhysicalTopology.vldst
+                AND VirtualLinks.num = RoutingVirtualLinksOverPhysicalTopology.vlnum
+            
+                AND RoutingVirtualLinksOverPhysicalTopology.plsrc = PhysicalLinks.src
+                AND RoutingVirtualLinksOverPhysicalTopology.pldst = PhysicalLinks.dst
+                
+                AND TrafficRequests.result = 'Pass'
+                AND RoutingTrafficRequestsOverVirtualTopology.result = 'Pass'
+                AND VirtualLinks.result = 'Pass'
+                AND RoutingVirtualLinksOverPhysicalTopology.result = 'Pass'
+            
+            ORDER BY
+                TrafficRequests.quenum,
+                TrafficRequests.num
+                ASC;
+        ''')
+
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_allQueues
+            AS
+            SELECT
+                TReqQueNum,
+                TReqReqNum,            
+                TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest   
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
+
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_allQueues_NewVL
+            AS
+            SELECT
+                LatencyOfTrafficRequest.TReqQueNum,
+                LatencyOfTrafficRequest.TReqReqNum,            
+                RoutingTrafficRequestsOverVirtualTopology.type,
+                LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology   
+            where 
+                RoutingTrafficRequestsOverVirtualTopology.type="New"
+                and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
+
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_allQueues_Grm
+            AS
+            SELECT
+                LatencyOfTrafficRequest.TReqQueNum,
+                LatencyOfTrafficRequest.TReqReqNum,            
+                RoutingTrafficRequestsOverVirtualTopology.type,
+                LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology   
+            where 
+                RoutingTrafficRequestsOverVirtualTopology.type="Grm"
+                and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
+
+        sqliteConnection.execute('''
+                    CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q0_Grm
+                    AS
+                    SELECT
+                        LatencyOfTrafficRequest.TReqQueNum,
+                        LatencyOfTrafficRequest.TReqReqNum,            
+                        RoutingTrafficRequestsOverVirtualTopology.type,
+                        LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+                    from 
+                        LatencyOfTrafficRequest,
+                        RoutingTrafficRequestsOverVirtualTopology   
+                    where 
+                        RoutingTrafficRequestsOverVirtualTopology.type="Grm"
+                        and LatencyOfTrafficRequest.TReqQueNum = 0
+                        and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                        and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+                    order by
+                        TReqQueNum ASC,
+                        TReqReqNum ASC;
+        ''')
+
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q1_Grm
+            AS
+            SELECT
+                LatencyOfTrafficRequest.TReqQueNum,
+                LatencyOfTrafficRequest.TReqReqNum,            
+                RoutingTrafficRequestsOverVirtualTopology.type,
+                LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology   
+            where 
+                RoutingTrafficRequestsOverVirtualTopology.type="Grm"
+                and LatencyOfTrafficRequest.TReqQueNum = 1
+                and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
+
+
+        sqliteConnection.execute('''
+        CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q0_NewVL
+                    AS
+                    SELECT
+                        LatencyOfTrafficRequest.TReqQueNum,
+                        LatencyOfTrafficRequest.TReqReqNum,            
+                        RoutingTrafficRequestsOverVirtualTopology.type,
+                        LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+                    from 
+                        LatencyOfTrafficRequest,
+                        RoutingTrafficRequestsOverVirtualTopology   
+                    where 
+                        RoutingTrafficRequestsOverVirtualTopology.type="New"
+                        and LatencyOfTrafficRequest.TReqQueNum = 0
+                        and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                        and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+                    order by
+                        TReqQueNum ASC,
+                        TReqReqNum ASC;
+        ''')
+
+
+        sqliteConnection.execute('''
+        CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q1_NewVL
+            AS
+            SELECT
+                LatencyOfTrafficRequest.TReqQueNum,
+                LatencyOfTrafficRequest.TReqReqNum,            
+                RoutingTrafficRequestsOverVirtualTopology.type,
+                LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology   
+            where 
+                RoutingTrafficRequestsOverVirtualTopology.type="New"
+                and LatencyOfTrafficRequest.TReqQueNum = 1
+                and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
+
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q0_alltypes
+            AS
+            SELECT
+                LatencyOfTrafficRequest.TReqQueNum,
+                LatencyOfTrafficRequest.TReqReqNum,            
+                RoutingTrafficRequestsOverVirtualTopology.type,
+                LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology   
+            where 
+                    LatencyOfTrafficRequest.TReqQueNum = 0
+                and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')    
+        
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q1_alltypes
+            AS
+            SELECT
+                LatencyOfTrafficRequest.TReqQueNum,
+                LatencyOfTrafficRequest.TReqReqNum,            
+                RoutingTrafficRequestsOverVirtualTopology.type,
+                LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology   
+            where 
+                    LatencyOfTrafficRequest.TReqQueNum = 1
+                and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')    
+        
+        #31-10-2026 nea ekdosi gia to DB view LatenciesPerTrafficRequest
+        sqliteConnection.execute('''        
+            Create View If not EXISTS LatenciesPerTrafficRequest
+            as 
+            select 
+                LatencyOfThreadOfTrafficRequest.TReqQueNum, 
+                LatencyOfThreadOfTrafficRequest.TReqReqNum as TReqReqNum, 
+                LatencyOfThreadOfTrafficRequest.routeTReqOverVTroutingStep as routeTReqOverVTroutingStep,	
+                RoutingTrafficRequestsOverVirtualTopology.type as routeTReqOverVTtype,
+                LatencyOfThreadOfTrafficRequest.ThreadLatency as TotalLatency
+            from 
+                LatencyOfThreadOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology
+            where
+                    RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfThreadOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum    = LatencyOfThreadOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
 
         sqliteConnection.commit()
 
     # Handle errors
     except sqlite3.Error as err:
-        #print('<div class="error">Error occurred - ', error,"</div>")
         error("Error during SQLite tables and view creation. "+err.sqlite_errorname,err.sqlite_errorcode)
     
     return sqliteConnection
@@ -1146,365 +1159,7 @@ def createSQLiteDB(path, dbName):
         ''')
 
         sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS route_traffic_requests_over_virtual_and_physical_topology 
-            AS
-            SELECT
-                Queues.name,
-                Queues.num,
-            
-                TrafficRequests.quenum as TReqQueNum,
-                TrafficRequests.num as TReqReqNum,
-                TrafficRequests.src as TReqSrc,
-                TrafficRequests.dst as TReqDst,
-                TrafficRequests.cap as TReqCap,
-                TrafficRequests.result as TReqResult,                                 
-            
-                RoutingTrafficRequestsOverVirtualTopology.reqquenum as routeTReqOverVTreqquenum,
-                RoutingTrafficRequestsOverVirtualTopology.reqnum as routeTReqOverVTreqnum,
-                RoutingTrafficRequestsOverVirtualTopology.vlsrc as routeTReqOverVT_VLsrc,
-                RoutingTrafficRequestsOverVirtualTopology.vldst as routeTReqOverVT_VLdst,
-                RoutingTrafficRequestsOverVirtualTopology.vlnum as routeTReqOverVT_VLnum,
-                RoutingTrafficRequestsOverVirtualTopology.utilcap as routeTReqOverVTutilCap,
-                RoutingTrafficRequestsOverVirtualTopology.freecap as routeTReqOverVTfreeCap,
-                RoutingTrafficRequestsOverVirtualTopology.type as routeTReqOverVTtype,
-                RoutingTrafficRequestsOverVirtualTopology.routingStep as routeTReqOverVTroutingStep,
-                RoutingTrafficRequestsOverVirtualTopology.routStepVLseqnum as routeTReqOverVTroutStepVLseqnum,
-                RoutingTrafficRequestsOverVirtualTopology.result as routeTReqOverVTresult,
-                            
-                VirtualLinks.src as VLsrc,
-                VirtualLinks.dst as VLdst,
-                VirtualLinks.num as VLnum,
-                VirtualLinks.caputil as VLcaputil,
-                VirtualLinks.capfree as VLcapfree,
-                VirtualLinks.result as VLresult,
-            
-                RoutingVirtualLinksOverPhysicalTopology.vlsrc as routeVLoverPT_VLsrc,
-                RoutingVirtualLinksOverPhysicalTopology.vldst as routeVLoverPT_VLdst,
-                RoutingVirtualLinksOverPhysicalTopology.vlnum as routeVLoverPT_VLnum,
-                RoutingVirtualLinksOverPhysicalTopology.plsrc as routeVLoverPT_PLsrc,
-                RoutingVirtualLinksOverPhysicalTopology.pldst as routeVLoverPT_PLdst,
-                RoutingVirtualLinksOverPhysicalTopology.fiberid as routeVLoverPT_fiberID,
-                RoutingVirtualLinksOverPhysicalTopology.waveid as routeVLoverPT_waveID,
-                RoutingVirtualLinksOverPhysicalTopology.type as routeVLoverPT_type,
-                RoutingVirtualLinksOverPhysicalTopology.HopSeqNum as routeVLoverPT_HopSeqNum,                 
-                RoutingVirtualLinksOverPhysicalTopology.NumberOfHops as routeVLoverPT_NumOfHops,
-                RoutingVirtualLinksOverPhysicalTopology.ShortestpathAsInt as routeVLoverPT_shPathAsInt,
-                RoutingVirtualLinksOverPhysicalTopology.ShortestpathAsStr  as routeVLoverPT_shPathAsStr,
-                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkDirection as routeVLoverPT_PLdir, 
-                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkCurrentSource as routeVLoverPT_currSrc, 
-                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkCurrentDestination as routeVLoverPT_currDest,
-                RoutingVirtualLinksOverPhysicalTopology.LatIP as routeVLoverPT_LatIP,
-                RoutingVirtualLinksOverPhysicalTopology.LatTransp as routeVLoverPT_LatTransp,
-                RoutingVirtualLinksOverPhysicalTopology.result as routeVLoverPT_result,
-            
-                PhysicalLinks.src as PLsrc,
-                PhysicalLinks.dst as PLdst,
-                PhysicalLinks.dist as PLdistance,
-                PhysicalLinks.LatEDFAs as PLlatEDFA,
-                PhysicalLinks.LatFibLen as PLlatFibLen
-            
-            FROM
-                Queues, 
-                TrafficRequests, 
-                VirtualLinks,
-                PhysicalLinks,
-                RoutingTrafficRequestsOverVirtualTopology,
-                RoutingVirtualLinksOverPhysicalTopology
-            
-            WHERE
-                    Queues.num = TrafficRequests.quenum
-            
-                AND TrafficRequests.quenum = RoutingTrafficRequestsOverVirtualTopology.reqquenum
-                AND TrafficRequests.num = RoutingTrafficRequestsOverVirtualTopology.reqnum
-                AND RoutingTrafficRequestsOverVirtualTopology.vlsrc = VirtualLinks.src
-                AND RoutingTrafficRequestsOverVirtualTopology.vldst = VirtualLinks.dst
-                AND RoutingTrafficRequestsOverVirtualTopology.vlnum = VirtualLinks.num
-            
-                AND VirtualLinks.src = RoutingVirtualLinksOverPhysicalTopology.vlsrc
-                AND VirtualLinks.dst = RoutingVirtualLinksOverPhysicalTopology.vldst
-                AND VirtualLinks.num = RoutingVirtualLinksOverPhysicalTopology.vlnum
-            
-                AND RoutingVirtualLinksOverPhysicalTopology.plsrc = PhysicalLinks.src
-                AND RoutingVirtualLinksOverPhysicalTopology.pldst = PhysicalLinks.dst
-            
-            ORDER BY
-                TrafficRequests.quenum,
-                TrafficRequests.num
-                ASC;
-        ''')
-
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS RouteTRoverVTandPT 
-            AS
-            SELECT
-                Queues.name,
-            
-                TrafficRequests.quenum as TReqQueNum,
-                TrafficRequests.num as TReqReqNum,
-                TrafficRequests.src as TReqSrc,
-                TrafficRequests.dst as TReqDst,
-                TrafficRequests.cap as TReqCap,
-                TrafficRequests.result as TReqResult,
-
-                VirtualLinks.src as VLsrc,
-                VirtualLinks.dst as VLdst,
-                VirtualLinks.num as VLnum,
-                VirtualLinks.caputil as VLcaputil,
-                VirtualLinks.capfree as VLcapfree,
-                VirtualLinks.result as VLresult,
-                RoutingTrafficRequestsOverVirtualTopology.type as rtTRoverVT_type,
-                RoutingTrafficRequestsOverVirtualTopology.routingStep as rtTRoverVTroutingStep,
-                RoutingTrafficRequestsOverVirtualTopology.routStepVLseqnum as rtTRoverVTroutStpVLseqnum,
-                RoutingTrafficRequestsOverVirtualTopology.result as rtTRoverVT_result,
-                                 
-                PhysicalLinks.src as PLsrc,
-                PhysicalLinks.dst as PLdst,
-                PhysicalLinks.dist as PLdistance,
-                PhysicalLinks.LatEDFAs as PLlatEDFA,
-                PhysicalLinks.LatFibLen as PLlatFibLen,
-            
-                RoutingVirtualLinksOverPhysicalTopology.fiberid as rtVLoverPTfiberID,
-                RoutingVirtualLinksOverPhysicalTopology.waveid as rtVLoverPTwaveID,
-                RoutingVirtualLinksOverPhysicalTopology.type as rtVLoverPTtype,
-                RoutingVirtualLinksOverPhysicalTopology.HopSeqNum as rtVLoverPTHopSeqNum,
-                RoutingVirtualLinksOverPhysicalTopology.NumberOfHops as rtVLoverPTnumOfHops,
-                RoutingVirtualLinksOverPhysicalTopology.ShortestpathAsInt as rtVLoverPTshrtPathAsInt,
-                RoutingVirtualLinksOverPhysicalTopology.ShortestpathAsStr  as rtVLoverPTshrtPathAsStr,
-                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkDirection as rtVLoverPTphysLinkDir, 
-                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkCurrentSource as rtVLoverPTcurrSrc, 
-                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkCurrentDestination as rtVLoverPTcurrDst,
-                RoutingVirtualLinksOverPhysicalTopology.LatIP as rtVLoverPTlatIP,
-                RoutingVirtualLinksOverPhysicalTopology.LatTransp as rtVLoverPTlatTranspndr,
-                RoutingVirtualLinksOverPhysicalTopology.result as rtVLoverPT_result
-            
-            FROM
-                Queues, 
-                TrafficRequests, 
-                VirtualLinks,
-                PhysicalLinks,
-                RoutingTrafficRequestsOverVirtualTopology,
-                RoutingVirtualLinksOverPhysicalTopology
-            
-            WHERE
-                    Queues.num = TrafficRequests.quenum
-            
-                AND TrafficRequests.quenum = RoutingTrafficRequestsOverVirtualTopology.reqquenum
-                AND TrafficRequests.num = RoutingTrafficRequestsOverVirtualTopology.reqnum
-                AND RoutingTrafficRequestsOverVirtualTopology.vlsrc = VirtualLinks.src
-                AND RoutingTrafficRequestsOverVirtualTopology.vldst = VirtualLinks.dst
-                AND RoutingTrafficRequestsOverVirtualTopology.vlnum = VirtualLinks.num
-            
-                AND VirtualLinks.src = RoutingVirtualLinksOverPhysicalTopology.vlsrc
-                AND VirtualLinks.dst = RoutingVirtualLinksOverPhysicalTopology.vldst
-                AND VirtualLinks.num = RoutingVirtualLinksOverPhysicalTopology.vlnum
-            
-                AND RoutingVirtualLinksOverPhysicalTopology.plsrc = PhysicalLinks.src
-                AND RoutingVirtualLinksOverPhysicalTopology.pldst = PhysicalLinks.dst
-            
-            ORDER BY
-                TrafficRequests.quenum,
-                TrafficRequests.num
-                ASC;
-        ''')
-
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_allQueues
-            AS
-            SELECT
-            TReqQueNum,
-            TReqReqNum,
-            routeTReqOverVTroutingStep,
-            routeTReqOverVTtype,
-
-            /*
-            TReqSrc,
-            TReqDst,
-            VLsrc,
-            VLdst,
-            VLnum,
-            routeTReqOverVTtype,
-            PLsrc,
-            PLdst,
-            routeVLoverPT_PLdir,
-            routeTReqOverVTroutStepVLseqnum,
-            --(routeTReqOverVTroutStepVLseqnum + 1) as routeVLoverPT_NumOfOpticalHops,
-            routeVLoverPT_HopSeqNum
-            routeVLoverPT_NumOfHops,
-            routeVLoverPT_LatIP,
-            routeVLoverPT_LatTransp,
-            PLlatEDFA,
-            PLlatFibLen,
-            (routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) as Latency,
-            */
-
-            sum (routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) as TotalLatency
-
-            from 
-                (
-                    select 
-                        * 
-                    from 
-                        route_traffic_requests_over_virtual_and_physical_topology 
-
-                    --where
-                    --		TReqQueNum = 0
-                    --	and TReqReqNum = 10
-                    order by
-                        TReqQueNum,
-                        TReqReqNum
-                )
-            /*
-            WHERE
-                routeTReqOverVTtype = 'Grm'
-            */
-            group by
-                TReqQueNum,
-                TReqReqNum,
-                routeTReqOverVTroutingStep
-            order by
-                TReqQueNum ASC,
-                TReqReqNum ASC
-                --routeTReqOverVTroutingStep DESC, routeTReqOverVTroutStepVLseqnum DESC
-        ''')
-
-        sqliteConnection.execute('''        
-            Create View If not EXISTS LatenciesPerTrafficRequest
-            AS SELECT
-                TReqQueNum,
-                TReqReqNum,
-                routeTReqOverVTroutingStep,
-                routeTReqOverVTtype,
-                sum (routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) as TotalLatency
-                from (select * from route_traffic_requests_over_virtual_and_physical_topology 
-                    order by TReqQueNum,
-                            TReqReqNum)
-                group by
-                    TReqQueNum,
-                    TReqReqNum,
-                    routeTReqOverVTroutingStep
-                order by
-                    TReqQueNum ASC,
-                    TReqReqNum ASC;
-        ''')
-
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_allQueues_NewVL
-            AS
-            SELECT * From GetTotalLatencyPerTrafficRequest_allQueues Where routeTReqOverVTtype = 'New'
-        ''')
-        
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_allQueues_Grm
-            AS
-            SELECT * From GetTotalLatencyPerTrafficRequest_allQueues Where routeTReqOverVTtype = 'Grm'
-        ''')
-        
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q0_Grm
-            AS
-            SELECT * From GetTotalLatencyPerTrafficRequest Where TReqQueNum = 0 AND routeTReqOverVTtype = 'Grm'
-        ''')
-        
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q1_Grm
-            AS
-            SELECT * From GetTotalLatencyPerTrafficRequest Where TReqQueNum = 1 AND routeTReqOverVTtype = 'Grm'
-        ''')
-        
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q0_NewVL
-            AS
-            SELECT * From GetTotalLatencyPerTrafficRequest Where TReqQueNum = 0 AND routeTReqOverVTtype = 'New'
-        ''')
-        
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q1_NewVL
-            AS
-            SELECT * From GetTotalLatencyPerTrafficRequest Where TReqQueNum = 1 AND routeTReqOverVTtype = 'New'
-        ''')
-
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS LatencyStatsPerTrafficRequest_Q0_alltypes
-            AS
-            SELECT avg(TotalLatency) as avgLatencyQ0, min(TotalLatency) as minLatencyQ0, max(TotalLatency) as maxLatencyQ0
-            FROM (	SELECT
-                    TReqQueNum,
-                    TReqReqNum,
-                    routeTReqOverVTroutingStep,
-                    routeTReqOverVTtype,
-                    sum (routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) as TotalLatency
-                    FROM (
-                        select * 
-                        from route_traffic_requests_over_virtual_and_physical_topology 
-                        order by
-                            TReqQueNum,
-                            TReqReqNum
-                    )
-                    WHERE
-                        TReqQueNum = 0
-                        --routeTReqOverVTtype = 'Grm'
-
-                    group by
-                        TReqQueNum,
-                        TReqReqNum,
-                        routeTReqOverVTroutingStep
-                    order by
-                        TReqQueNum ASC,
-                        TReqReqNum ASC
-            )
-        ''')
-        
-        sqliteConnection.execute('''
-            CREATE VIEW IF NOT EXISTS LatencyStatsPerTrafficRequest_Q1_alltypes
-            AS
-            SELECT avg(TotalLatency) as avgLatencyQ1, min(TotalLatency) as minLatencyQ1, max(TotalLatency) as maxLatencyQ1
-            FROM (	SELECT
-                    TReqQueNum,
-                    TReqReqNum,
-                    routeTReqOverVTroutingStep,
-                    routeTReqOverVTtype,
-                    sum (routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) as TotalLatency
-                    FROM (
-                        select * 
-                        from route_traffic_requests_over_virtual_and_physical_topology 
-                        order by
-                            TReqQueNum,
-                            TReqReqNum
-                    )
-                    WHERE
-                        TReqQueNum = 1
-                        --routeTReqOverVTtype = 'Grm'
-
-                    group by
-                        TReqQueNum,
-                        TReqReqNum,
-                        routeTReqOverVTroutingStep
-                    order by
-                        TReqQueNum ASC,
-                        TReqReqNum ASC
-            )
-        ''')
-
-        sqliteConnection.execute('''
                 CREATE TABLE IF NOT EXISTS LatencyOfThreadOfTrafficRequest (
-                    TReqQueNum integer NOT NULL,
-                    TReqReqNum integer NOT NULL,
-                    routeTReqOverVTroutingStep integer NOT NULL,
-                    NumberOfLightpathHops integer NOT NULL,
-                    LatIP real NOT NULL,
-                    LatTransp real NOT NULL,
-                    LatEDFA real NOT NULL,
-                    LatFibLen real NOT NULL,
-                    ThreadLatency real NOT NULL,
-                                    
-                    PRIMARY KEY (TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep),
-                    FOREIGN key (TReqQueNum, TReqReqNum) REFERENCES TrafficRequests (quenum, num)
-                );
-        ''')
-
-        #13-10-2025
-        sqliteConnection.execute('''
-                CREATE TABLE IF NOT EXISTS LatencyOfThreadOfTrafficRequestTemp (
                     TReqQueNum integer NOT NULL,
                     TReqReqNum integer NOT NULL,
                     routeTReqOverVTroutingStep integer NOT NULL,
@@ -1575,17 +1230,310 @@ def createSQLiteDB(path, dbName):
             );
         ''')
 
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest
+            AS
+            SELECT  TReqQueNum, TReqReqNum, TrafficRequestLatency from LatencyOfTrafficRequest;
+        ''')
 
-        #sqliteConnection.execute('''
-        #   write SQL here            
-        #''')
+        #27-10-2026 new version considers only Pass
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS route_traffic_requests_over_virtual_and_physical_topology 
+            AS
+            SELECT
+                Queues.name,
+                Queues.num,
+            
+                TrafficRequests.quenum as TReqQueNum,
+                TrafficRequests.num as TReqReqNum,
+                TrafficRequests.src as TReqSrc,
+                TrafficRequests.dst as TReqDst,
+                TrafficRequests.cap as TReqCap,
+                TrafficRequests.result as TReqResult,
+            
+                RoutingTrafficRequestsOverVirtualTopology.reqquenum as routeTReqOverVTreqquenum,
+                RoutingTrafficRequestsOverVirtualTopology.reqnum as routeTReqOverVTreqnum,
+                RoutingTrafficRequestsOverVirtualTopology.vlsrc as routeTReqOverVT_VLsrc,
+                RoutingTrafficRequestsOverVirtualTopology.vldst as routeTReqOverVT_VLdst,
+                RoutingTrafficRequestsOverVirtualTopology.vlnum as routeTReqOverVT_VLnum,
+                RoutingTrafficRequestsOverVirtualTopology.utilcap as routeTReqOverVTutilCap,
+                RoutingTrafficRequestsOverVirtualTopology.freecap as routeTReqOverVTfreeCap,
+                RoutingTrafficRequestsOverVirtualTopology.type as routeTReqOverVTtype,
+                RoutingTrafficRequestsOverVirtualTopology.routingStep as routeTReqOverVTroutingStep,
+                RoutingTrafficRequestsOverVirtualTopology.routStepVLseqnum as routeTReqOverVTroutStepVLseqnum,
+                RoutingTrafficRequestsOverVirtualTopology.result as routeTReqOverVTresult,
+                            
+                VirtualLinks.src as VLsrc,
+                VirtualLinks.dst as VLdst,
+                VirtualLinks.num as VLnum,
+                VirtualLinks.caputil as VLcaputil,
+                VirtualLinks.capfree as VLcapfree,
+                VirtualLinks.result as VLresult,
+            
+                RoutingVirtualLinksOverPhysicalTopology.vlsrc as routeVLoverPT_VLsrc,
+                RoutingVirtualLinksOverPhysicalTopology.vldst as routeVLoverPT_VLdst,
+                RoutingVirtualLinksOverPhysicalTopology.vlnum as routeVLoverPT_VLnum,
+                RoutingVirtualLinksOverPhysicalTopology.plsrc as routeVLoverPT_PLsrc,
+                RoutingVirtualLinksOverPhysicalTopology.pldst as routeVLoverPT_PLdst,
+                RoutingVirtualLinksOverPhysicalTopology.fiberid as routeVLoverPT_fiberID,
+                RoutingVirtualLinksOverPhysicalTopology.waveid as routeVLoverPT_waveID,
+                RoutingVirtualLinksOverPhysicalTopology.type as routeVLoverPT_type,
+                RoutingVirtualLinksOverPhysicalTopology.HopSeqNum as routeVLoverPT_HopSeqNum,                 
+                RoutingVirtualLinksOverPhysicalTopology.NumberOfHops as routeVLoverPT_NumOfHops,
+                RoutingVirtualLinksOverPhysicalTopology.ShortestpathAsInt as routeVLoverPT_shPathAsInt,
+                RoutingVirtualLinksOverPhysicalTopology.ShortestpathAsStr  as routeVLoverPT_shPathAsStr,
+                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkDirection as routeVLoverPT_PLdir, 
+                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkCurrentSource as routeVLoverPT_currSrc, 
+                RoutingVirtualLinksOverPhysicalTopology.PhysicalLinkCurrentDestination as routeVLoverPT_currDest,
+                RoutingVirtualLinksOverPhysicalTopology.LatIP as routeVLoverPT_LatIP,
+                RoutingVirtualLinksOverPhysicalTopology.LatTransp as routeVLoverPT_LatTransp,
+                RoutingVirtualLinksOverPhysicalTopology.result as routeVLoverPT_result,
+            
+                PhysicalLinks.src as PLsrc,
+                PhysicalLinks.dst as PLdst,
+                PhysicalLinks.dist as PLdistance,
+                PhysicalLinks.LatEDFAs as PLlatEDFA,
+                PhysicalLinks.LatFibLen as PLlatFibLen
+            
+            FROM
+                Queues, 
+                TrafficRequests, 
+                VirtualLinks,
+                PhysicalLinks,
+                RoutingTrafficRequestsOverVirtualTopology,
+                RoutingVirtualLinksOverPhysicalTopology
+            
+            WHERE
+                    Queues.num = TrafficRequests.quenum
+            
+                AND TrafficRequests.quenum = RoutingTrafficRequestsOverVirtualTopology.reqquenum
+                AND TrafficRequests.num = RoutingTrafficRequestsOverVirtualTopology.reqnum
+                AND RoutingTrafficRequestsOverVirtualTopology.vlsrc = VirtualLinks.src
+                AND RoutingTrafficRequestsOverVirtualTopology.vldst = VirtualLinks.dst
+                AND RoutingTrafficRequestsOverVirtualTopology.vlnum = VirtualLinks.num
+            
+                AND VirtualLinks.src = RoutingVirtualLinksOverPhysicalTopology.vlsrc
+                AND VirtualLinks.dst = RoutingVirtualLinksOverPhysicalTopology.vldst
+                AND VirtualLinks.num = RoutingVirtualLinksOverPhysicalTopology.vlnum
+            
+                AND RoutingVirtualLinksOverPhysicalTopology.plsrc = PhysicalLinks.src
+                AND RoutingVirtualLinksOverPhysicalTopology.pldst = PhysicalLinks.dst
+                
+                AND TrafficRequests.result = 'Pass'
+                AND RoutingTrafficRequestsOverVirtualTopology.result = 'Pass'
+                AND VirtualLinks.result = 'Pass'
+                AND RoutingVirtualLinksOverPhysicalTopology.result = 'Pass'
+            
+            ORDER BY
+                TrafficRequests.quenum,
+                TrafficRequests.num
+                ASC;
+        ''')
+
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_allQueues
+            AS
+            SELECT
+                TReqQueNum,
+                TReqReqNum,            
+                TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest   
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
+        
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_allQueues_NewVL
+            AS
+            SELECT
+                LatencyOfTrafficRequest.TReqQueNum,
+                LatencyOfTrafficRequest.TReqReqNum,            
+                RoutingTrafficRequestsOverVirtualTopology.type,
+                LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology   
+            where 
+                RoutingTrafficRequestsOverVirtualTopology.type="New"
+                and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
+        
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_allQueues_Grm
+            AS
+            SELECT
+                LatencyOfTrafficRequest.TReqQueNum,
+                LatencyOfTrafficRequest.TReqReqNum,            
+                RoutingTrafficRequestsOverVirtualTopology.type,
+                LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology   
+            where 
+                RoutingTrafficRequestsOverVirtualTopology.type="Grm"
+                and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
+
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q0_Grm
+            AS
+            SELECT
+                LatencyOfTrafficRequest.TReqQueNum,
+                LatencyOfTrafficRequest.TReqReqNum,            
+                RoutingTrafficRequestsOverVirtualTopology.type,
+                LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology   
+            where 
+                RoutingTrafficRequestsOverVirtualTopology.type="Grm"
+                and LatencyOfTrafficRequest.TReqQueNum = 0
+                and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
+
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q1_Grm
+            AS
+            SELECT
+                LatencyOfTrafficRequest.TReqQueNum,
+                LatencyOfTrafficRequest.TReqReqNum,            
+                RoutingTrafficRequestsOverVirtualTopology.type,
+                LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology   
+            where 
+                RoutingTrafficRequestsOverVirtualTopology.type="Grm"
+                and LatencyOfTrafficRequest.TReqQueNum = 1
+                and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
+
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q0_NewVL
+            AS
+            SELECT
+                LatencyOfTrafficRequest.TReqQueNum,
+                LatencyOfTrafficRequest.TReqReqNum,            
+                RoutingTrafficRequestsOverVirtualTopology.type,
+                LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology   
+            where 
+                RoutingTrafficRequestsOverVirtualTopology.type="New"
+                and LatencyOfTrafficRequest.TReqQueNum = 0
+                and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
+
+        sqliteConnection.execute('''
+        CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q1_NewVL
+            AS
+            SELECT
+                LatencyOfTrafficRequest.TReqQueNum,
+                LatencyOfTrafficRequest.TReqReqNum,            
+                RoutingTrafficRequestsOverVirtualTopology.type,
+                LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology   
+            where 
+                RoutingTrafficRequestsOverVirtualTopology.type="New"
+                and LatencyOfTrafficRequest.TReqQueNum = 1
+                and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
+
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q0_alltypes
+            AS
+            SELECT
+                LatencyOfTrafficRequest.TReqQueNum,
+                LatencyOfTrafficRequest.TReqReqNum,            
+                RoutingTrafficRequestsOverVirtualTopology.type,
+                LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology   
+            where 
+                    LatencyOfTrafficRequest.TReqQueNum = 0
+                and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
+
+        sqliteConnection.execute('''
+            CREATE VIEW IF NOT EXISTS GetTotalLatencyPerTrafficRequest_Q1_alltypes
+            AS
+            SELECT
+                LatencyOfTrafficRequest.TReqQueNum,
+                LatencyOfTrafficRequest.TReqReqNum,            
+                RoutingTrafficRequestsOverVirtualTopology.type,
+                LatencyOfTrafficRequest.TrafficRequestLatency as TotalLatency
+            from 
+                LatencyOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology   
+            where 
+                    LatencyOfTrafficRequest.TReqQueNum = 1
+                and RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum = LatencyOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')   
+
+        #31-10-2026 nea ekdosi gia to DB view LatenciesPerTrafficRequest
+        sqliteConnection.execute('''        
+            Create View If not EXISTS LatenciesPerTrafficRequest
+            as 
+            select 
+                LatencyOfThreadOfTrafficRequest.TReqQueNum, 
+                LatencyOfThreadOfTrafficRequest.TReqReqNum as TReqReqNum, 
+                LatencyOfThreadOfTrafficRequest.routeTReqOverVTroutingStep as routeTReqOverVTroutingStep,	
+                RoutingTrafficRequestsOverVirtualTopology.type as routeTReqOverVTtype,
+                LatencyOfThreadOfTrafficRequest.ThreadLatency as TotalLatency
+            from 
+                LatencyOfThreadOfTrafficRequest,
+                RoutingTrafficRequestsOverVirtualTopology
+            where
+                    RoutingTrafficRequestsOverVirtualTopology.reqquenum = LatencyOfThreadOfTrafficRequest.TReqQueNum
+                and RoutingTrafficRequestsOverVirtualTopology.reqnum    = LatencyOfThreadOfTrafficRequest.TReqReqNum
+            order by
+                TReqQueNum ASC,
+                TReqReqNum ASC;
+        ''')
 
         sqliteConnection.commit()
 
     # Handle errors
     except sqlite3.Error as err:
-        #print('<div class="error">Error occurred - ', error,"</div>")
-        error("Error during SQLite tables and view creation. "+err.sqlite_errorname,err.sqlite_errorcode)
+        error("Error during SQLite tables and view creation. "+err.sqlite_errorname, err.sqlite_errorcode)
     
     return sqliteConnection
 
@@ -1611,7 +1559,9 @@ def insertRoutingVirtualLinksOverPhysicalTopology2sqlite(sqliteConnection, vlsrc
         if plFound:
             sql  = "INSERT INTO RoutingVirtualLinksOverPhysicalTopology "
             sql += "(vlsrc,vldst,vlnum,plsrc,pldst,fiberid,waveid,type,HopSeqNum,NumberOfHops,ShortestpathAsInt,ShortestpathAsStr,PhysicalLinkDirection,PhysicalLinkCurrentSource,PhysicalLinkCurrentDestination,LatIP,LatTransp,result) "
-            sql += "VALUES (%d, %d, %d, %d, %d, %d, %d, '%s', %d, %d, '%s', '%s', '%s', %d, %d, %.3f, %.3f,'%s');" % (vlsrc, vldst, vlnum, plSource, plDestination, fiberid, waveid, type, hopseqnum, numHops, shPathAsInt, shPathAsStr, plDirection, plCurrentSource, plCurrentDestination, LatIP, LatTransp,'ok')
+            #31-10-2026 update all 'ok' to 'Pass' to count correctly pass VL/TR
+            #sql += "VALUES (%d, %d, %d, %d, %d, %d, %d, '%s', %d, %d, '%s', '%s', '%s', %d, %d, %.3f, %.3f,'%s');" % (vlsrc, vldst, vlnum, plSource, plDestination, fiberid, waveid, type, hopseqnum, numHops, shPathAsInt, shPathAsStr, plDirection, plCurrentSource, plCurrentDestination, LatIP, LatTransp,'ok')
+            sql += "VALUES (%d, %d, %d, %d, %d, %d, %d, '%s', %d, %d, '%s', '%s', '%s', %d, %d, %.3f, %.3f,'%s');" % (vlsrc, vldst, vlnum, plSource, plDestination, fiberid, waveid, type, hopseqnum, numHops, shPathAsInt, shPathAsStr, plDirection, plCurrentSource, plCurrentDestination, LatIP, LatTransp,'Pass')
 
             # source https://developer.mozilla.org/en-US/docs/Web/CSS/list-style-type
             #        https://en.wikipedia.org/wiki/List_of_XML_and_HTML_character_entity_references
@@ -1903,7 +1853,9 @@ def insertVirtualLinkLightPaths2sqlite(sqliteConnection, src, dst, num, caputil,
     #insertVirtualLinkLightPaths2sqlite(dbConnection, newVL[0], newVL[1], newVL[2], cap, roundatdecimals((maxGbpsPerWavelength - cap),3))
     #insertVirtualLinkLightPaths2sqlite(dbConnection, newVL[0], newVL[1], newVL[2], cap, roundatdecimals((maxGbpsPerWavelength - cap),3))
     try:
-        sql = "INSERT INTO VirtualLinks (src, dst, num, caputil, capfree, result) VALUES (%d, %d, %d, %.3f, %.3f,'%s');" % (src, dst, num, caputil, capfree, 'ok')
+        #31-10-2026 update all 'ok' to 'Pass' to count correctly pass VL/TR
+        #sql = "INSERT INTO VirtualLinks (src, dst, num, caputil, capfree, result) VALUES (%d, %d, %d, %.3f, %.3f,'%s');" % (src, dst, num, caputil, capfree, 'ok')
+        sql = "INSERT INTO VirtualLinks (src, dst, num, caputil, capfree, result) VALUES (%d, %d, %d, %.3f, %.3f,'%s');" % (src, dst, num, caputil, capfree, 'Pass')
 
         #print("<li style='list-style-type: square;'>SQL query = ",sql,"</li>")
 
@@ -1914,6 +1866,113 @@ def insertVirtualLinkLightPaths2sqlite(sqliteConnection, src, dst, num, caputil,
         #print('<div class="error">Error occurred during INSERT INTO VirtualLinks - ', err,"</div>")
         error("Error occurred during INSERT INTO VirtualLinks. "+err.sqlite_errorname,err.sqlite_errorcode)
 
+"""
+# 5-10-2025
+def insertRoutingOfTrafficRequests2sqliteForHeaviestHottestAndComparison(sqliteConnection, que, request, vlsrc, vldst, vlnum, utilcap, freecap, type, routingReqTrfStep, routReqTrfStpVLseqNum, tag):
+
+    #insertRoutingOfTrafficRequests2sqlite(dbConnection, queID, requestID, vl[0],vl[1],vl[2], requiredcap, freecap, "Grm")   # insert routing to sqlite table.
+    try:
+        sql =  "INSERT INTO RoutingTrafficRequestsOverVirtualTopology "
+        sql += "(reqquenum, reqnum, vlsrc, vldst, vlnum, utilcap, freecap, type, routingStep, routStepVLseqnum, result) "
+        sql += "VALUES (%d, %d, %d, %d, %d, %.3f, %.3f, '%s', %d, %d, '%s');" % (que, request, vlsrc, vldst, vlnum, utilcap, freecap, type, routingReqTrfStep, routReqTrfStpVLseqNum, tag)
+        
+        ###17-9-2024 
+        #print("<li style='list-style-type: square;'>SQL query = ",sql,"</li>")
+
+        sqliteConnection.execute(sql)
+
+        sqliteConnection.commit()
+
+        ###17-9-2024 
+        #fsqlInsert = open("SQL_INSERTINTO_RoutingTrafficRequestsOverVirtualTopology.txt","a")
+        #fsqlInsert.write(sql+'\n')
+        #fsqlInsert.close()
+
+    except sqlite3.Error as err:
+        '''
+        #fsqlRTROVT = open("SQL_SELECT_RoutingTrafficRequestsOverVirtualTopology.txt","a")
+        sql = "SELECT * FROM RoutingTrafficRequestsOverVirtualTopology"
+        cursor = sqliteConnection.execute(sql)
+        print("<li style='list-style-type: circle;'>RoutingTrafficRequestsOverVirtualTopology")
+        dataset = cursor.fetchall() 
+        for row in dataset: 
+            print("<li>",row)
+            #fsqlRTROVT.write(row+'\n')
+        sqliteConnection.commit()
+        #fsqlRTROVT.close()
+
+        #fsqlTR = open("SQL_SELECT_TrafficRequests.txt","a")
+        sql = "SELECT * FROM TrafficRequests"
+        cursor = sqliteConnection.execute(sql)
+        print("<li style='list-style-type: circle;'>TrafficRequests")
+        dataset = cursor.fetchall() 
+        for row in dataset: 
+            print("<li>",row+'\n')
+            #fsqlTR.write(row)
+        sqliteConnection.commit()
+        #fsqlTR.close()
+
+        #fsqlVL = open("SQL_SELECT_VirtualLinks.txt","a")
+        sql = "SELECT * FROM VirtualLinks"
+        cursor = sqliteConnection.execute(sql)
+        print("<li style='list-style-type: circle;'>VirtualLinks")
+        dataset = cursor.fetchall() 
+        for row in dataset: 
+            print("<li>",row) 
+            #fsqlVL.write(row+'\n')
+        sqliteConnection.commit()
+        #fsqlVL.close()
+        '''
+        #print('<div class="error">Error occurred during INSERT INTO RoutingTrafficRequestsOverVirtualTopology. ', err,"</div>")
+        error("Error occurred during INSERT INTO RoutingTrafficRequestsOverVirtualTopology. " + err.sqlite_errorname,err.sqlite_errorcode)
+"""
+
+#26-10-2026 latest version
+def insertRoutingOfTrafficRequests2sqlite(
+    sqliteConnection, que, request, vlsrc, vldst, vlnum,
+    utilcap, freecap, type, routingReqTrfStep, routReqTrfStpVLseqNum
+):
+    try:
+        # Ensure the parent VirtualLinks record exists before inserting the routing step
+        #31-10-2026 update all 'ok' to 'Pass' to count correctly pass VL/TR
+        '''
+        sqliteConnection.execute(
+            """INSERT OR IGNORE INTO VirtualLinks (src, dst, num, caputil, capfree, result)
+               VALUES (?, ?, ?, ?, ?, 'ok');""",
+            (vlsrc, vldst, vlnum, utilcap, freecap)
+        )
+        '''
+        sqliteConnection.execute(
+            """INSERT OR IGNORE INTO VirtualLinks (src, dst, num, caputil, capfree, result)
+                VALUES (?, ?, ?, ?, ?, 'Pass');""",
+            (vlsrc, vldst, vlnum, utilcap, freecap)
+        )
+        
+
+        sql =  "INSERT INTO RoutingTrafficRequestsOverVirtualTopology "
+        sql += "(reqquenum, reqnum, vlsrc, vldst, vlnum, utilcap, freecap, type, routingStep, routStepVLseqnum, result) "
+        #31-10-2026 update all 'ok' to 'Pass' to count correctly pass VL/TR
+        '''
+        sql += "VALUES (%d, %d, %d, %d, %d, %.3f, %.3f, '%s', %d, %d, '%s');" % (
+            que, request, vlsrc, vldst, vlnum, utilcap, freecap,
+            type, routingReqTrfStep, routReqTrfStpVLseqNum, 'ok'
+        )
+        '''
+        sql += "VALUES (%d, %d, %d, %d, %d, %.3f, %.3f, '%s', %d, %d, '%s');" % (
+                    que, request, vlsrc, vldst, vlnum, utilcap, freecap,
+                    type, routingReqTrfStep, routReqTrfStpVLseqNum, 'Pass'
+        )
+        sqliteConnection.execute(sql)
+        sqliteConnection.commit()
+
+    except sqlite3.Error as err:
+        error(
+            "Error occurred during INSERT INTO RoutingTrafficRequestsOverVirtualTopology. "
+            + err.sqlite_errorname,
+            err.sqlite_errorcode
+        )
+
+""" #previous version
 def insertRoutingOfTrafficRequests2sqlite(sqliteConnection, que, request, vlsrc, vldst, vlnum, utilcap, freecap, type, routingReqTrfStep, routReqTrfStpVLseqNum):
     #insertRoutingOfTrafficRequests2sqlite(dbConnection, queID, requestID, vl[0],vl[1],vl[2], requiredcap, freecap, "Grm")   # insert routing to sqlite table.
     try:
@@ -1970,7 +2029,7 @@ def insertRoutingOfTrafficRequests2sqlite(sqliteConnection, que, request, vlsrc,
         '''
         #print('<div class="error">Error occurred during INSERT INTO RoutingTrafficRequestsOverVirtualTopology. ', err,"</div>")
         error("Error occurred during INSERT INTO RoutingTrafficRequestsOverVirtualTopology. " + err.sqlite_errorname,err.sqlite_errorcode)
-
+"""
 
 
 
@@ -2097,7 +2156,10 @@ def saveRunIDandRunConfig2sqlite(sqliteConnection, uuid, sysArgv):
         ('argv[20]', 'consider traffic grooming rejection criterion (TGRC)', sys.argv[20]),
         ('argv[21]', 'hard latency cap threshold for V_HP (microsecond)', sys.argv[21]),
         ('argv[22]', 'hard latency cap threshold for V_LP (microsecond)', sys.argv[22]),
-        ('argv[23]', 'virtual wavelength capacity (VWC) (Gbps)', sys.argv[23])
+        ('argv[23]', 'virtual wavelength capacity (VWC) (Gbps)', sys.argv[23]),
+        ('argv[24]', 'wavelength converter latency (microsecond)', sys.argv[24]),
+        ('argv[25]', 'wavelength converter power consumption (Watt)', sys.argv[25]),
+        ('argv[26]', 'number of shortest paths to consider during wavelength assignment: (a) the value 1 will utilise Dijkstra''s shortest path algorithm for the shortest path only, block traffic otherwise, (b) the value k will try utilise Yen''s algorithm to discover the 2nd, 3rd, ... k-th shortest alternatives, blocking traffic if wavelength assignment fails for all', sys.argv[26])
     ]
 
     value_strings = []
@@ -2181,7 +2243,9 @@ def saveTrafficRequests2sqlite(sqliteConnection,          TReqs,    nodes, path,
         # Traverse through all array elements
         for reqID in range(n):
             #sql = "INSERT INTO trafficrequests (reqid, src, dst, reqcap, queuelabel) VALUES (%d, %d, %d, %.3f, '%s');" % (count, data[i][0], data[i][1], data[i][2], Qlabel)
-            sql = "INSERT INTO TrafficRequests (quenum, num, src, dst, cap, result) VALUES (%d, %d, %d, %d, %.3f, '%s');" % (QueueID, reqID, TReqs[reqID][0], TReqs[reqID][1], TReqs[reqID][2],'ok')
+            #31-10-2026 update all 'ok' to 'Pass' to count correctly pass VL/TR
+            #sql = "INSERT INTO TrafficRequests (quenum, num, src, dst, cap, result) VALUES (%d, %d, %d, %d, %.3f, '%s');" % (QueueID, reqID, TReqs[reqID][0], TReqs[reqID][1], TReqs[reqID][2],'ok')
+            sql = "INSERT INTO TrafficRequests (quenum, num, src, dst, cap, result) VALUES (%d, %d, %d, %d, %.3f, '%s');" % (QueueID, reqID, TReqs[reqID][0], TReqs[reqID][1], TReqs[reqID][2],'Pass')
 
             #print("<li style='list-style-type: square;'>SQL query = ",sql,"</li>")
 
@@ -2424,7 +2488,46 @@ def printLatenciesPerTrafficRequest(sqliteConnection, Q, Type):
     print("</table>")
 
 
+#27-10-2026 new version
+def getLatencyForAllTrafficRequests():
+    return """
+    SELECT 
+        TReqQueNum, 
+        TReqReqNum,
+        MIN(TReqSrc) AS TReqSrc,
+        MIN(TReqDst) AS TReqDst,
+        SUM(routeTReqOverVTutilCap) AS SumUtilCap,
+        AVG(TotalLatency) AS AvgLatency
+    FROM (
+        SELECT
+            TReqQueNum,
+            TReqReqNum,
+            TReqSrc,
+            TReqDst,
+            routeTReqOverVTutilCap,
+            routeTReqOverVTroutingStep,
+            routeTReqOverVTtype,
+            SUM(routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) AS TotalLatency
+        FROM route_traffic_requests_over_virtual_and_physical_topology
+        WHERE (TReqQueNum, TReqReqNum) IN (
+                  SELECT quenum, num
+                  FROM TrafficRequests
+                  WHERE result = 'Pass'
+              )
+          AND (TReqQueNum, TReqReqNum) NOT IN (
+              SELECT DISTINCT reqquenum, reqnum
+              FROM RoutingTrafficRequestsOverVirtualTopology
+              WHERE result LIKE 'Blocked%' OR result <> 'Pass'
+          )
+        GROUP BY
+            TReqQueNum, TReqReqNum, TReqSrc, TReqDst,
+            routeTReqOverVTutilCap, routeTReqOverVTroutingStep, routeTReqOverVTtype
+    ) AS innerq
+    GROUP BY TReqQueNum, TReqReqNum
+    ORDER BY TReqQueNum, TReqReqNum;
+    """
 
+'''#27-10-2026 old version
 def getLatencyForAllTrafficRequests():
 # 19-9-2025 >>> this calculates the average per concurrent virtual link (lightpath) of a traffic request and shows the average latency of all the concurrent virtual links (routing steps) of a traffic request
     """
@@ -2461,79 +2564,46 @@ GROUP BY
 ORDER BY 
     TReqQueNum, 
     TReqReqNum;
-
     """
+'''
 
-#the following uses the old latency formula for published measurements
+#27-10-2026 new version (old version deleted completely)
 def saveLatencyPerTrafficRequestToDatabase_according_to_the_old_latency_formula(sqliteConnection):
-
-    # 20-9-2025 >>> $$$
-
-    # SQL clause 1: aggregate latency per queue and type of routing {all/new/grm} according to the current Latency formula
-    '''
-    sql1 = """
-        SELECT avg(TotalLatency) as avgLat, min(TotalLatency) as minLat, max(TotalLatency) as maxLat   
-        FROM (	SELECT                                                                                 
-        TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep,	routeTReqOverVTtype,                   
-        sum (routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) as TotalLatency 
-        FROM (select * from route_traffic_requests_over_virtual_and_physical_topology                 
-        order by TReqQueNum,                                                                          
-        TReqReqNum)                                                                                   
-        WHERE                                                                                         
-        TReqQueNum like '{Q:s}'                   <<< need to set the queue parameter
-        AND routeTReqOverVTtype like '{Type:s}'   <<< need to set the routing parameter                      
-        group by                                                                                      
-        TReqQueNum, TReqReqNum,	routeTReqOverVTroutingStep                                         
-        order by                                                                                       
-        TReqQueNum ASC,	TReqReqNum ASC);
-    """
-    '''
-
-    # SQL clause 2: aggregate latency per traffic request's routing step (concurrent transmission step) according to the current Latency formula 
-    '''
-    sql2 = """
-        SELECT 
-            TReqQueNum,
-            TReqReqNum,
-            routeTReqOverVTroutingStep,
-            routeTReqOverVTtype,
-            SUM(routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) AS TotalLatency
-        FROM route_traffic_requests_over_virtual_and_physical_topology
-        GROUP BY 
-            TReqQueNum, 
-            TReqReqNum, 
-            routeTReqOverVTroutingStep, 
-            routeTReqOverVTtype
-        ORDER BY 
-            TReqQueNum ASC, 
-            TReqReqNum ASC;
-    """
-    '''
-
-    # SQL clause 3: aggregate latency per traffic request according to the current Latency formula 
+    sqliteConnection.execute("DROP TABLE IF EXISTS LatencyPerTrafficRequestAccordingToTheOldFormula;")
     sql3 = """
-        CREATE TABLE IF NOT EXISTS LatencyPerTrafficRequestAccordingToTheOldFormula AS
-        select TReqQueNum, TReqReqNum, avg(TotalLatency) as TotalLatency
-        from (SELECT 
-            TReqQueNum,
-            TReqReqNum,
-            routeTReqOverVTroutingStep,
-            routeTReqOverVTtype,
-            SUM(routeVLoverPT_LatIP*2 + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) AS TotalLatency
-        FROM route_traffic_requests_over_virtual_and_physical_topology
-        GROUP BY 
-            TReqQueNum, 
-            TReqReqNum, 
-            routeTReqOverVTroutingStep, 
-            routeTReqOverVTtype
-        ORDER BY 
-            TReqQueNum ASC, 
-            TReqReqNum ASC)
-        Group By TReqQueNum, TReqReqNum
-        Order By TReqQueNum ASC, TReqReqNum ASC;
+        CREATE TABLE LatencyPerTrafficRequestAccordingToTheOldFormula AS
+        SELECT TReqQueNum, TReqReqNum, AVG(TotalLatency) AS TotalLatency
+        FROM (
+            SELECT 
+                TReqQueNum,
+                TReqReqNum,
+                routeTReqOverVTroutingStep,
+                routeTReqOverVTtype,
+                SUM(routeVLoverPT_LatIP*2 + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) AS TotalLatency
+            FROM route_traffic_requests_over_virtual_and_physical_topology
+            WHERE (TReqQueNum, TReqReqNum) IN (
+                   SELECT quenum, num
+                   FROM TrafficRequests
+                   WHERE result = 'Pass'
+                  )
+              AND (TReqQueNum, TReqReqNum) NOT IN (
+                  SELECT DISTINCT reqquenum, reqnum
+                  FROM RoutingTrafficRequestsOverVirtualTopology
+                  WHERE result LIKE 'Blocked%' OR result <> 'Pass'
+              )
+            GROUP BY 
+                TReqQueNum, 
+                TReqReqNum, 
+                routeTReqOverVTroutingStep, 
+                routeTReqOverVTtype
+            ORDER BY 
+                TReqQueNum ASC, 
+                TReqReqNum ASC
+        )
+        GROUP BY TReqQueNum, TReqReqNum
+        ORDER BY TReqQueNum ASC, TReqReqNum ASC;
     """
-
-    cursor = sqliteConnection.execute(sql3)
+    sqliteConnection.execute(sql3)
     sqliteConnection.commit()
 
 
@@ -2569,6 +2639,259 @@ def calculateLatencyPerTrafficRequestTempDatabase_according_to_the_old_latency_f
     sqliteConnection.commit()
 
 
+#27-10-2026 latest version
+#27-10-2026 new version
+def calculateLatencyPerTrafficRequestTempDatabase(sqliteConnection):
+    sqliteConnection.execute("DELETE FROM LatencyOfThreadOfTrafficRequestTemp;")
+    sqliteConnection.execute("DELETE FROM LatencyOfTrafficRequestTemp;")
+    sqliteConnection.commit()
+
+    sql = """
+        SELECT 
+            TReqQueNum,
+            TReqReqNum,
+            routeTReqOverVTroutingStep AS ConcurrentRouteID,
+            COUNT(DISTINCT routeTReqOverVTroutStepVLseqnum) AS numberOfLightpathHops_H_sd_mn
+        FROM route_traffic_requests_over_virtual_and_physical_topology
+        WHERE (TReqQueNum, TReqReqNum) IN (
+                  SELECT quenum, num
+                  FROM TrafficRequests
+                  WHERE result NOT LIKE 'Blocked%'
+              )
+          AND (TReqQueNum, TReqReqNum) NOT IN (
+                  SELECT DISTINCT reqquenum, reqnum
+                  FROM RoutingTrafficRequestsOverVirtualTopology
+                  WHERE result LIKE 'Blocked%'
+              )
+          AND (VLsrc, VLdst, VLnum) IN (
+                  SELECT src, dst, num
+                  FROM VirtualLinks
+                  WHERE result NOT LIKE 'Blocked%'
+              )
+        GROUP BY 
+            TReqQueNum,
+            TReqReqNum,
+            routeTReqOverVTroutingStep
+        ORDER BY 
+            TReqQueNum ASC, 
+            TReqReqNum ASC;
+    """
+    cursor = sqliteConnection.execute(sql)
+    dataset1 = cursor.fetchall()
+
+    for row in dataset1:
+        Q = row[0]
+        R = row[1]
+        C = row[2]
+        H = row[3]
+
+        sql_hops = f"""
+            SELECT                                                                                  
+                TReqQueNum,
+                TReqReqNum,
+                routeTReqOverVTroutingStep,
+                routeTReqOverVTroutStepVLseqnum,
+                routeVLoverPT_NumOfHops,
+                routeVLoverPT_LatIP,
+                routeVLoverPT_LatTransp,
+                PLlatEDFA,
+                PLlatFibLen
+            FROM route_traffic_requests_over_virtual_and_physical_topology
+            WHERE TReqQueNum = {Q:d}
+              AND TReqReqNum = {R:d}
+              AND routeTReqOverVTroutingStep = {C:d}
+              AND (VLsrc, VLdst, VLnum) IN (
+                  SELECT src, dst, num
+                  FROM VirtualLinks
+                  WHERE result NOT LIKE 'Blocked%'
+              )
+            ORDER BY                                                                                       
+                TReqQueNum ASC, TReqReqNum ASC,
+                routeTReqOverVTroutingStep ASC, routeTReqOverVTroutStepVLseqnum ASC;
+        """
+        cursor_hops = sqliteConnection.execute(sql_hops)
+        dataset2 = cursor_hops.fetchall()
+
+        if not dataset2 or H <= 0:
+            continue
+
+        LatEDFA = 0.0
+        LatFibLen = 0.0
+        L_r = 0.0
+        L_t = 0.0
+
+        for hop_row in dataset2:
+            L_r = float(hop_row[5])
+            L_t = float(hop_row[6])
+            L_e = float(hop_row[7])
+            L_f = float(hop_row[8])
+
+            LatEDFA += L_e
+            LatFibLen += L_f
+
+        LatIP = 2.0 * (H + 1) * L_r
+        LatTransp = 2.0 * H * L_t
+        LatWDM = LatTransp + LatEDFA + LatFibLen
+        LatThread = LatIP + LatWDM
+
+        sqliteConnection.execute(
+            """INSERT INTO LatencyOfThreadOfTrafficRequestTemp
+               (TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep, NumberOfLightpathHops,
+                LatIP, LatTransp, LatEDFA, LatFibLen, ThreadLatency)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);""",
+            (
+                Q, R, C, H,
+                roundatdecimals(LatIP, 3),
+                roundatdecimals(LatTransp, 3),
+                roundatdecimals(LatEDFA, 3),
+                roundatdecimals(LatFibLen, 3),
+                roundatdecimals(LatThread, 3)
+            )
+        )
+
+    sqliteConnection.commit()
+
+    sqliteConnection.execute("""
+        INSERT INTO LatencyOfTrafficRequestTemp (
+            TReqQueNum,
+            TReqReqNum,
+            TrafficRequestLatency
+        ) 
+        SELECT 
+            TReqQueNum,
+            TReqReqNum,
+            AVG(ThreadLatency) AS avg_latency
+        FROM LatencyOfThreadOfTrafficRequestTemp
+        GROUP BY 
+            TReqQueNum,
+            TReqReqNum
+        ORDER BY 
+            TReqQueNum ASC,
+            TReqReqNum ASC;
+    """)
+    sqliteConnection.commit()
+
+'''#27-10-2026 new version
+def calculateLatencyPerTrafficRequestTempDatabase(sqliteConnection):
+    sqliteConnection.execute("DELETE FROM LatencyOfThreadOfTrafficRequestTemp;")
+    sqliteConnection.execute("DELETE FROM LatencyOfTrafficRequestTemp;")
+    sqliteConnection.commit()
+
+    sql = """
+        SELECT 
+            TReqQueNum,
+            TReqReqNum,
+            routeTReqOverVTroutingStep AS ConcurrentRouteID,
+            COUNT(DISTINCT routeTReqOverVTroutStepVLseqnum) AS numberOfLightpathHops_H_sd_mn
+        FROM route_traffic_requests_over_virtual_and_physical_topology
+        WHERE TReqResult = 'Pass'
+          AND (TReqQueNum, TReqReqNum) NOT IN (
+              SELECT DISTINCT reqquenum, reqnum
+              FROM RoutingTrafficRequestsOverVirtualTopology
+              WHERE result LIKE 'Blocked%' OR result <> 'Pass'
+          )
+        GROUP BY 
+            TReqQueNum,
+            TReqReqNum,
+            routeTReqOverVTroutingStep
+        ORDER BY 
+            TReqQueNum ASC, 
+            TReqReqNum ASC;
+    """
+    cursor = sqliteConnection.execute(sql)
+    dataset1 = cursor.fetchall()
+
+    for row in dataset1:
+        Q = row[0]
+        R = row[1]
+        C = row[2]
+        H = row[3]
+
+        sql_hops = f"""
+            SELECT                                                                                  
+                TReqQueNum,
+                TReqReqNum,
+                routeTReqOverVTroutingStep,
+                routeTReqOverVTroutStepVLseqnum,
+                routeVLoverPT_NumOfHops,
+                routeVLoverPT_LatIP,
+                routeVLoverPT_LatTransp,
+                PLlatEDFA,
+                PLlatFibLen
+            FROM route_traffic_requests_over_virtual_and_physical_topology
+            WHERE TReqQueNum = {Q:d}
+              AND TReqReqNum = {R:d}
+              AND routeTReqOverVTroutingStep = {C:d}
+              AND TReqResult = 'Pass'
+            ORDER BY                                                                                       
+                TReqQueNum ASC, TReqReqNum ASC,
+                routeTReqOverVTroutingStep ASC, routeTReqOverVTroutStepVLseqnum ASC;
+        """
+        cursor_hops = sqliteConnection.execute(sql_hops)
+        dataset2 = cursor_hops.fetchall()
+
+        if not dataset2 or H <= 0:
+            continue
+
+        LatEDFA = 0.0
+        LatFibLen = 0.0
+        L_r = 0.0
+        L_t = 0.0
+
+        for hop_row in dataset2:
+            L_r = float(hop_row[5])
+            L_t = float(hop_row[6])
+            L_e = float(hop_row[7])
+            L_f = float(hop_row[8])
+
+            LatEDFA += L_e
+            LatFibLen += L_f
+
+        LatIP = 2.0 * (H + 1) * L_r
+        LatTransp = 2.0 * H * L_t
+        LatWDM = LatTransp + LatEDFA + LatFibLen
+        LatThread = LatIP + LatWDM
+
+        sqliteConnection.execute(
+            """INSERT INTO LatencyOfThreadOfTrafficRequestTemp
+               (TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep, NumberOfLightpathHops,
+                LatIP, LatTransp, LatEDFA, LatFibLen, ThreadLatency)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);""",
+            (
+                Q, R, C, H,
+                roundatdecimals(LatIP, 3),
+                roundatdecimals(LatTransp, 3),
+                roundatdecimals(LatEDFA, 3),
+                roundatdecimals(LatFibLen, 3),
+                roundatdecimals(LatThread, 3)
+            )
+        )
+
+    sqliteConnection.commit()
+
+    sqliteConnection.execute("""
+        INSERT INTO LatencyOfTrafficRequestTemp (
+            TReqQueNum,
+            TReqReqNum,
+            TrafficRequestLatency
+        ) 
+        SELECT 
+            TReqQueNum,
+            TReqReqNum,
+            AVG(ThreadLatency) AS avg_latency
+        FROM LatencyOfThreadOfTrafficRequestTemp
+        GROUP BY 
+            TReqQueNum,
+            TReqReqNum
+        ORDER BY 
+            TReqQueNum ASC,
+            TReqReqNum ASC;
+    """)
+    sqliteConnection.commit()
+'''
+
+'''
+#27-10-2026 old version
 #13-10-2025 for latency cap
 #the following uses the updated latency formula for future measurements
 def calculateLatencyPerTrafficRequestTempDatabase(sqliteConnection):
@@ -2654,15 +2977,15 @@ def calculateLatencyPerTrafficRequestTempDatabase(sqliteConnection):
         LatWDM = LatTransp+LatEDFA+LatFibLen
         LatThread = LatIP + LatWDM
 
-        sqliteConnection.execute(f'''INSERT INTO LatencyOfThreadOfTrafficRequestTemp (TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep, NumberOfLightpathHops, LatIP, LatTransp, LatEDFA, LatFibLen, ThreadLatency)
-                                     VALUES ({Q:d}, {R:d}, {C:d}, {H:d}, {LatIP:0.3f}, {LatTransp:0.3f}, {LatEDFA:0.3f}, {LatFibLen:0.3f}, {LatThread:0.3f});''')
+        sqliteConnection.execute(f"""INSERT INTO LatencyOfThreadOfTrafficRequestTemp (TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep, NumberOfLightpathHops, LatIP, LatTransp, LatEDFA, LatFibLen, ThreadLatency)
+                                     VALUES ({Q:d}, {R:d}, {C:d}, {H:d}, {LatIP:0.3f}, {LatTransp:0.3f}, {LatEDFA:0.3f}, {LatFibLen:0.3f}, {LatThread:0.3f});""")
         sqliteConnection.commit()
 
     #end_for
     
     # save latency per traffic request for all requests to the database
     
-    sqliteConnection.execute('''
+    sqliteConnection.execute("""
         INSERT INTO LatencyOfTrafficRequestTemp (
             TReqQueNum,
             TReqReqNum,
@@ -2680,11 +3003,283 @@ def calculateLatencyPerTrafficRequestTempDatabase(sqliteConnection):
             TReqQueNum,
             TReqReqNum,
             routeTReqOverVTroutingStep;
-    ''')
+    """)
+    sqliteConnection.commit()
+'''
+
+#27-10-2026 latest version
+def saveLatencyPerTrafficRequestToDatabase(sqliteConnection):
+    # Clear previous entries so no stale/unfiltered rows remain
+    ''' #31-10-2026
+    sqliteConnection.execute("DELETE FROM LatencyOfThreadOfTrafficRequest;")
+    sqliteConnection.execute("DELETE FROM LatencyOfTrafficRequest;")
+    sqliteConnection.commit()
+    '''
+    #31-10-2026 delete from tables if the tables exist
+    for table_name in ("LatencyOfThreadOfTrafficRequest", "LatencyOfTrafficRequest"):
+        cursor = sqliteConnection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?;",
+            (table_name,)
+        )
+        if cursor.fetchone():
+            sqliteConnection.execute(f"DELETE FROM {table_name};")
     sqliteConnection.commit()
 
+    # Select only threads belonging to PASSED TrafficRequests where ALL virtual links in the request passed
+    sql = """
+        SELECT 
+            TReqQueNum,
+            TReqReqNum,
+            routeTReqOverVTroutingStep AS ConcurrentRouteID,
+            COUNT(DISTINCT routeTReqOverVTroutStepVLseqnum) AS numberOfLightpathHops_H_sd_mn
+        FROM route_traffic_requests_over_virtual_and_physical_topology
+        WHERE (TReqQueNum, TReqReqNum) IN (
+                  SELECT quenum, num
+                  FROM TrafficRequests
+                  WHERE result = 'Pass'
+              )
+          AND (TReqQueNum, TReqReqNum) NOT IN (
+                  SELECT DISTINCT reqquenum, reqnum
+                  FROM RoutingTrafficRequestsOverVirtualTopology
+                  WHERE result LIKE 'Blocked%' OR result <> 'Pass'
+              )
+          AND (VLsrc, VLdst, VLnum) IN (
+                  SELECT src, dst, num
+                  FROM VirtualLinks
+                  WHERE result = 'Pass'
+              )
+        GROUP BY 
+            TReqQueNum,
+            TReqReqNum,
+            routeTReqOverVTroutingStep
+        ORDER BY 
+            TReqQueNum ASC, 
+            TReqReqNum ASC;
+    """
+    cursor = sqliteConnection.execute(sql)
+    dataset1 = cursor.fetchall()
 
+    for row in dataset1:
+        Q = row[0]
+        R = row[1]
+        C = row[2]
+        H = row[3]
 
+        sql_hops = f"""
+            SELECT                                                                                  
+                TReqQueNum,
+                TReqReqNum,
+                routeTReqOverVTroutingStep,
+                routeTReqOverVTroutStepVLseqnum,
+                routeVLoverPT_NumOfHops,
+                routeVLoverPT_LatIP,
+                routeVLoverPT_LatTransp,
+                PLlatEDFA,
+                PLlatFibLen
+            FROM route_traffic_requests_over_virtual_and_physical_topology
+            WHERE TReqQueNum = {Q:d}
+              AND TReqReqNum = {R:d}
+              AND routeTReqOverVTroutingStep = {C:d}
+              AND (VLsrc, VLdst, VLnum) IN (
+                  SELECT src, dst, num
+                  FROM VirtualLinks
+                  WHERE result = 'Pass'
+              )
+            ORDER BY                                                                                       
+                TReqQueNum ASC, TReqReqNum ASC,
+                routeTReqOverVTroutingStep ASC, routeTReqOverVTroutStepVLseqnum ASC;
+        """
+        cursor_hops = sqliteConnection.execute(sql_hops)
+        dataset2 = cursor_hops.fetchall()
+
+        if not dataset2 or H <= 0:
+            continue
+
+        LatEDFA = 0.0
+        LatFibLen = 0.0
+        L_r = 0.0
+        L_t = 0.0
+
+        for hop_row in dataset2:
+            L_r = float(hop_row[5])
+            L_t = float(hop_row[6])
+            L_e = float(hop_row[7])
+            L_f = float(hop_row[8])
+
+            LatEDFA += L_e
+            LatFibLen += L_f
+
+        # Handwritten Equation (1):
+        # L_dem = 2 * L_r * (H + 1) + 2 * L_t * H + sum(L_e * A_mn + L_p * S_mn)
+        LatIP = 2.0 * (H + 1) * L_r
+        LatTransp = 2.0 * H * L_t
+        LatWDM = LatTransp + LatEDFA + LatFibLen
+        LatThread = LatIP + LatWDM
+
+        sqliteConnection.execute(
+            """INSERT INTO LatencyOfThreadOfTrafficRequest
+               (TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep, NumberOfLightpathHops,
+                LatIP, LatTransp, LatEDFA, LatFibLen, ThreadLatency)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);""",
+            (
+                Q, R, C, H,
+                roundatdecimals(LatIP, 3),
+                roundatdecimals(LatTransp, 3),
+                roundatdecimals(LatEDFA, 3),
+                roundatdecimals(LatFibLen, 3),
+                roundatdecimals(LatThread, 3)
+            )
+        )
+
+    sqliteConnection.commit()
+
+    # Save mean latency per successfully provisioned traffic request
+    sqliteConnection.execute("""
+        INSERT INTO LatencyOfTrafficRequest (
+            TReqQueNum,
+            TReqReqNum,
+            TrafficRequestLatency
+        )
+        SELECT 
+            TReqQueNum,
+            TReqReqNum,
+            AVG(ThreadLatency) AS avg_latency
+        FROM LatencyOfThreadOfTrafficRequest
+        GROUP BY 
+            TReqQueNum,
+            TReqReqNum
+        ORDER BY 
+            TReqQueNum ASC,
+            TReqReqNum ASC;
+    """)
+    sqliteConnection.commit()
+
+'''
+#27-10-2026 new version
+def saveLatencyPerTrafficRequestToDatabase(sqliteConnection):
+    # Clear previous entries so no stale/unfiltered rows remain
+    sqliteConnection.execute("DELETE FROM LatencyOfThreadOfTrafficRequest;")
+    sqliteConnection.execute("DELETE FROM LatencyOfTrafficRequest;")
+    sqliteConnection.commit()
+
+    # Select only threads belonging to PASSED TrafficRequests where ALL virtual links in the request passed
+    sql = """
+        SELECT 
+            TReqQueNum,
+            TReqReqNum,
+            routeTReqOverVTroutingStep AS ConcurrentRouteID,
+            COUNT(DISTINCT routeTReqOverVTroutStepVLseqnum) AS numberOfLightpathHops_H_sd_mn
+        FROM route_traffic_requests_over_virtual_and_physical_topology
+        WHERE TReqResult = 'Pass'
+          AND (TReqQueNum, TReqReqNum) NOT IN (
+              SELECT DISTINCT reqquenum, reqnum
+              FROM RoutingTrafficRequestsOverVirtualTopology
+              WHERE result LIKE 'Blocked%' OR result <> 'Pass'
+          )
+        GROUP BY 
+            TReqQueNum,
+            TReqReqNum,
+            routeTReqOverVTroutingStep
+        ORDER BY 
+            TReqQueNum ASC, 
+            TReqReqNum ASC;
+    """
+    cursor = sqliteConnection.execute(sql)
+    dataset1 = cursor.fetchall()
+
+    for row in dataset1:
+        Q = row[0]
+        R = row[1]
+        C = row[2]
+        H = row[3]
+
+        sql_hops = f"""
+            SELECT                                                                                  
+                TReqQueNum,
+                TReqReqNum,
+                routeTReqOverVTroutingStep,
+                routeTReqOverVTroutStepVLseqnum,
+                routeVLoverPT_NumOfHops,
+                routeVLoverPT_LatIP,
+                routeVLoverPT_LatTransp,
+                PLlatEDFA,
+                PLlatFibLen
+            FROM route_traffic_requests_over_virtual_and_physical_topology
+            WHERE TReqQueNum = {Q:d}
+              AND TReqReqNum = {R:d}
+              AND routeTReqOverVTroutingStep = {C:d}
+              AND TReqResult = 'Pass'
+            ORDER BY                                                                                       
+                TReqQueNum ASC, TReqReqNum ASC,
+                routeTReqOverVTroutingStep ASC, routeTReqOverVTroutStepVLseqnum ASC;
+        """
+        cursor_hops = sqliteConnection.execute(sql_hops)
+        dataset2 = cursor_hops.fetchall()
+
+        if not dataset2 or H <= 0:
+            continue
+
+        LatEDFA = 0.0
+        LatFibLen = 0.0
+        L_r = 0.0
+        L_t = 0.0
+
+        for hop_row in dataset2:
+            L_r = float(hop_row[5])
+            L_t = float(hop_row[6])
+            L_e = float(hop_row[7])
+            L_f = float(hop_row[8])
+
+            LatEDFA += L_e
+            LatFibLen += L_f
+
+        # Handwritten Equation (1):
+        # L_dem = 2 * L_r * (H + 1) + 2 * L_t * H + sum(L_e * A_mn + L_p * S_mn)
+        LatIP = 2.0 * (H + 1) * L_r
+        LatTransp = 2.0 * H * L_t
+        LatWDM = LatTransp + LatEDFA + LatFibLen
+        LatThread = LatIP + LatWDM
+
+        sqliteConnection.execute(
+            """INSERT INTO LatencyOfThreadOfTrafficRequest
+               (TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep, NumberOfLightpathHops,
+                LatIP, LatTransp, LatEDFA, LatFibLen, ThreadLatency)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);""",
+            (
+                Q, R, C, H,
+                roundatdecimals(LatIP, 3),
+                roundatdecimals(LatTransp, 3),
+                roundatdecimals(LatEDFA, 3),
+                roundatdecimals(LatFibLen, 3),
+                roundatdecimals(LatThread, 3)
+            )
+        )
+
+    sqliteConnection.commit()
+
+    # Save mean latency per successfully provisioned traffic request
+    sqliteConnection.execute("""
+        INSERT INTO LatencyOfTrafficRequest (
+            TReqQueNum,
+            TReqReqNum,
+            TrafficRequestLatency
+        )
+        SELECT 
+            TReqQueNum,
+            TReqReqNum,
+            AVG(ThreadLatency) AS avg_latency
+        FROM LatencyOfThreadOfTrafficRequest
+        GROUP BY 
+            TReqQueNum,
+            TReqReqNum
+        ORDER BY 
+            TReqQueNum ASC,
+            TReqReqNum ASC;
+    """)
+    sqliteConnection.commit()
+'''
+'''
+#27-10-2026 old version
 #the following uses the updated latency formula for future measurements
 def saveLatencyPerTrafficRequestToDatabase(sqliteConnection):
     # 20-9-2025 >>> 
@@ -2769,15 +3364,15 @@ def saveLatencyPerTrafficRequestToDatabase(sqliteConnection):
         LatWDM = LatTransp+LatEDFA+LatFibLen
         LatThread = LatIP + LatWDM
 
-        sqliteConnection.execute(f'''INSERT INTO LatencyOfThreadOfTrafficRequest (TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep, NumberOfLightpathHops, LatIP, LatTransp, LatEDFA, LatFibLen, ThreadLatency)
-                                     VALUES ({Q:d}, {R:d}, {C:d}, {H:d}, {LatIP:0.3f}, {LatTransp:0.3f}, {LatEDFA:0.3f}, {LatFibLen:0.3f}, {LatThread:0.3f});''')
+        sqliteConnection.execute(f"""INSERT INTO LatencyOfThreadOfTrafficRequest (TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep, NumberOfLightpathHops, LatIP, LatTransp, LatEDFA, LatFibLen, ThreadLatency)
+                                     VALUES ({Q:d}, {R:d}, {C:d}, {H:d}, {LatIP:0.3f}, {LatTransp:0.3f}, {LatEDFA:0.3f}, {LatFibLen:0.3f}, {LatThread:0.3f});""")
         sqliteConnection.commit()
 
     #end_for
     
     # save latency per traffic request for all requests to the database
     
-    sqliteConnection.execute('''
+    sqliteConnection.execute("""
         INSERT INTO LatencyOfTrafficRequest (
             TReqQueNum,
             TReqReqNum,
@@ -2795,13 +3390,13 @@ def saveLatencyPerTrafficRequestToDatabase(sqliteConnection):
             TReqQueNum,
             TReqReqNum,
             routeTReqOverVTroutingStep;
-    ''')
+    """)
     sqliteConnection.commit()
+'''
 
 
 
-
-
+''' #27-10-2026 old version
 def getLatencyStatsPerTrafficRequest(sqliteConnection, Q, Type):
 
     # 19-9-2025 >>> this falsely calculates one Lt and 2 Lr for each physical link even if there is no virtual link (lightpath) hop.
@@ -2842,8 +3437,41 @@ def getLatencyStatsPerTrafficRequest(sqliteConnection, Q, Type):
     #EOP
     
     return stats
+'''
+#27-10-2026 new version
+def getLatencyStatsPerTrafficRequest(sqliteConnection, Q, Type):
+    sql = f"""
+        SELECT avg(TotalLatency) AS avgLat, min(TotalLatency) AS minLat, max(TotalLatency) AS maxLat
+        FROM (
+            SELECT
+                TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep, routeTReqOverVTtype,
+                SUM(routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) AS TotalLatency
+            FROM route_traffic_requests_over_virtual_and_physical_topology
+            WHERE TReqQueNum LIKE '{Q:s}'
+              AND routeTReqOverVTtype LIKE '{Type:s}'
+              AND (TReqQueNum, TReqReqNum) IN (
+                   SELECT quenum, num
+                   FROM TrafficRequests
+                   WHERE result = 'Pass'
+                  )
+              AND (TReqQueNum, TReqReqNum) NOT IN (
+                  SELECT DISTINCT reqquenum, reqnum
+                  FROM RoutingTrafficRequestsOverVirtualTopology
+                  WHERE result LIKE 'Blocked%' OR result <> 'Pass'
+              )
+            GROUP BY TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep
+            ORDER BY TReqQueNum ASC, TReqReqNum ASC
+        );
+    """
+    cursor = sqliteConnection.execute(sql)
+    sqliteConnection.commit()
 
+    stats = []
+    dataset = cursor.fetchall()
+    for row in dataset:
+        stats = [row[0], row[1], row[2]]
 
+    return stats
 
 # def EvaluateLatencyPerQueue() below does evaluate Latency (the wrong way, cummulative)
 def EvaluateLatencyPerQueue(QueueIDNum,LatRouterPort,LatencyTimeUnit,LatTransponder,LatEDFA,LatFiberKilometer,SigmaCij,Di,N,L,Wmn,Amn,fmn,Dist):
@@ -2990,6 +3618,34 @@ def EvaluateLatencyPerQueue(QueueIDNum,LatRouterPort,LatencyTimeUnit,LatTranspon
     return LatencyTotal
 
 
+
+
+
+'''
+def saveTrafficRequests2mysql(data, nodes):
+    #source: https://realpython.com/python-mysql/
+    #source: https://www.w3schools.com/python/python_mysql_getstarted.asp
+    
+    import mysql.connector # type: ignore
+    now = datetime.now()
+    timestamp = "y"+str(now.year)+"_m"+str(now.month)+"_d"+str(now.day)+"_h"+str(now.hour)+"_m"+str(now.minute)+"_s"+str(now.second)+"_u"+str(now.microsecond)
+    mydb = mysql.connector.connect(
+        host="localhost",
+        user="lightuser",
+        password="Success2024!",
+        database="lightbase"
+    )
+    mycursor = mydb.cursor()
+    n = len(data)
+    count=0
+    # Traverse through all array elements
+    for i in range(n):
+        count+=1
+        sql = "INSERT INTO trafficrequest (reqid, src, dst, reqcap) VALUES (%d, %d, %d, %.3f)" % (count, data[i][0], data[i][1], data[i][2])
+        mycursor.execute(sql)
+    mydb.commit()
+'''
+
 #Distributions
 
 def there_is_a_value_out_of_range(data_list, min_val, max_val):
@@ -3001,19 +3657,26 @@ def there_is_a_value_out_of_range(data_list, min_val, max_val):
 #Poisson
 
 import numpy as np
+import scipy.stats as stats
 
 def validatePoissonDistribution(data, mu, alpha_level=0.05):
-
+    """
+    Validates if 'data' follows a Poisson distribution (or Truncated Poisson) with mean 'mu'.
+    Uses the Chi-Square goodness-of-fit test with dynamic binning.
+    """
+    # Get observed frequencies of each discrete value generated
     val, counts = np.unique(data, return_counts=True)
     
-
+    # Calculate expected probabilities from theoretical Poisson PMF
     expected_probs = stats.poisson.pmf(val, mu)
     
-
+    # CRITICAL: Normalize probabilities so they sum to 1.
+    # This accounts for the missing tails removed if you use [from, to] rejection sampling.
     expected_probs /= expected_probs.sum()
     expected_counts = expected_probs * len(data)
     
-
+    # Chi-Square tests require expected counts in every bin to be at least 5.
+    # We dynamically group smaller bins to satisfy this strict mathematical assumption.
     obs_binned, exp_binned = [], []
     curr_obs, curr_exp = 0, 0
     
@@ -3025,7 +3688,7 @@ def validatePoissonDistribution(data, mu, alpha_level=0.05):
             exp_binned.append(curr_exp)
             curr_obs, curr_exp = 0, 0
             
-
+    # Add any remaining tail fragments to the final bin
     if curr_exp > 0 and len(exp_binned) > 0:
         obs_binned[-1] += curr_obs
         exp_binned[-1] += curr_exp
@@ -3033,18 +3696,101 @@ def validatePoissonDistribution(data, mu, alpha_level=0.05):
         obs_binned.append(curr_obs)
         exp_binned.append(curr_exp)
         
-
+    # Perform the Chi-Square test
     stat, p_value = stats.chisquare(obs_binned, exp_binned)
     
     is_valid = p_value >= alpha_level
     return is_valid, p_value
 
 
+'''
+def validatePoissonDistribution(data, mu, alpha_level=0.05):
+    """
+    Validates if 'data' follows a Poisson distribution with mean 'mu'.
+    Uses the Chi-Square goodness-of-fit test with binning for small expected counts.
+    """
+    # Get observed frequencies of each discrete value generated
+    val, counts = np.unique(data, return_counts=True)
+    
+    # Calculate expected probabilities from theoretical Poisson PMF
+    expected_probs = stats.poisson.pmf(val, mu)
+    
+    # Normalize expected probabilities so they sum to 1 (accounts for missing tails)
+    expected_probs /= expected_probs.sum()
+    expected_counts = expected_probs * len(data)
+    
+    # Chi-Square tests require expected counts in every bin to be at least 5.
+    # We dynamically group smaller bins to satisfy this strict mathematical assumption.
+    obs_binned, exp_binned = [], []
+    curr_obs, curr_exp = 0, 0
+    
+    for o, e in zip(counts, expected_counts):
+        curr_obs += o
+        curr_exp += e
+        if curr_exp >= 5:
+            obs_binned.append(curr_obs)
+            exp_binned.append(curr_exp)
+            curr_obs, curr_exp = 0, 0
+            
+    # Add any remaining tail fragments to the final bin
+    if curr_exp > 0 and len(exp_binned) > 0:
+        obs_binned[-1] += curr_obs
+        exp_binned[-1] += curr_exp
+    elif curr_exp > 0:
+        obs_binned.append(curr_obs)
+        exp_binned.append(curr_exp)
+        
+    stat, p_value = stats.chisquare(obs_binned, exp_binned)
+    
+    is_valid = p_value >= alpha_level
+    return is_valid, p_value
+'''
+'''
+def poisson_range(mu, low, high, size=1):
+
+    if low > high:
+        raise ValueError("low must be less than or equal to high")
+
+    if low < 0:
+        raise ValueError("low must be non-negative")
+
+    if not isinstance(size, int) or size <= 0:
+        raise ValueError("size must be a positive integer")
+
+    results = []
+    while len(results) < size:
+        samples = poisson.rvs(mu, size=size * 2) #Generate more than needed, to account for discards
+        valid_samples = samples[(samples >= low) & (samples <= high)]
+        results.extend(valid_samples)
+
+    return np.array(results[:size])
+'''
+'''
+def generateDistributedTrafficRequestValuesThatFollowThePoissonProcess(apo, mexri, X, megethos):
+
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.poisson.html#scipy.stats.poisson
+    # https://www.statology.org/poisson-distribution-python/
+        
+    #gen_data = poisson.rvs(mu=X, size=megethos*2) #generate double size to keep valid
+    
+    data = poisson_range(X, apo, mexri, megethos)
+
+    while there_is_a_value_out_of_range(data, apo, mexri):
+        data = poisson.rvs(mu=X, size=megethos)
+
+    return data
+'''
+
 #19-8-2026 new function to create Poisson based traffic amounts
 def generatePoissonDistributedTrafficRequestValues(X_mean, megethos):
+    import scipy.stats as stats
 
-
+    # For a Poisson distribution, the mean (mu) is the only parameter needed.
+    # It natively generates non-negative values clustered around this mean.
     data = stats.poisson.rvs(mu=X_mean, size=megethos)
+    
+    # Poisson mathematically generates integers (e.g., 40, 41).
+    # We cast to float and round to match the format of your other distributions.
     roundata = [round(float(val), 3) for val in data]
 
     return roundata
@@ -3052,18 +3798,29 @@ def generatePoissonDistributedTrafficRequestValues(X_mean, megethos):
 
 
 #Uniform
+
+import scipy.stats as stats
+
 def validateUniformDistribution(data, apo, mexri, alpha_level=0.05):
-
+    """
+    Validates if 'data' follows a Uniform distribution bounded by [apo, mexri].
+    Uses the Kolmogorov-Smirnov test.
+    """
+    # For scipy's uniform distribution, 'loc' is the minimum, 
+    # and 'scale' is the total range (maximum - minimum)
     klimaka = mexri - apo
-
+    
+    # Perform Kolmogorov-Smirnov test against the theoretical uniform CDF
     stat, p_value = stats.kstest(data, 'uniform', args=(apo, klimaka))
-
+    
+    # Null hypothesis: data comes from the theoretical distribution. 
+    # If p_value >= alpha_level (typically 0.05), we fail to reject the null hypothesis.
     is_valid = p_value >= alpha_level
     
     return is_valid, p_value
 
 def generateUniformlyDistributedTrafficRequestValues(apo, mexri, X, megethos):
-
+    import scipy.stats as stats
 
     # https://numpy.org/doc/stable/reference/random/index.html#random-quick-start
     # https://mathworld.wolfram.com/UniformDistribution.html
@@ -3098,56 +3855,309 @@ def generateUniformlyDistributedTrafficRequestValues(apo, mexri, X, megethos):
     #noprintout#print (rnd,"random traffic amount",data,end=" for ")
     return roundata
 
+'''
+import numpy as np
+import scipy.stats as stats
+
+def validateUniformDistribution(data, apo, mexri, alpha_level=0.05):
+    """
+    Validates if 'data' follows a Uniform distribution bounded by [apo, mexri].
+    Uses the Kolmogorov-Smirnov test.
+    """
+    # For scipy's uniform, loc is the minimum, and scale is the range (max - min)
+    klimaka = mexri - apo
+    
+    # Perform Kolmogorov-Smirnov test
+    stat, p_value = stats.kstest(data, 'uniform', args=(apo, klimaka))
+    
+    # Null hypothesis: data comes from the theoretical distribution. 
+    # If p_value >= alpha_level (0.05), we fail to reject the null hypothesis.
+    is_valid = p_value >= alpha_level
+    
+    return is_valid, p_value
+'''
+
+
 #Pareto
 
 #18-8-2026
-
-
-def generateParetoDistributedTrafficRequestValues(X_mean, megethos, alpha=1.5):
-    
+'''
+def calculate_pareto_parameters(X_mean, alpha=1.5):
+    # Calculate the minimum 'apo' required to achieve the mean X
+    # Formula: apo = X * (alpha - 1) / alpha
     apo = X_mean * ((alpha - 1.0) / alpha)
     
+    return apo, alpha
+'''
+
+'''
+older version of Pareto
+def generateParetoDistributedTrafficRequestValues(apo, alpha, megethos):
+    import scipy.stats as stats
+
+    # 'b' is the shape parameter (alpha). 'scale' defines the minimum possible value (apo).
+    # Generate data directly without upper bound rejection sampling.
     data = stats.pareto.rvs(b=alpha, scale=apo, size=megethos)
     
+    # Round to 3 decimal places
+    roundata = [round(val, 3) for val in data]
+
+    return roundata
+'''
+
+def generateParetoDistributedTrafficRequestValues(X_mean, megethos, alpha=1.5):
+    import scipy.stats as stats
+
+    # 1. Calculate the minimum 'apo' required to achieve the target mean X_mean
+    # Formula: apo = X * (alpha - 1) / alpha
+    apo = X_mean * ((alpha - 1.0) / alpha)
+
+    # 2. Generate the Pareto distributed data
+    # 'b' is the shape parameter (alpha). 'scale' defines the minimum possible value (apo).
+    # This naturally generates the heavy-tailed distribution without arbitrary upper bounds.
+    data = stats.pareto.rvs(b=alpha, scale=apo, size=megethos)
+    
+    # 3. Round to 3 decimal places to match your network simulation's precision
     roundata = [round(float(val), 3) for val in data]
 
     return roundata
 
-
+import scipy.stats as stats
 
 def validateParetoDistribution(data, alpha, apo, alpha_level=0.05):
-    
+    """
+    Validates if 'data' follows a Pareto distribution with shape 'alpha' and minimum 'apo'.
+    Uses the Kolmogorov-Smirnov test.
+    """
+    # In scipy's pareto: shape 'b' maps to 'alpha', 'loc' is 0, 'scale' maps to 'apo'
     stat, p_value = stats.kstest(data, 'pareto', args=(alpha, 0.0, apo))
     
     is_valid = p_value >= alpha_level
     return is_valid, p_value
 
 
+'''
+def validateParetoDistribution(data, alpha, apo, alpha_level=0.05):
+    """
+    Validates if 'data' follows a Pareto distribution with shape 'alpha' and minimum 'apo'.
+    Uses the Kolmogorov-Smirnov test.
+    """
+    # In scipy's pareto: shape 'b' maps to 'alpha', 'loc' is 0, 'scale' maps to 'apo'
+    stat, p_value = stats.kstest(data, 'pareto', args=(alpha, 0.0, apo))
+    
+    is_valid = p_value >= alpha_level
+    return is_valid, p_value
+'''
+
+
+
 #Weibull
+
+'''
+def calculate_weibull_parameters(X_mean, c_shape=0.8):
+    # Dynamic apo ensures the minimum is never larger than the target mean X.
+    # For X >= 20, it safely caps at 10.0. For X < 20, it scales down (e.g., X=2 -> apo=1.0)
+    apo = min(10.0, X_mean * 0.5)
+    
+    # Calculate the scale (lambda) required to achieve the mean X
+    gamma_val = special.gamma(1.0 + (1.0 / c_shape))
+    scale_lambda = (X_mean - apo) / gamma_val
+    
+    return apo, c_shape, scale_lambda
+
+
+def generateWeibullDistributedTrafficRequestValues(apo, shape_c, scale_lambda, megethos):
+    import scipy.stats as stats
+
+    # 'c' is the shape parameter. 'loc' shifts the minimum to apo. 'scale' is lambda.
+    # Generate data directly without upper bound rejection sampling.
+    data = stats.weibull_min.rvs(c=shape_c, loc=apo, scale=scale_lambda, size=megethos)
+    
+    # Round to 3 decimal places
+    roundata = [round(val, 3) for val in data]
+
+    return roundata
+'''
+
+
+import scipy.stats as stats
+import scipy.special as special
+
 def validateWeibullDistribution(data, X_mean, c_shape=0.8, alpha_level=0.05):
+    """
+    Validates if 'data' follows a Weibull distribution centered around 'X_mean'.
+    Uses the Kolmogorov-Smirnov test.
+    """
+    # 1. Recalculate the exact same parameters used in the generator
     apo = min(10.0, X_mean * 0.5)
     gamma_val = special.gamma(1.0 + (1.0 / c_shape))
     scale_lambda = (X_mean - apo) / gamma_val
-
+    
+    # 2. Perform the Kolmogorov-Smirnov test
     stat, p_value = stats.kstest(data, 'weibull_min', args=(c_shape, apo, scale_lambda))
-
+    
+    # Null hypothesis: data comes from the theoretical distribution. 
     is_valid = p_value >= alpha_level
     
     return is_valid, p_value
 
 
 def generateWeibullDistributedTrafficRequestValues(X_mean, megethos, c_shape=0.8):
-    
+    import scipy.stats as stats
+    import scipy.special as special
+
+    # 1. Dynamic apo ensures the minimum is never larger than the target mean X.
+    # For X >= 20, it safely caps at 10.0. For X < 20, it scales down (e.g., X=2 -> apo=1.0)
     apo = min(10.0, X_mean * 0.5)
     
+    # 2. Calculate the scale (lambda) required to achieve the mean X
     gamma_val = special.gamma(1.0 + (1.0 / c_shape))
     scale_lambda = (X_mean - apo) / gamma_val
 
+    # 3. Generate the Weibull distributed data
+    # 'c' is the shape parameter. 'loc' shifts the minimum to apo. 'scale' is lambda.
+    # This naturally generates the distribution without arbitrary upper bounds.
     data = stats.weibull_min.rvs(c=c_shape, loc=apo, scale=scale_lambda, size=megethos)
-
+    
+    # 4. Round to 3 decimal places to match your network simulation's precision
     roundata = [round(float(val), 3) for val in data]
 
     return roundata
+
+
+import scipy.stats as stats
+'''
+def validateWeibullDistribution(data, shape_c, apo, scale_lambda, alpha_level=0.05):
+    """
+    Validates if 'data' follows a Weibull distribution with shape 'shape_c', 
+    minimum 'apo', and scale 'scale_lambda'.
+    Uses the Kolmogorov-Smirnov test.
+    """
+    # In scipy's weibull_min: shape 'c' is shape_c, loc is apo, scale is scale_lambda
+    stat, p_value = stats.kstest(data, 'weibull_min', args=(shape_c, apo, scale_lambda))
+    
+    # Null hypothesis: data comes from the theoretical distribution. 
+    # If p_value >= alpha_level (typically 0.05), we fail to reject the null hypothesis.
+    is_valid = p_value >= alpha_level
+    
+    return is_valid, p_value
+'''
+
+
+'''
+def validateWeibullDistribution(data, shape_c, apo, scale_lambda, alpha_level=0.05):
+    """
+    Validates if 'data' follows a Weibull distribution with shape 'shape_c', 
+    minimum 'apo', and scale 'scale_lambda'.
+    Uses the Kolmogorov-Smirnov test.
+    """
+    # In scipy's weibull_min: shape 'c' is shape_c, loc is apo, scale is scale_lambda
+    stat, p_value = stats.kstest(data, 'weibull_min', args=(shape_c, apo, scale_lambda))
+    
+    is_valid = p_value >= alpha_level
+    return is_valid, p_value
+'''
+
+
+'''
+#31-7-2026 new types of distributions for random traffic loads
+
+def calculate_pareto_parameters(X_mean, alpha=1.5):
+    # Calculate the minimum 'apo' required to achieve the mean X
+    # Formula: apo = X * (alpha - 1) / alpha
+    apo = X_mean * ((alpha - 1.0) / alpha)
+    
+    # The max should be a hardware/network limitation
+    mexri = 1000.0 # e.g., 1 Tbps max request
+    
+    return apo, mexri, alpha
+
+def calculate_weibull_parameters(X_mean, c_shape=0.8, apo=10.0):
+    # Calculate the scale (lambda) required to achieve the mean X
+    # Gamma function is found in scipy.special.gamma
+    gamma_val = special.gamma(1.0 + (1.0 / c_shape))
+    scale_lambda = (X_mean - apo) / gamma_val
+    
+    mexri = 1000.0 # e.g., 1 Tbps max request
+    
+    return apo, mexri, c_shape, scale_lambda
+'''
+
+
+'''
+#deigma = generateParetoDistributedTrafficRequestValues(traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, megethosdeigmatos) 
+#def generateParetoDistributedTrafficRequestValues(apo, mexri, alpha, megethos):
+
+def generateParetoDistributedTrafficRequestValues(apo, mexri, alpha, megethos):
+    import scipy.stats as stats
+    import numpy as np
+
+    # For Pareto, the 'scale' parameter defines the minimum possible value (xm), 
+    # which corresponds to our 'apo'.
+    # 'b' is the shape parameter (alpha). Lower values = more bursty/extreme outliers.
+    
+    # Generate initial data
+    data = stats.pareto.rvs(b=alpha, scale=apo, size=megethos)
+    
+    # Pareto naturally extends to infinity. To strictly enforce the 'mexri' (max) bound,
+    # we use rejection sampling. Because of the heavy tail, we only resample the 
+    # specific elements that are out of bounds to avoid infinite loops.
+    
+    out_of_bounds = (data < apo) | (data > mexri)
+    while out_of_bounds.any():
+        # Count how many need to be replaced
+        num_to_replace = out_of_bounds.sum()
+        
+        # Generate new values just for those specific indices
+        data[out_of_bounds] = stats.pareto.rvs(b=alpha, scale=apo, size=num_to_replace)
+        
+        # Re-evaluate which ones are still out of bounds
+        out_of_bounds = (data < apo) | (data > mexri)
+
+    roundata = []
+    for val in data:
+        # Assuming roundatdecimals is functionally equivalent to Python's round()
+        roundata.append(round(val, 3)) 
+
+    return roundata
+
+
+#Weibull ditribution
+#deigma = generateWeibullDistributedTrafficRequestValues(traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, megethosdeigmatos) 
+
+def generateWeibullDistributedTrafficRequestValues(apo, mexri, shape_c, scale_lambda, megethos):
+    import scipy.stats as stats
+    import numpy as np
+
+    # For Weibull (weibull_min in Scipy):
+    # 'c' is the shape parameter.
+    # 'loc' shifts the distribution to start at our minimum (apo).
+    # 'scale' (lambda) determines the spread of the data.
+    
+    # Generate initial data
+    data = stats.weibull_min.rvs(c=shape_c, loc=apo, scale=scale_lambda, size=megethos)
+    
+    # Enforce bounds using efficient rejection sampling.
+    # Since loc=apo naturally enforces the minimum, we primarily need to catch 
+    # values that exceed the upper 'mexri' bound.
+    out_of_bounds = (data < apo) | (data > mexri)
+    
+    while out_of_bounds.any():
+        # Count how many need to be replaced
+        num_to_replace = out_of_bounds.sum()
+        
+        # Generate new values just for those specific indices
+        data[out_of_bounds] = stats.weibull_min.rvs(c=shape_c, loc=apo, scale=scale_lambda, size=num_to_replace)
+        
+        # Re-evaluate out-of-bounds condition
+        out_of_bounds = (data < apo) | (data > mexri)
+
+    roundata = []
+    for val in data:
+        roundata.append(round(val, 3)) 
+
+    return roundata
+'''
 
 
 def graphDistribution(N, a, b, lambda_param, data, distrib, filepath):
@@ -3210,6 +4220,24 @@ def find_path(graph, start, end, path=[]):
             if newpath: return newpath
     return None
 
+"""
+def find_all_paths(graph, start, end, path=[]):
+    #source https://www.python.org/doc/essays/graphs/
+
+    path = path + [start]
+    if start == end:
+        return [path]
+    if start not in graph:
+        return []
+    paths = []
+    for node in graph[start]:
+        if node not in path:
+            newpaths = find_all_paths(graph, node, end, path)
+            for newpath in newpaths:
+                paths.append(newpath)
+    return paths
+"""
+
 def find_shortest_path_using_bfs(graph, src, dst):
     # def bfs_shortest_path(graph, start, goal):
 
@@ -3256,12 +4284,57 @@ def find_shortest_path_using_bfs(graph, src, dst):
     # If no path is found, return an empty list
     return []
 
+'''
+def find_all_paths_using_bfs(graph, src, dst):
+    """
+    Finds all paths from source to destination using breadth-first search.
+
+    Args:
+        graph: A dictionary representing the graph, where keys are vertices and
+               values are lists of their neighbors.
+        src: The source vertex.
+        dst: The destination vertex.
+
+    Returns:
+        A list of lists, where each inner list represents a path from src to dst.
+    """
+    from collections import deque
+    queue = deque([(src, [src])])
+    all_paths = []
+    visited = set()  # Track visited nodes to prevent cycles in already explored paths.
+
+    while queue:
+        vertex, path = queue.popleft()
+
+        if vertex == dst:
+            all_paths.append(path)
+            # Do NOT return here. Continue to find other paths.
+        if vertex not in visited or vertex == src: #allow the source to be visited multiple times
+            if vertex != src:
+                visited.add(vertex)
+
+            for neighbor in graph.get(vertex, []):
+                queue.append((neighbor, path + [neighbor]))
+
+    return all_paths
+'''
 
 
 def find_all_simple_paths_bfs(graph, src, dst):
     from collections import deque
 
+    """
+    Finds all SIMPLE paths from source to destination using breadth-first search.
 
+    Args:
+        graph: A dictionary representing the graph, where keys are vertices and
+               values are lists of their neighbors.
+        src: The source vertex.
+        dst: The destination vertex.
+
+    Returns:
+        A list of lists, where each inner list represents a simple path from src to dst.
+    """
     queue = deque([(src, [src])])
     all_simple_paths = []
 
@@ -3301,6 +4374,19 @@ def getPhysicalPathCost(L,C,p):
         Cost += val
     return Cost
 
+"""
+def getPhysicalPathWithMinCost(Nm,L,C,s,d):
+    allpaths = find_all_paths(Nm,s,d)
+    min = numpy.inf #numpy infinite value
+    path = []
+    for i in range(len(allpaths)):
+        cost = getPhysicalPathCost(L,C,allpaths[i])
+        #print('path ',allpaths[i],'from',s,'to',d,'cost',cost)
+        if cost < min:
+            min = cost
+            path = allpaths[i]
+    return path
+"""
 
 def nodes2tuple(L):
     T=tuple(L)
@@ -3643,6 +4729,17 @@ def htmlhead(title, lenQs, distribution):
         print("font-family: monospace, Arial, Helvetica, sans-serif;")
         print("}")
 
+        print("Lat { ")
+        print("border: 1px solid #990000; ")
+        print("background: linear-gradient(120deg, #ffffcc, #ff4433); ")
+        print("text-align: left;")
+        print("margin-left: auto; ")
+        print("margin-right: auto; ")
+        print("margin-bottom: 10px;")
+        print("font-family: monospace, Arial, Helvetica, sans-serif;")
+        print("}")
+
+
         print("table.tableLat0 { ")
         print("border: 1px solid #990000; ")
         print("background: linear-gradient(180deg, #ffcc00, #ff4433); ")
@@ -3698,8 +4795,283 @@ def htmlhead(title, lenQs, distribution):
         print("<h2><em>"+title+" Routing and Wavelength Assignment algorithm for traffic requests on ")
         print(f"{('a single queue' if lenQs==1 else (str(lenQs)+' queues')):s}");
         print(", having the requested capacities randomised by following a "+distribution+" distribution process.</em></h2>")
-        print("<h3 style='text-align:center'>Implementation by <em>Konstantinos Delistavrou</em> &copy; 2021-2025</h3><hr>")
+        print("<h3 style='text-align:center'>Implementation by <em>Konstantinos Delistavrou</em> &copy; 2021-2026</h3><hr>")
     #EOP
+
+def mathPowerPerQueueFormula():
+    # https://fred-wang.github.io/MathFonts/mozilla_mathml_test/
+    s = """
+            <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+            <mrow>
+                <msub>
+                <mi>E</mi>
+                <mi>k</mi>
+                </msub>
+                <mo>=</mo>
+                <munder>
+                <mo>∑</mo>
+                <mrow>
+                    <mi>i</mi>
+                    <mo>∈</mo>
+                    <mi>N</mi>
+                </mrow>
+                </munder>
+                <msub>
+                <mi>E</mi>
+                <mi>r</mi>
+                </msub>
+                <mo>⋅</mo>
+                <mrow>
+                <mo>(</mo>
+                <msubsup>
+                    <mi>Δ</mi>
+                    <mi>i</mi>
+                    <mi>k</mi>
+                </msubsup>
+                <mo>+</mo>
+                <munder>
+                    <mo>∑</mo>
+                    <mtable>
+                    <mtr>
+                        <mtd>
+                        <mi>j</mi>
+                        <mo>∈</mo>
+                        <mi>N</mi>
+                        </mtd>
+                    </mtr>
+                    <mtr>
+                        <mtd>
+                        <mi>i</mi>
+                        <mo>≠</mo>
+                        <mi>j</mi>
+                        </mtd>
+                    </mtr>
+                    </mtable>
+                </munder>
+                <msubsup>
+                    <mi>W</mi>
+                    <mrow>
+                    <mi>i</mi>
+                    <mi>j</mi>
+                    </mrow>
+                    <mi>k</mi>
+                </msubsup>
+                <mo>)</mo>
+                </mrow>
+                <mo>+</mo>
+                <munder>
+                <mo>∑</mo>
+                <mrow>
+                    <mi>m</mi>
+                    <mo>∈</mo>
+                    <mi>N</mi>
+                </mrow>
+                </munder>
+                <munder>
+                <mo>∑</mo>
+                <mrow>
+                    <mi>n</mi>
+                    <mo>∈</mo>
+                    <msub>
+                    <mi>N</mi>
+                    <mi>m</mi>
+                    </msub>
+                </mrow>
+                </munder>
+                <msub>
+                <mi>E</mi>
+                <mi>t</mi>
+                </msub>
+                <mo>⋅</mo>
+                <msubsup>
+                <mi>w</mi>
+                <mrow>
+                    <mi>m</mi>
+                    <mi>n</mi>
+                </mrow>
+                <mi>k</mi>
+                </msubsup>
+                <mo>+</mo>
+                <munder>
+                <mo>∑</mo>
+                <mrow>
+                    <mi>m</mi>
+                    <mo>∈</mo>
+                    <mi>N</mi>
+                </mrow>
+                </munder>
+                <munder>
+                <mo>∑</mo>
+                <mrow>
+                    <mi>n</mi>
+                    <mo>∈</mo>
+                    <msub>
+                    <mi>N</mi>
+                    <mi>m</mi>
+                    </msub>
+                </mrow>
+                </munder>
+                <msub>
+                <mi>E</mi>
+                <mi>e</mi>
+                </msub>
+                <mo>⋅</mo>
+                <msub>
+                <mi>A</mi>
+                <mrow>
+                    <mi>m</mi>
+                    <mi>n</mi>
+                </mrow>
+                </msub>
+                <mo>⋅</mo>
+                <msubsup>
+                <mi>f</mi>
+                <mrow>
+                    <mi>m</mi>
+                    <mi>n</mi>
+                </mrow>
+                <mi>k</mi>
+                </msubsup>
+            </mrow>
+            </math>
+        """
+    return s
+
+def mathLatencyPerDemandFormula():
+    # https://fred-wang.github.io/MathFonts/mozilla_mathml_test/
+    s = """
+        <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+		<mrow>
+		<msub>
+		  <mi>L</mi>
+		  <mrow>
+			<mtext>dem</mtext>
+		  </mrow>
+		</msub>
+		<mo>=</mo>
+		<mn>2</mn>
+		<mo>&sdot;</mo>
+		<msub>
+		  <mi>L</mi>
+		  <mi>r</mi>
+		</msub>
+		<mo>&sdot;</mo>
+		<mrow>
+		  <mo>(</mo>
+		  <msubsup>
+			<mi>H</mi>
+			<mrow>
+			  <mi>m</mi>
+			  <mi>n</mi>
+			</mrow>
+			<mrow>
+			  <mi>s</mi>
+			  <mi>d</mi>
+			</mrow>
+		  </msubsup>
+		  <mo>+</mo>
+		  <mn>1</mn>
+		  <mo>)</mo>
+		</mrow>
+		<mo>+</mo>
+		<mn>2</mn>
+		<mo>&sdot;</mo>
+		<msub>
+		  <mi>L</mi>
+		  <mi>t</mi>
+		</msub>
+		<mo>&sdot;</mo>
+		<msubsup>
+		  <mi>H</mi>
+		  <mrow>
+			<mi>m</mi>
+			<mi>n</mi>
+		  </mrow>
+		  <mrow>
+			<mi>s</mi>
+			<mi>d</mi>
+		  </mrow>
+		</msubsup>
+		<mo>+</mo>
+		<munder>
+		  <mo movablelimits="false">&sum;</mo>
+		  <mtable rowspacing="0ex">
+			<mtr>
+			  <mtd>
+				<mstyle scriptlevel="scriptstyle">
+				  <mrow>
+					<mi>s</mi>
+					<mo>&in;</mo>
+					<mi>N</mi>
+				  </mrow>
+				</mstyle>
+			  </mtd>
+			</mtr>
+			<mtr>
+			  <mtd>
+				<mstyle scriptlevel="scriptstyle">
+				  <mrow>
+					<mi>d</mi>
+					<mo>&in;</mo>
+					<mi>N</mi>
+				  </mrow>
+				</mstyle>
+			  </mtd>
+			</mtr>
+			<mtr>
+			  <mtd>
+				<mstyle scriptlevel="scriptstyle">
+				  <mrow>
+					<mi>s</mi>
+					<mo>&ne;</mo>
+					<mi>d</mi>
+				  </mrow>
+				</mstyle>
+			  </mtd>
+			</mtr>
+		  </mtable>
+		</munder>
+		<mrow>
+		  <mo>(</mo>
+		  <msub>
+			<mi>L</mi>
+			<mi>e</mi>
+		  </msub>
+		  <mo>&sdot;</mo>
+		  <msubsup>
+			<mi>A</mi>
+			<mrow>
+			  <mi>m</mi>
+			  <mi>n</mi>
+			</mrow>
+			<mrow>
+			  <mi>s</mi>
+			  <mi>d</mi>
+			</mrow>
+		  </msubsup>
+		  <mo>+</mo>
+		  <msub>
+			<mi>L</mi>
+			<mi>p</mi>
+		  </msub>
+		  <mo>&sdot;</mo>
+		  <msubsup>
+			<mi>S</mi>
+			<mrow>
+			  <mi>m</mi>
+			  <mi>n</mi>
+			</mrow>
+			<mrow>
+			  <mi>s</mi>
+			  <mi>d</mi>
+			</mrow>
+		  </msubsup>
+		  <mo>)</mo>
+		</mrow>
+		</mrow>
+		</math>
+        """
+    return s
 
 
 def mathPowerFormulaPerQueue():
@@ -4220,6 +5592,130 @@ def updateTotals(struct, key, val): #function that updates totals in a dictionar
         tmp = val
     roundatdecimals(tmp,3)
     struct.update({key: tmp})
+
+'''
+def routeAllTrafficRequestsOverVirtualTopologyMultihopBypass(nodes, data, vt, vtl, vtfreecaps, maxGbpsPerWavelength, VTfinal, R, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection):
+    #this function's parameter "data" refers to the traffic requests
+    #this version is not using Queues!
+    global GlobalPrintOutEnabled
+    global GlobalVirtLinkID
+    
+    s="Virtual topology graph after processing request "
+    gr = graph_new(s, True)
+    
+    n = len(data)
+    count=0
+
+    GlobalVirtLinkID = 0
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        print("<table class='data'>")
+        print("<tr><th colspan='7'>Routing traffic requests over the Virtual Topology <br>(a.k.a. Adding requests to the Virtual Topology)</th></tr>")
+        #print ("<tr><th style='width: 50px; inline-size: 50px;'>Request</th><th style='width: 50px; inline-size: 50px;'>From</th><th style='width: 50px; inline-size: 50px;'>To</th><th>Required/Remain</th><th class='actions'>Actions</th><th>Outcomes update</th><th>Current Virtual Topology</th></tr>")
+        print ("<tr><th>Request</th><th>From</th><th>To</th><th>Required/Remain</th><th class='actions'>Actions</th><th>Free capacities</th><th>Current Virtual Topology</th></tr>")
+    #EOP
+
+    # Traverse through all array elements
+    for i in range(n):   #for each request
+        
+        remain = data[i][2]
+    
+        apo = nodes[data[i][0]]
+        pros = nodes[data[i][1]]
+        req=i+1
+
+        graph_filename="VTpostReq"+str(req)+".html"
+
+        while (remain>0): #while there are remaining Gb of the request to be routed
+            #SOP
+            if (GlobalPrintOutEnabled==True) :
+                print ("<td style='width: 50px; inline-size: 50px;'>Processing request ", req, "</td><td style='width: 50px; inline-size: 50px;'>from", apo, "("+str(data[i][0])+")", "</td><td style='width: 50px; inline-size: 50px;'>to", pros,"("+str(data[i][1])+")", "</td>")
+                print ("<td>Remain",remain, "Gbps to be routed.</td>")
+            #EOP
+
+            graph_add_node(gr,data[i][0],apo,Ncolours)
+            graph_add_node(gr,data[i][1],pros,Ncolours)
+            
+            #SOP
+            if (GlobalPrintOutEnabled==True) :
+                print ("<td class='actions' style='font-size:0.5em'>")
+            #EOP
+            
+            if (remain >= maxGbpsPerWavelength):  #if the request is >=40Gbps
+                #SOP
+                if (GlobalPrintOutEnabled==True) :
+                    print("<li>A new virtual link will be created since the requirement is >= 40 Gbps.")
+                #EOP
+                
+                CapForTheLogicalLink=maxGbpsPerWavelength
+                
+                if (addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, req, data[i][0], data[i][1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTfinal, R, gr, VLIDs, dbConnection) == 0):
+                    #added new link to route 40G successfully
+                    remain = remain - CapForTheLogicalLink
+                    #remain=numpy.round(remain, decimals=3, out=None)
+                    remain = roundatdecimals(remain, 3)
+
+                    # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
+                    TotalLightpaths[0] +=1
+
+                    # do not add a edge on the graph for 40 Gbps virtual (logical) links; we don't want the graph overcrowded
+                    # if you want to add, just uncomment next line
+                    # graph_add_edge(gr,data[i][0],data[i][1],str(CapForTheLogicalLink),"free:0")
+
+            else:   #if the request is <40Gbps attempt grooming
+                #SOP
+                if (GlobalPrintOutEnabled==True) :
+                    print("<li>Since the requirement is < 40 Gbps then an attempt to route traffic over existing virtual links will be made")
+                #EOP
+
+                CapForTheLogicalLink=remain
+                if (routeOneVirtualLinkOverTheVirtualTopologyMultihopBypass(nodes, req, data[i][0], data[i][1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTfinal, R, gr, ReUsedLightpaths, LightpathReuses, VLIDs, dbConnection) == 0):   #try to route it over existing paths of the virtual topology
+                
+                    #routed the required capacity successfully
+                    remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
+                    #remain=numpy.round(remain, decimals=3, out=None)
+
+                    #graph_add_edge(gr,data[i][0],data[i][1],str(CapForTheLogicalLink),"free:0")
+
+                else:   #if it cannot be routed over existing paths of the virtual topology, then add a new virtual link for it
+                    if (addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, req, data[i][0], data[i][1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTfinal, R, gr, VLIDs, dbConnection) == 0):
+                        #added new link to route required capacity successfully
+                        remain = remain - CapForTheLogicalLink
+                        remain=numpy.round(remain, decimals=3, out=None)
+
+                        # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
+                        TotalLightpaths[0] +=1
+            
+            #SOP
+            if (GlobalPrintOutEnabled==True) :
+                print ("</td>")
+                print("<td>Free capacities list vTfreeCapacities vtFrCap=",vtfreecaps,"</td>")
+                print("<td>Virtual Topology vT =",vt)
+                #print("<!--<iframe src='"+graph_filename+"' style='border:2px solid red;width:200px;height:200px;' title='"+graph_filename+"'></iframe>-->")   # not including graphs in the report, but only links to graphs
+                print("<p><a href='"+graph_filename+"' target='_blank'>"+graph_filename+"</a></p>")
+                print("</td></tr>")
+                #print("<li>Links list vTL =",vtl)
+                #print("<li>Links used for each request (s,d,type,capacity) R =",R)
+            #EOP
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            #after each request routing over virtual topology save graph phase
+            graph_save(gr, graph_path, graph_filename)
+            #print("<iframe src='"+"VTpostReq"+str(r)+".html"+"'></iframe></td></tr>")
+        #EOP
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        #after all requests show total graph
+        print("</table>")
+        #grFile = os.path.join(graph_path, graph_filename)
+        #print("<div style='margin-left:auto;margin-right:auto;'>")
+        #print("<br><br><a href='"+protocol+grFile+"' target='_blank'>"+graph_filename+"</a></div>")
+        #print("<iframe src='"+protocol+grFile+"' style='border:2px solid red;width:500px;height:500px;' title='"+graph_filename+"'></iframe>")
+    #EOP
+'''
 
 def nsec2msec(t):
     return roundatdecimals( (t * 1e-6), 3 )
@@ -7023,7 +8519,18 @@ def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q0nextQ1
 #Boithitikes functions
 
 def get_virtual_link_ids(virtual_link_ids_dict, source_dest_tuple):
-    
+    """
+    Retrieves the array of virtual link IDs for a given (source, destination) tuple.
+
+    Args:
+    virtual_link_ids_dict: A dictionary where keys are (source, destination) tuples
+                            and values are lists of virtual link IDs.
+    source_dest_tuple: The (source, destination) tuple for which to retrieve the IDs.
+
+    Returns:
+    The list of virtual link IDs associated with the tuple, or None if the tuple
+    is not found in the dictionary.
+    """
     if source_dest_tuple in virtual_link_ids_dict:
         return virtual_link_ids_dict[source_dest_tuple]
     else:
@@ -8060,7 +9567,7 @@ def routeOneVirtualLinkOverTheVirtualTopologyMultihopBypass_checkforRevisits(nod
                     #SOP
                     if (GlobalPrintOutEnabled==True) :
                         #>>>>>>>>>>>1-7-2026
-                        print("<li>Despite traffic grooming could be realised, this virtual path leads to revisits on the physical topology, hence aborted.")
+                        print("<li>Node Revisit!<br>Despite traffic grooming could be realised, this virtual path leads to revisits on the physical topology, hence aborted.")
                     #EOP
                     
                     i = allpathslen # trick to stop iteration for all virtual links in case of revisits
@@ -8101,6 +9608,52 @@ def getVLfreecapacity(VirtualLinkTotals,vl):
         free = VirtualLinkTotals[vl][1]
     return free                    
 
+def CountLightpathsReusedReusesFromDB(dbConnection):
+    """
+    Computes (reused, reuses, countPassLPs) directly from SQLite, considering ONLY passed virtual links and passed traffic requests.
+    """
+    '''
+    sql = """
+        SELECT 
+            rtrovt.vlsrc, 
+            rtrovt.vldst, 
+            rtrovt.vlnum,
+            COUNT(DISTINCT rtrovt.reqquenum || '-' || rtrovt.reqnum) AS num_uses
+        FROM RoutingTrafficRequestsOverVirtualTopology AS rtrovt
+        INNER JOIN VirtualLinks AS vl 
+            ON rtrovt.vlsrc = vl.src AND rtrovt.vldst = vl.dst AND rtrovt.vlnum = vl.num
+        INNER JOIN TrafficRequests AS tr 
+            ON rtrovt.reqquenum = tr.quenum AND rtrovt.reqnum = tr.num
+        WHERE rtrovt.result = 'Pass'
+          AND vl.result = 'Pass'
+          AND tr.result = 'Pass'
+        GROUP BY rtrovt.vlsrc, rtrovt.vldst, rtrovt.vlnum;
+    """
+    '''
+    sql="""
+        select vlsrc, vldst, vlnum, count(vlsrc) as reuses
+        from RoutingTrafficRequestsOverVirtualTopology
+        where 
+                result = 'Pass'
+            and	type = 'Grm'
+        group by 
+            vlsrc, vldst, vlnum
+        order by
+            vlsrc, vldst, vlnum   
+        ;
+    """
+    cursor = dbConnection.execute(sql)
+    rows = cursor.fetchall()
+
+    reused = len(rows)
+    reuses = 0
+    for row in rows:
+        reuses += int(row[3])
+
+    return reused, reuses
+
+'''
+#31-10-2026 count reused lightpaths and their reuses from DB, hence not using the old subprogram
 def CountLightpathsReusedReuses(VirtualLinkTotals):
     #Virtual Links Dictionary structure
     #Key                                    Value
@@ -8114,6 +9667,7 @@ def CountLightpathsReusedReuses(VirtualLinkTotals):
             reused +=1
             reuses +=value[2]-1
     return reused, reuses
+'''
 
 def uniqueSD(VLofUniqueAdequateFreeCapacities):
     result = True
@@ -9405,6 +10959,211 @@ def routeVirtualLinksOverPhysicalTopologyNewCommonforHybridDirectMultiHopWithLim
     return physicalLinks, RoutingOfVirtualLinksOverWavelengths
 
 
+#<24-9-2025 replace def routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass() with older version - this might be corrupted>
+"""
+def routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass(VLs, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, dist, distEDFA,Cost, wavelengthIDs, LatRouterPort, LatTransponder, dbConnection):
+    global GlobalPrintOutEnabled
+    
+    physicalLinks = [] # list to keep all physical links used to route virtual links on the physical topology
+    RoutingOfVirtualLinksOverWavelengths = {}
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        print ("<table class='data'>")
+        print ("<tr><th colspan=14>Routing virtual (lightpath) links over the Physical Topology in the optical layer</th></tr>")
+        print("<tr><th>Step</th><th>Virtual Link</th><th>Utilised capacity</th><th>Free capacity</th><th>Shortest path</th><th class='actions'>Physical Link(s)</th><th>Distance (km)</th><th>Wavelengths</th><th>Wavelength ID<br>(source,destination,fiber,wavelength)</th><th>Type</th><th>Node</th></tr>") # <th>Power for router port</th><th>Power for transponder</th></tr>") #<th>Power for EDFA(s)</th></tr>")
+    #EOP
+
+    virtlinkstep = 1 #count=1
+    
+    for vlink in VLs:   #for each virtual link
+        start_vertex_str = vlink[0]
+        end_vertex_str = vlink[1]
+        sp = find_shortest_path_using_Dijkstra_and_transition_costs(N,Nt,NmC,start_vertex_str,end_vertex_str)
+
+        SPnodes=len(sp)   
+        rowspan = str(SPnodes)
+        cap = vlink[3]
+
+        vlSrc = nodenumber(N,vlink[0])
+        vlDst = nodenumber(N,vlink[1])
+        vlNum = vlink[2]
+        virtlinkid=(vlSrc, vlDst, vlNum)
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print("<tr>")
+            print("<td rowspan='"+rowspan+"'>",virtlinkstep,"</td>")   #<th>Virtual Link step number</th>
+            print("<td rowspan='"+rowspan+"'>",vlink[0]+"&rarr;"+vlink[1]+"<br>("+str(nodenumber(N,vlink[0]))+","+str(nodenumber(N,vlink[1]))+","+str(vlink[2])+")</td>")   #<th>Virtual Link</th>
+            print("<td rowspan='"+rowspan+"'>",vlink[3],"</td>")   #<th>Utilised capacity</th>
+            print("<td rowspan='"+rowspan+"'>",roundatdecimals(maxGbpsPerWavelength-cap,3),"</td>")   #<th>Free capacity</th>
+            print("<td rowspan='"+rowspan+"'>Shortest path: "+path2str(sp,N)) #print shortest path with nodes as 3 character tokens #<th>Shortest path</th>
+            print ("<br><br>Shortest path: ",sp) #print shortest path with nodes as 3 character tokens
+            print("</td>")
+        #EOP
+
+        wvl = 1
+        physlinkid = linknumber(L, sp[0],sp[1])
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print("<td class='actions'>Link",physlinkid,": "+N[sp[0]]+"&rarr;"+N[sp[1]]+"</td>")   #<th class='actions'>Physical Link(s)</th>
+            print("<td>",dist[physlinkid],"</td>") #<th>Distance (km)</th>
+            print("<td>",wvl,"</td>")   #<th>Wavelengths</th>
+        #EOP
+
+        fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
+        plSrc = sp[0]
+        plDst = sp[1]
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print("<td>")
+        #EOP
+
+            #print(f"<td>({src:d},{dst:d},{fiberid:d},{waveid:d})")   #<th>Wavelength ID</th>
+            #physicallinkid = (src, dst, fiberid, waveid)
+            #addRoutingOfVirtualLinksOverPhysicalLinks(RoutingOfVirtualLinksOverPhysicalLinks, virtlinkid, physicallinkid)
+            #print("<li>Virtual links' routing over the physical topology",RoutingOfVirtualLinksOverPhysicalLinks)
+        physicallinkid = (plSrc, plDst, fiberid, waveid)
+        addRoutingOfVirtualLinksOverPhysicalLinks(RoutingOfVirtualLinksOverWavelengths, virtlinkid, physicallinkid)
+        
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print("</td>")
+            print("<td>Source</td>")   #<th>Type</th>
+            print("<td>",N[sp[0]],"</td></tr>")   #<th>Node</th>
+        #EOP
+
+        if (SPnodes>2):         #if the physical path has more than one links
+            PLtype = "First"
+        else:                   #if the physical path has only one link
+            PLtype = "Single"
+
+        #5-9-2025 Physical hop sequence number aka PhyHopSeqNum is the sequence number of the hop the transmission for a Virtual Link follows
+        PhyHopSeqNum = 0
+        
+        #fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
+
+        if (fiberid!=-1) and (waveid!=-1):
+            PhysicalLinkSource = L[physlinkid][0]
+            PhysicalLinkCurrentSource = sp[0]
+            PhysicalLinkCurrentDestination = sp[1]
+            if (PhysicalLinkCurrentSource == PhysicalLinkSource):
+                PhysicalLinkDirection = "fwd" # forward #forward transmission direction on the physical link for the current transmission of traffic 
+            else:
+                PhysicalLinkDirection = "rev" # reverse #reverse transmission direction on the physical link for the current transmission of traffic 
+
+            #2DO use virtual link id (s,d,n) instead virtuallink step to save in DB
+            #Done
+            #2DO insertFiberWavelengthAssignments2sqlite(dbConnection, physlinkid,fiberid,waveid,virtlinkid, PLtype, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
+            #Done and renamed function to insertRoutingVirtualLinksOverPhysicalTopology2sqlite()
+
+            ### 20-9-2025 will not insert 2*router port latency because the way the latency is calculated has changed insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
+            insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, LatRouterPort, LatTransponder)
+            
+        updateTotals(Wmn, physlinkid, wvl)
+        updateTotals(CUmn, physlinkid, roundatdecimals(cap,3))
+
+        physicalLinks.append([sp[0],sp[1],vlink[2],roundatdecimals(maxGbpsPerWavelength-cap,3)])
+
+        if (SPnodes>2): #if the path has more than one links
+            z = 1
+            while (z < SPnodes-1):   #for each physical link that serves the virtual link --> print the actions
+                physlinkid = linknumber(L, sp[z],sp[z+1])
+                noEr = 0.0
+                noEe = 0.0
+                doubleEt = 2*Et
+                
+                #SOP
+                if (GlobalPrintOutEnabled==True) :
+                    print("<tr><td class='actions'>Link",physlinkid,": "+N[sp[z]]+"&rarr;"+N[sp[z+1]]+"</td>")
+                    print("<td>",dist[physlinkid],"</td><td>",wvl,"</td>")
+                #EOP
+                                    
+                fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
+                    
+                plSrc = sp[z]
+                plDst = sp[z+1]
+
+                #SOP
+                if (GlobalPrintOutEnabled==True) :
+                    print("<td>")
+                    #print(f"<td>({src:d},{dst:d},{fiberid:d},{waveid:d})")   #<th>Wavelength ID</th>
+                #EOP
+
+                physicallinkid = (plSrc, plDst, fiberid, waveid)
+                    
+                addRoutingOfVirtualLinksOverPhysicalLinks(RoutingOfVirtualLinksOverWavelengths, virtlinkid, physicallinkid)
+                    
+                #SOP
+                if (GlobalPrintOutEnabled==True) :
+                    #print("<li>Virtual links' routing over the physical topology",RoutingOfVirtualLinksOverPhysicalLinks)
+                    
+                    print("</td>")
+
+                    print("<td>Middle</td><td>",N[sp[z]],"</td></tr>")
+                #EOP
+                    
+                if (z==SPnodes-2):      #if this is the last link of the physical path 
+                    PLtype = "Last"
+                else:                   #if the physical path has more links
+                    PLtype = "Middle"
+                
+                #fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
+
+                if (fiberid!=-1) and (waveid!=-1):
+                    PhysicalLinkSource = L[physlinkid][0]
+                    PhysicalLinkCurrentSource = sp[z]
+                    PhysicalLinkCurrentDestination = sp[z+1]
+                    if (PhysicalLinkCurrentSource == PhysicalLinkSource):
+                        PhysicalLinkDirection = "fwd" # forward
+                    else:
+                        PhysicalLinkDirection = "rev" # reverse
+
+                    #insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, physlinkid,fiberid,waveid,virtlinkstep, PLtype, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
+                    #2DO use virtual link id (s,d,n) instead virtuallink step to save in DB
+                    #Done
+                    
+                    PhyHopSeqNum += 1 # increment the physical hop sequence number
+
+                    #insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
+                    #20-9-2025 not 2*router port latency any more insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
+                    insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, LatRouterPort, LatTransponder)
+                
+                updateTotals(Wmn, physlinkid, wvl)
+                updateTotals(CUmn, physlinkid, cap)
+               
+                physicalLinks.append([sp[z],sp[z+1],vlink[2],roundatdecimals(maxGbpsPerWavelength-cap,3)])
+
+                z = z + 1
+
+        noWvl = 0
+        noCap = 0.0
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print("<tr><td class='actions'>-</td><td>-</td><td>",noWvl,"</td>")
+            print("<td>no wavelength id</td>")
+            print("<td>Destination</td><td>",N[sp[SPnodes-1]],"</td></tr>")
+        #EOP
+
+        updateTotals(Wmn, physlinkid, noWvl)
+        updateTotals(CUmn, physlinkid, noCap)
+    
+        virtlinkstep += 1   #count = count + 1   # virtual links counter
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        print ("</table>")
+    #EOP
+
+    #RoutingOfVirtualLinksOverPhysicalLinks
+
+    return physicalLinks, RoutingOfVirtualLinksOverWavelengths
+"""
+#</24-9-2025 replace def routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass() with older version - this might be corrupted>
+
 #<24-9-2025 routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass() restored from previous date
 # the old way, first WA, then consider limits
 def routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass(VLs, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, dist, distEDFA,Cost, wavelengthIDs, LatRouterPort, LatTransponder, dbConnection):
@@ -9611,6 +11370,874 @@ def routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass(VLs, N, N
     #RoutingOfVirtualLinksOverPhysicalLinks
 
     return physicalLinks, RoutingOfVirtualLinksOverWavelengths
+
+
+#26-10-2026 new WavelengthsAssignmentWithLimitsConsideration()
+def WavelengthsAssignmentWithLimitsConsideration(
+    VLs, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, maxFibersPerLink,
+    limitations, HasWavConv, Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, dist,
+    distEDFA, Cost, LatRouterPort, LatTransponder, dbConnection, K_paths=1
+):
+    global GlobalPrintOutEnabled
+
+    physicalLinks = []
+    RoutingOfVirtualLinksOverWavelengths = {}
+    routingResults = {}
+    blockedVLsInfo = {}  # Detailed diagnostics for blocked virtual links
+
+    # 1. Configure Fiber Mode (Case 1-3 vs Case 4-6)
+    unlimited_fibers = (limitations[0] == "UnlimitedFibersPerLink")
+    initial_fibers = 1 if unlimited_fibers else maxFibersPerLink
+
+    # Initialize NetworkWavelengthsMap: [link][fiber][wavelength]
+    NetworkWavelengthsMap = [
+        [['' for _ in range(maxWavelengthsPerFiber)] for _ in range(initial_fibers)]
+        for _ in range(len(L))
+    ]
+
+    # 2. Configure Effective Wavelength Converter Map
+    if limitations[1] == "NoWavContConstr":
+        effective_HasWavConv = [1] * len(N)   # Converters on every node
+    elif limitations[1] == "FullWavContConstr":
+        effective_HasWavConv = [0] * len(N)   # No converters anywhere
+    elif limitations[1] == "PartialWavContConstr":
+        effective_HasWavConv = list(HasWavConv)  # Sparse converters on selected nodes
+    else:
+        error("Invalid Wavelength Continuity Constraint!", 556)
+        exit(556)
+
+    # SOP - Initialize HTML Table
+    if GlobalPrintOutEnabled:
+        algo_label = (
+            "Using Dijkstra's shortest path algorithm"
+            if K_paths == 1
+            else f"Using Yen's {K_paths}-shortest paths algorithm"
+        )
+        print("<table class='data'>")
+        print(f"<tr><th colspan=14>Routing virtual (lightpath) links over the Physical Topology in the optical layer ({limitations[0]}, {limitations[1]})</th></tr>")
+        print(f"<tr><th colspan=14>{algo_label}</th></tr>")
+        print("<tr><th>Step</th><th>Virtual Link</th><th>Utilised capacity</th><th>Free capacity</th><th>Shortest path</th><th class='actions'>Physical Link(s)</th><th>Distance (km)</th><th>Wavelengths</th><th>Wavelength ID<br>(source,destination,fiber,wavelength)</th><th>Type</th><th>Node</th></tr>")
+    # EOP
+
+    virtlinkstep = 1
+
+    for vlink in VLs:
+        start_vertex_str = vlink[0]
+        end_vertex_str = vlink[1]
+        cap = vlink[3]
+
+        vlSrc = nodenumber(N, start_vertex_str)
+        vlDst = nodenumber(N, end_vertex_str)
+        vlNum = vlink[2]
+        virtlinkid = (vlSrc, vlDst, vlNum)
+        VLidTag = f"({vlSrc},{vlDst},{vlNum})"
+
+        # Step A: Compute candidate physical path(s)
+        if K_paths == 1:
+            sp_single = find_shortest_path_using_Dijkstra_and_transition_costs(
+                N, Nt, NmC, start_vertex_str, end_vertex_str
+            )
+            candidate_paths = [sp_single] if sp_single else []
+        else:
+            candidate_paths = find_k_shortest_paths(N, NmC, vlSrc, vlDst, K=K_paths)
+
+        assigned_successfully = False
+        failure_reason = "Blocked: InvalidPath"
+        failure_details = {
+            "reason": "InvalidPath",
+            "saturating_links": [],
+            "continuity_failed_segment": []
+        }
+
+        # Step B: Attempt wavelength assignment along candidate path(s)
+        for path_idx, sp in enumerate(candidate_paths):
+            SPnodes = len(sp)
+            if SPnodes < 2:
+                continue
+
+            # Segment the path at intermediate nodes that possess wavelength converters
+            segments = []
+            current_segment = []
+            valid_path = True
+
+            for i in range(SPnodes - 1):
+                src, dst = sp[i], sp[i + 1]
+                l_id = linknumber(L, src, dst)
+                if l_id is None:
+                    valid_path = False
+                    break
+                current_segment.append((src, dst, l_id))
+
+                # Split segment if intermediate node 'dst' has a wavelength converter
+                if i < SPnodes - 2 and effective_HasWavConv[dst] == 1:
+                    segments.append(current_segment)
+                    current_segment = []
+
+            if not valid_path:
+                continue
+            if current_segment:
+                segments.append(current_segment)
+
+            # Step C: Assign continuous wavelength per segment
+            path_blocked = False
+            reservations = []  # Track (l_id, f_idx, w_idx) for rollback on failure
+            PLiDs = []         # Final (src, dst, f_idx, w_idx) hops
+
+            for segment in segments:
+                linkIDs = [item[2] for item in segment]
+                assigned_w = None
+                assigned_fibers = []
+
+                # 1st attempt: First-Fit search for a common wavelength w across existing fibers
+                for w in range(maxWavelengthsPerFiber):
+                    temp_fibers = []
+                    can_fit_segment = True
+
+                    for l_id in linkIDs:
+                        found_fiber = -1
+                        for f_idx in range(len(NetworkWavelengthsMap[l_id])):
+                            if NetworkWavelengthsMap[l_id][f_idx][w] == '':
+                                found_fiber = f_idx
+                                break
+                        if found_fiber != -1:
+                            temp_fibers.append(found_fiber)
+                        else:
+                            can_fit_segment = False
+                            break
+
+                    if can_fit_segment:
+                        assigned_w = w
+                        assigned_fibers = temp_fibers
+                        break
+
+                # 2nd attempt (Unlimited Fibers ONLY): Dynamically add a new fiber on bottleneck links
+                if assigned_w is None and unlimited_fibers:
+                    assigned_w = 0  # Default to wavelength 0 on newly added fibers
+                    assigned_fibers = []
+
+                    for l_id in linkIDs:
+                        found_fiber = -1
+                        for f_idx in range(len(NetworkWavelengthsMap[l_id])):
+                            if NetworkWavelengthsMap[l_id][f_idx][assigned_w] == '':
+                                found_fiber = f_idx
+                                break
+                        if found_fiber == -1:
+                            NetworkWavelengthsMap[l_id].append(['' for _ in range(maxWavelengthsPerFiber)])
+                            found_fiber = len(NetworkWavelengthsMap[l_id]) - 1
+                        assigned_fibers.append(found_fiber)
+
+                # If still None (Limited Fibers), diagnose the exact blocking reason
+                if assigned_w is None:
+                    path_blocked = True
+
+                    # Check if any link in this segment is 100% full across all fibers & wavelengths
+                    saturated_links = []
+                    for src, dst, l_id in segment:
+                        has_any_free_channel = any(
+                            NetworkWavelengthsMap[l_id][f_idx][w] == ''
+                            for f_idx in range(len(NetworkWavelengthsMap[l_id]))
+                            for w in range(maxWavelengthsPerFiber)
+                        )
+                        if not has_any_free_channel:
+                            saturated_links.append((l_id, N[src], N[dst]))
+
+                    if saturated_links:
+                        failure_reason = "Blocked: NoFreeFibers"
+                        failure_details = {
+                            "reason": "NoFreeFibers",
+                            "description": "Not enough fibers/wavelengths on physical link(s)",
+                            "saturating_links": saturated_links,
+                            "continuity_failed_segment": [(N[s], N[d], lid) for s, d, lid in segment]
+                        }
+                    else:
+                        failure_reason = "Blocked: WavContConstr"
+                        failure_details = {
+                            "reason": "WavContConstr",
+                            "description": "Wavelength continuity constraint (no common wavelength across segment)",
+                            "saturating_links": [],
+                            "continuity_failed_segment": [(N[s], N[d], lid) for s, d, lid in segment]
+                        }
+                    break
+                else:
+                    # Reserve wavelength across the segment
+                    for i, (src, dst, l_id) in enumerate(segment):
+                        f_idx = assigned_fibers[i]
+                        NetworkWavelengthsMap[l_id][f_idx][assigned_w] = VLidTag
+                        reservations.append((l_id, f_idx, assigned_w))
+                        PLiDs.append((src, dst, f_idx, assigned_w))
+
+            if path_blocked:
+                # Rollback reservations made by earlier segments of this failed path attempt
+                for r_link, r_fiber, r_w in reservations:
+                    NetworkWavelengthsMap[r_link][r_fiber][r_w] = ''
+                continue
+            else:
+                assigned_successfully = True
+                break
+
+        # Step D: Commit Lightpath or Record Blocking
+        if not assigned_successfully:
+            routingResults[virtlinkid] = failure_reason
+            blockedVLsInfo[virtlinkid] = failure_details
+            addRoutingOfVirtualLinksOverPhysicalLinks(
+                RoutingOfVirtualLinksOverWavelengths, virtlinkid, [(-1, -1, -1, -1)]
+            )
+
+            if GlobalPrintOutEnabled:
+                print(
+                    f"<tr><td colspan=14>Blocked VL Step {virtlinkstep}: "
+                    f"({vlSrc},{vlDst},{vlNum}) {start_vertex_str}&rarr;{end_vertex_str} "
+                    f"via {path2str(sp, N)} "
+                    f"[{failure_reason} - {failure_details.get('description', '')}]</td></tr>"
+                )
+        else:
+            # Keep exact "Pass" string so resultsDBUpdateOfVLs_LPs() works without issues
+            routingResults[virtlinkid] = "Pass"
+            addRoutingOfVirtualLinksOverPhysicalLinks(
+                RoutingOfVirtualLinksOverWavelengths, virtlinkid, PLiDs
+            )
+
+            rowspan = str(SPnodes)
+            wvl = 1
+
+            # SOP - Start of Row HTML
+            if GlobalPrintOutEnabled:
+                print("<tr>")
+                print("<td rowspan='" + rowspan + "'>", virtlinkstep, "</td>")
+                print("<td rowspan='" + rowspan + "'>", start_vertex_str + "&rarr;" + end_vertex_str + "<br>(" + str(vlSrc) + "," + str(vlDst) + "," + str(vlNum) + ")</td>")
+                print("<td rowspan='" + rowspan + "'>", cap, "</td>")
+                print("<td rowspan='" + rowspan + "'>", roundatdecimals(maxGbpsPerWavelength - cap, 3), "</td>")
+                print("<td rowspan='" + rowspan + "'>Shortest path: " + path2str(sp, N) + "<br><br>Nodes: ", sp, "</td>")
+            # EOP
+
+            PhyHopSeqNum = 0
+            for index, hop_data in enumerate(PLiDs):
+                plSrc, plDst, fiberid, waveid = hop_data
+                physlinkid = linknumber(L, plSrc, plDst)
+
+                # SOP - Print Physical Hop HTML
+                if GlobalPrintOutEnabled:
+                    if index > 0:
+                        print("<tr>")
+                    print("<td class='actions'>Link", physlinkid, ": " + N[plSrc] + "&rarr;" + N[plDst] + "</td>")
+                    print("<td>", dist[physlinkid], "</td><td>", wvl, "</td>")
+                    print("<td>(", plSrc, ",", plDst, ",", fiberid, ",", waveid, ")</td>")
+                # EOP
+
+                if SPnodes > 2:
+                    if index == 0:
+                        PLtype = "First"
+                    elif index == len(PLiDs) - 1:
+                        PLtype = "Last"
+                    else:
+                        PLtype = "Middle"
+                else:
+                    PLtype = "Single"
+
+                # SOP - Print Type and Node
+                if GlobalPrintOutEnabled:
+                    if index == 0:
+                        print("<td>Source</td><td>", N[plSrc], "</td></tr>")
+                    else:
+                        print("<td>Middle</td><td>", N[plSrc], "</td></tr>")
+                # EOP
+
+                PhysicalLinkSource = L[physlinkid][0]
+                PhysicalLinkDirection = "fwd" if plSrc == PhysicalLinkSource else "rev"
+
+                # Insert ONLY valid, unblocked lightpaths into SQLite DB
+                insertRoutingVirtualLinksOverPhysicalTopology2sqlite(
+                    dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid,
+                    PLtype, PhyHopSeqNum, len(sp) - 1, sp, path2str(sp, N),
+                    PhysicalLinkDirection, plSrc, plDst, LatRouterPort, LatTransponder
+                )
+
+                PhyHopSeqNum += 1
+                updateTotals(Wmn, physlinkid, wvl)
+                updateTotals(CUmn, physlinkid, cap)
+                physicalLinks.append([plSrc, plDst, vlNum, roundatdecimals(maxGbpsPerWavelength - cap, 3)])
+
+            # SOP - Final Destination HTML Block
+            if GlobalPrintOutEnabled:
+                noWvl = 0
+                print("<tr><td class='actions'>-</td><td>-</td><td>", noWvl, "</td>")
+                print("<td>no wavelength id</td>")
+                print("<td>Destination</td><td>", N[sp[SPnodes - 1]], "</td></tr>")
+            # EOP
+
+        virtlinkstep += 1
+
+    # Sync fmn (fibers used per link) from actual occupied fibers in NetworkWavelengthsMap
+    for l_id in range(len(L)):
+        used_fibers_count = sum(
+            1 for fiber in NetworkWavelengthsMap[l_id]
+            if any(w_slot != '' for w_slot in fiber)
+        )
+        fmn[l_id] = [used_fibers_count] if used_fibers_count > 0 else [0]
+
+    # SOP - End of Table
+    if GlobalPrintOutEnabled:
+        print("</table>")
+    # EOP
+
+    return (
+        physicalLinks,
+        RoutingOfVirtualLinksOverWavelengths,
+        routingResults,
+        NetworkWavelengthsMap,
+        blockedVLsInfo
+    )
+
+'''
+def WavelengthsAssignmentWithLimitsConsideration(
+    VLs, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, maxFibersPerLink,
+    limitations, HasWavConv, Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, dist,
+    distEDFA, Cost, LatRouterPort, LatTransponder, dbConnection, K_paths=1
+):
+    global GlobalPrintOutEnabled
+
+    physicalLinks = []
+    RoutingOfVirtualLinksOverWavelengths = {}
+    routingResults = {}
+    blockedVLsInfo = {}  # Detailed diagnostics for blocked virtual links
+
+    # 1. Configure Fiber Mode (Case 1-3 vs Case 4-6)
+    unlimited_fibers = (limitations[0] == "UnlimitedFibersPerLink")
+    initial_fibers = 1 if unlimited_fibers else maxFibersPerLink
+
+    # Initialize NetworkWavelengthsMap: [link][fiber][wavelength]
+    NetworkWavelengthsMap = [
+        [['' for _ in range(maxWavelengthsPerFiber)] for _ in range(initial_fibers)]
+        for _ in range(len(L))
+    ]
+
+    # 2. Configure Effective Wavelength Converter Map
+    if limitations[1] == "NoWavContConstr":
+        effective_HasWavConv = [1] * len(N)   # Converters on every node
+    elif limitations[1] == "FullWavContConstr":
+        effective_HasWavConv = [0] * len(N)   # No converters anywhere
+    elif limitations[1] == "PartialWavContConstr":
+        effective_HasWavConv = list(HasWavConv)  # Sparse converters on selected nodes
+    else:
+        error("Invalid Wavelength Continuity Constraint!", 556)
+        exit(556)
+
+    # SOP - Initialize HTML Table
+    if GlobalPrintOutEnabled:
+        algo_label = (
+            "Using Dijkstra's shortest path algorithm"
+            if K_paths == 1
+            else f"Using Yen's {K_paths}-shortest paths algorithm"
+        )
+        print("<table class='data'>")
+        print(f"<tr><th colspan=14>Routing virtual (lightpath) links over the Physical Topology in the optical layer ({limitations[0]}, {limitations[1]})</th></tr>")
+        print(f"<tr><th colspan=14>{algo_label}</th></tr>")
+        print("<tr><th>Step</th><th>Virtual Link</th><th>Utilised capacity</th><th>Free capacity</th><th>Shortest path</th><th class='actions'>Physical Link(s)</th><th>Distance (km)</th><th>Wavelengths</th><th>Wavelength ID<br>(source,destination,fiber,wavelength)</th><th>Type</th><th>Node</th></tr>")
+    # EOP
+
+    virtlinkstep = 1
+
+    for vlink in VLs:
+        start_vertex_str = vlink[0]
+        end_vertex_str = vlink[1]
+        cap = vlink[3]
+
+        vlSrc = nodenumber(N, start_vertex_str)
+        vlDst = nodenumber(N, end_vertex_str)
+        vlNum = vlink[2]
+        virtlinkid = (vlSrc, vlDst, vlNum)
+        VLidTag = f"({vlSrc},{vlDst},{vlNum})"
+
+        # Step A: Compute candidate physical path(s)
+        if K_paths == 1:
+            sp_single = find_shortest_path_using_Dijkstra_and_transition_costs(
+                N, Nt, NmC, start_vertex_str, end_vertex_str
+            )
+            candidate_paths = [sp_single] if sp_single else []
+        else:
+            candidate_paths = find_k_shortest_paths(N, NmC, vlSrc, vlDst, K=K_paths)
+
+        assigned_successfully = False
+        failure_reason = "Blocked: InvalidPath"
+        failure_details = {
+            "reason": "InvalidPath",
+            "description": "No valid physical path found",
+            "physical_path_nodes": [],
+            "physical_path_str": "None",
+            "attempted_paths": [],
+            "saturating_links": [],
+            "continuity_failed_segment": []
+        }
+
+        # Step B: Attempt wavelength assignment along candidate path(s)
+        for path_idx, sp in enumerate(candidate_paths):
+            SPnodes = len(sp)
+            if SPnodes < 2:
+                continue
+
+            sp_str = path2str(sp, N)
+
+            # Segment the path at intermediate nodes that possess wavelength converters
+            segments = []
+            current_segment = []
+            valid_path = True
+
+            for i in range(SPnodes - 1):
+                src, dst = sp[i], sp[i + 1]
+                l_id = linknumber(L, src, dst)
+                if l_id is None:
+                    valid_path = False
+                    break
+                current_segment.append((src, dst, l_id))
+
+                # Split segment if intermediate node 'dst' has a wavelength converter
+                if i < SPnodes - 2 and effective_HasWavConv[dst] == 1:
+                    segments.append(current_segment)
+                    current_segment = []
+
+            if not valid_path:
+                failure_details["attempted_paths"].append(
+                    f"Path {path_idx + 1}: {sp_str} (Nodes: {sp}) -> InvalidPath"
+                )
+                continue
+            if current_segment:
+                segments.append(current_segment)
+
+            # Step C: Assign continuous wavelength per segment
+            path_blocked = False
+            reservations = []  # Track (l_id, f_idx, w_idx) for rollback on failure
+            PLiDs = []         # Final (src, dst, f_idx, w_idx) hops
+
+            for segment in segments:
+                linkIDs = [item[2] for item in segment]
+                assigned_w = None
+                assigned_fibers = []
+
+                # 1st attempt: First-Fit search for a common wavelength w across existing fibers
+                for w in range(maxWavelengthsPerFiber):
+                    temp_fibers = []
+                    can_fit_segment = True
+
+                    for l_id in linkIDs:
+                        found_fiber = -1
+                        for f_idx in range(len(NetworkWavelengthsMap[l_id])):
+                            if NetworkWavelengthsMap[l_id][f_idx][w] == '':
+                                found_fiber = f_idx
+                                break
+                        if found_fiber != -1:
+                            temp_fibers.append(found_fiber)
+                        else:
+                            can_fit_segment = False
+                            break
+
+                    if can_fit_segment:
+                        assigned_w = w
+                        assigned_fibers = temp_fibers
+                        break
+
+                # 2nd attempt (Unlimited Fibers ONLY): Dynamically add a new fiber on bottleneck links
+                if assigned_w is None and unlimited_fibers:
+                    assigned_w = 0
+                    assigned_fibers = []
+
+                    for l_id in linkIDs:
+                        found_fiber = -1
+                        for f_idx in range(len(NetworkWavelengthsMap[l_id])):
+                            if NetworkWavelengthsMap[l_id][f_idx][assigned_w] == '':
+                                found_fiber = f_idx
+                                break
+                        if found_fiber == -1:
+                            NetworkWavelengthsMap[l_id].append(['' for _ in range(maxWavelengthsPerFiber)])
+                            found_fiber = len(NetworkWavelengthsMap[l_id]) - 1
+                        assigned_fibers.append(found_fiber)
+
+                # If still None (Limited Fibers), diagnose the exact blocking reason
+                if assigned_w is None:
+                    path_blocked = True
+
+                    # Check if any link in this segment is 100% full across all fibers & wavelengths
+                    saturated_links = []
+                    for src, dst, l_id in segment:
+                        has_any_free_channel = any(
+                            NetworkWavelengthsMap[l_id][f_idx][w] == ''
+                            for f_idx in range(len(NetworkWavelengthsMap[l_id]))
+                            for w in range(maxWavelengthsPerFiber)
+                        )
+                        if not has_any_free_channel:
+                            saturated_links.append((l_id, N[src], N[dst]))
+
+                    failed_seg_info = [(N[s], N[d], lid) for s, d, lid in segment]
+
+                    if saturated_links:
+                        failure_reason = "Blocked: NoFreeFibers"
+                        desc = f"Not enough fibers/wavelengths on physical link(s) {saturated_links}"
+                        reason_code = "NoFreeFibers"
+                    else:
+                        failure_reason = "Blocked: WavContConstr"
+                        desc = f"Wavelength continuity constraint on segment {failed_seg_info}"
+                        reason_code = "WavContConstr"
+
+                    failure_details["reason"] = reason_code
+                    failure_details["description"] = desc
+                    failure_details["physical_path_nodes"] = sp
+                    failure_details["physical_path_str"] = sp_str
+                    failure_details["saturating_links"] = saturated_links
+                    failure_details["continuity_failed_segment"] = failed_seg_info
+                    failure_details["attempted_paths"].append(
+                        f"Path {path_idx + 1}: {sp_str} (Nodes: {sp}) -> {reason_code}"
+                    )
+                    break
+                else:
+                    # Reserve wavelength across the segment
+                    for i, (src, dst, l_id) in enumerate(segment):
+                        f_idx = assigned_fibers[i]
+                        NetworkWavelengthsMap[l_id][f_idx][assigned_w] = VLidTag
+                        reservations.append((l_id, f_idx, assigned_w))
+                        PLiDs.append((src, dst, f_idx, assigned_w))
+
+            if path_blocked:
+                # Rollback reservations made by earlier segments of this failed path attempt
+                for r_link, r_fiber, r_w in reservations:
+                    NetworkWavelengthsMap[r_link][r_fiber][r_w] = ''
+                continue
+            else:
+                assigned_successfully = True
+                break
+
+        # Step D: Commit Lightpath or Record Blocking
+        if not assigned_successfully:
+            routingResults[virtlinkid] = failure_reason
+            blockedVLsInfo[virtlinkid] = failure_details
+            addRoutingOfVirtualLinksOverPhysicalLinks(
+                RoutingOfVirtualLinksOverWavelengths, virtlinkid, [(-1, -1, -1, -1)]
+            )
+
+            if GlobalPrintOutEnabled:
+                if K_paths == 1 or len(failure_details["attempted_paths"]) <= 1:
+                    path_msg = (
+                        f"Selected physical path: {failure_details['physical_path_str']} "
+                        f"(Nodes: {failure_details['physical_path_nodes']})"
+                    )
+                else:
+                    path_msg = "Attempted physical paths: " + " ; ".join(failure_details["attempted_paths"])
+
+                print(
+                    f"<tr><td colspan=14>Blocked VL Step {virtlinkstep}: "
+                    f"({vlSrc},{vlDst},{vlNum}) {start_vertex_str}&rarr;{end_vertex_str} | "
+                    f"{path_msg} "
+                    f"[{failure_reason} - {failure_details.get('description', '')}]</td></tr>"
+                )
+        else:
+            routingResults[virtlinkid] = "Pass"
+            addRoutingOfVirtualLinksOverPhysicalLinks(
+                RoutingOfVirtualLinksOverWavelengths, virtlinkid, PLiDs
+            )
+
+            rowspan = str(SPnodes)
+            wvl = 1
+
+            # SOP - Start of Row HTML
+            if GlobalPrintOutEnabled:
+                print("<tr>")
+                print("<td rowspan='" + rowspan + "'>", virtlinkstep, "</td>")
+                print("<td rowspan='" + rowspan + "'>", start_vertex_str + "&rarr;" + end_vertex_str + "<br>(" + str(vlSrc) + "," + str(vlDst) + "," + str(vlNum) + ")</td>")
+                print("<td rowspan='" + rowspan + "'>", cap, "</td>")
+                print("<td rowspan='" + rowspan + "'>", roundatdecimals(maxGbpsPerWavelength - cap, 3), "</td>")
+                print("<td rowspan='" + rowspan + "'>Shortest path: " + path2str(sp, N) + "<br><br>Nodes: ", sp, "</td>")
+            # EOP
+
+            PhyHopSeqNum = 0
+            for index, hop_data in enumerate(PLiDs):
+                plSrc, plDst, fiberid, waveid = hop_data
+                physlinkid = linknumber(L, plSrc, plDst)
+
+                # SOP - Print Physical Hop HTML
+                if GlobalPrintOutEnabled:
+                    if index > 0:
+                        print("<tr>")
+                    print("<td class='actions'>Link", physlinkid, ": " + N[plSrc] + "&rarr;" + N[plDst] + "</td>")
+                    print("<td>", dist[physlinkid], "</td><td>", wvl, "</td>")
+                    print("<td>(", plSrc, ",", plDst, ",", fiberid, ",", waveid, ")</td>")
+                # EOP
+
+                if SPnodes > 2:
+                    if index == 0:
+                        PLtype = "First"
+                    elif index == len(PLiDs) - 1:
+                        PLtype = "Last"
+                    else:
+                        PLtype = "Middle"
+                else:
+                    PLtype = "Single"
+
+                # SOP - Print Type and Node
+                if GlobalPrintOutEnabled:
+                    if index == 0:
+                        print("<td>Source</td><td>", N[plSrc], "</td></tr>")
+                    else:
+                        print("<td>Middle</td><td>", N[plSrc], "</td></tr>")
+                # EOP
+
+                PhysicalLinkSource = L[physlinkid][0]
+                PhysicalLinkDirection = "fwd" if plSrc == PhysicalLinkSource else "rev"
+
+                # Insert ONLY valid, unblocked lightpaths into SQLite DB
+                insertRoutingVirtualLinksOverPhysicalTopology2sqlite(
+                    dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid,
+                    PLtype, PhyHopSeqNum, len(sp) - 1, sp, path2str(sp, N),
+                    PhysicalLinkDirection, plSrc, plDst, LatRouterPort, LatTransponder
+                )
+
+                PhyHopSeqNum += 1
+                updateTotals(Wmn, physlinkid, wvl)
+                updateTotals(CUmn, physlinkid, cap)
+                physicalLinks.append([plSrc, plDst, vlNum, roundatdecimals(maxGbpsPerWavelength - cap, 3)])
+
+            # SOP - Final Destination HTML Block
+            if GlobalPrintOutEnabled:
+                noWvl = 0
+                print("<tr><td class='actions'>-</td><td>-</td><td>", noWvl, "</td>")
+                print("<td>no wavelength id</td>")
+                print("<td>Destination</td><td>", N[sp[SPnodes - 1]], "</td></tr>")
+            # EOP
+
+        virtlinkstep += 1
+
+    # Sync fmn (fibers used per link) from actual occupied fibers in NetworkWavelengthsMap
+    for l_id in range(len(L)):
+        used_fibers_count = sum(
+            1 for fiber in NetworkWavelengthsMap[l_id]
+            if any(w_slot != '' for w_slot in fiber)
+        )
+        fmn[l_id] = [used_fibers_count] if used_fibers_count > 0 else [0]
+
+    # SOP - End of Table
+    if GlobalPrintOutEnabled:
+        print("</table>")
+    # EOP
+
+    return (
+        physicalLinks,
+        RoutingOfVirtualLinksOverWavelengths,
+        routingResults,
+        NetworkWavelengthsMap,
+        blockedVLsInfo
+    )
+'''
+
+#>>>>>> 25-10-2026 WA with limits consideration
+"""
+def not_this_WavelengthsAssignmentWithLimitsConsideration(VLs, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, 
+                                                 Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, dist, distEDFA,
+                                                 Cost, wavelengthIDs, LatRouterPort, LatTransponder, dbConnection):
+    global GlobalPrintOutEnabled
+
+    physicalLinks = [] # list to keep all physical links used to route virtual links on the physical topology
+    RoutingOfVirtualLinksOverWavelengths = {}
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        print ("<table class='data'>")
+        print ("<tr><th colspan=14>Routing virtual (lightpath) links over the Physical Topology in the optical layer</th></tr>")
+        print("<tr><th>Step</th><th>Virtual Link</th><th>Utilised capacity</th><th>Free capacity</th><th>Shortest path</th><th class='actions'>Physical Link(s)</th><th>Distance (km)</th><th>Wavelengths</th><th>Wavelength ID<br>(source,destination,fiber,wavelength)</th><th>Type</th><th>Node</th></tr>") # <th>Power for router port</th><th>Power for transponder</th></tr>") #<th>Power for EDFA(s)</th></tr>")
+    #EOP
+
+    virtlinkstep = 1 #count=1
+    
+    for vlink in VLs:   #for each virtual link
+        start_vertex_str = vlink[0]
+        end_vertex_str = vlink[1]
+        sp = find_shortest_path_using_Dijkstra_and_transition_costs(N,Nt,NmC,start_vertex_str,end_vertex_str)
+
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~>
+
+        SPnodes=len(sp)   
+        rowspan = str(SPnodes)
+        cap = vlink[3]
+
+        vlSrc = nodenumber(N,vlink[0])
+        vlDst = nodenumber(N,vlink[1])
+        vlNum = vlink[2]
+        virtlinkid=(vlSrc, vlDst, vlNum)
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print("<tr>")
+            print("<td rowspan='"+rowspan+"'>",virtlinkstep,"</td>")   #<th>Virtual Link step number</th>
+            print("<td rowspan='"+rowspan+"'>",vlink[0]+"&rarr;"+vlink[1]+"<br>("+str(nodenumber(N,vlink[0]))+","+str(nodenumber(N,vlink[1]))+","+str(vlink[2])+")</td>")   #<th>Virtual Link</th>
+            print("<td rowspan='"+rowspan+"'>",vlink[3],"</td>")   #<th>Utilised capacity</th>
+            print("<td rowspan='"+rowspan+"'>",roundatdecimals(maxGbpsPerWavelength-cap,3),"</td>")   #<th>Free capacity</th>
+            print("<td rowspan='"+rowspan+"'>Shortest path: "+path2str(sp,N)) #print shortest path with nodes as 3 character tokens #<th>Shortest path</th>
+            print ("<br><br>Shortest path: ",sp) #print shortest path with nodes as 3 character tokens
+            print("</td>")
+        #EOP
+
+        wvl = 1
+        physlinkid = linknumber(L, sp[0],sp[1])
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print("<td class='actions'>Link",physlinkid,": "+N[sp[0]]+"&rarr;"+N[sp[1]]+"</td>")   #<th class='actions'>Physical Link(s)</th>
+            print("<td>",dist[physlinkid],"</td>") #<th>Distance (km)</th>
+            print("<td>",wvl,"</td>")   #<th>Wavelengths</th>
+        #EOP
+
+        fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
+        plSrc = sp[0]
+        plDst = sp[1]
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print("<td>")
+        #EOP
+
+            #print(f"<td>({src:d},{dst:d},{fiberid:d},{waveid:d})")   #<th>Wavelength ID</th>
+            #physicallinkid = (src, dst, fiberid, waveid)
+            #addRoutingOfVirtualLinksOverPhysicalLinks(RoutingOfVirtualLinksOverPhysicalLinks, virtlinkid, physicallinkid)
+            #print("<li>Virtual links' routing over the physical topology",RoutingOfVirtualLinksOverPhysicalLinks)
+        physicallinkid = (plSrc, plDst, fiberid, waveid)
+        addRoutingOfVirtualLinksOverPhysicalLinks(RoutingOfVirtualLinksOverWavelengths, virtlinkid, physicallinkid)
+        
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print("</td>")
+            print("<td>Source</td>")   #<th>Type</th>
+            print("<td>",N[sp[0]],"</td></tr>")   #<th>Node</th>
+        #EOP
+
+        if (SPnodes>2):         #if the physical path has more than one links
+            PLtype = "First"
+        else:                   #if the physical path has only one link
+            PLtype = "Single"
+
+        #5-9-2025 Physical hop sequence number aka PhyHopSeqNum is the sequence number of the hop the transmission for a Virtual Link follows
+        PhyHopSeqNum = 0
+        
+        #fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
+
+        if (fiberid!=-1) and (waveid!=-1):
+            PhysicalLinkSource = L[physlinkid][0]
+            PhysicalLinkCurrentSource = sp[0]
+            PhysicalLinkCurrentDestination = sp[1]
+            if (PhysicalLinkCurrentSource == PhysicalLinkSource):
+                PhysicalLinkDirection = "fwd" # forward #forward transmission direction on the physical link for the current transmission of traffic 
+            else:
+                PhysicalLinkDirection = "rev" # reverse #reverse transmission direction on the physical link for the current transmission of traffic 
+
+            #2DO use virtual link id (s,d,n) instead virtuallink step to save in DB
+            #Done
+            #2DO insertFiberWavelengthAssignments2sqlite(dbConnection, physlinkid,fiberid,waveid,virtlinkid, PLtype, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
+            #Done and renamed function to insertRoutingVirtualLinksOverPhysicalTopology2sqlite()
+
+            ### 20-9-2025 will not insert 2*router port latency because the way the latency is calculated has changed insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
+            insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, LatRouterPort, LatTransponder)
+            
+        updateTotals(Wmn, physlinkid, wvl)
+        updateTotals(CUmn, physlinkid, roundatdecimals(cap,3))
+
+        #25-9-2025 the following are the physicalLinks [src,dst,fiber,free capacity]
+        physicalLinks.append([sp[0],sp[1],vlink[2],roundatdecimals(maxGbpsPerWavelength-cap,3)])
+
+        if (SPnodes>2): #if the path has more than one links
+            z = 1
+            while (z < SPnodes-1):   #for each physical link that serves the virtual link --> print the actions
+                physlinkid = linknumber(L, sp[z],sp[z+1])
+                noEr = 0.0
+                noEe = 0.0
+                doubleEt = 2*Et
+                
+                #SOP
+                if (GlobalPrintOutEnabled==True) :
+                    print("<tr><td class='actions'>Link",physlinkid,": "+N[sp[z]]+"&rarr;"+N[sp[z+1]]+"</td>")
+                    print("<td>",dist[physlinkid],"</td><td>",wvl,"</td>")
+                #EOP
+                                    
+                fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
+                    
+                plSrc = sp[z]
+                plDst = sp[z+1]
+
+                #SOP
+                if (GlobalPrintOutEnabled==True) :
+                    print("<td>")
+                    #print(f"<td>({src:d},{dst:d},{fiberid:d},{waveid:d})")   #<th>Wavelength ID</th>
+                #EOP
+
+                physicallinkid = (plSrc, plDst, fiberid, waveid)
+                    
+                addRoutingOfVirtualLinksOverPhysicalLinks(RoutingOfVirtualLinksOverWavelengths, virtlinkid, physicallinkid)
+                    
+                #SOP
+                if (GlobalPrintOutEnabled==True) :
+                    #print("<li>Virtual links' routing over the physical topology",RoutingOfVirtualLinksOverPhysicalLinks)
+                    
+                    print("</td>")
+
+                    print("<td>Middle</td><td>",N[sp[z]],"</td></tr>")
+                #EOP
+                    
+                if (z==SPnodes-2):      #if this is the last link of the physical path 
+                    PLtype = "Last"
+                else:                   #if the physical path has more links
+                    PLtype = "Middle"
+                
+                #fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
+
+                if (fiberid!=-1) and (waveid!=-1):
+                    PhysicalLinkSource = L[physlinkid][0]
+                    PhysicalLinkCurrentSource = sp[z]
+                    PhysicalLinkCurrentDestination = sp[z+1]
+                    if (PhysicalLinkCurrentSource == PhysicalLinkSource):
+                        PhysicalLinkDirection = "fwd" # forward
+                    else:
+                        PhysicalLinkDirection = "rev" # reverse
+
+                    #insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, physlinkid,fiberid,waveid,virtlinkstep, PLtype, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
+                    #2DO use virtual link id (s,d,n) instead virtuallink step to save in DB
+                    #Done
+                    
+                    PhyHopSeqNum += 1 # increment the physical hop sequence number
+
+                    #insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
+                    #20-9-2025 not 2*router port latency any more insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
+                    insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, LatRouterPort, LatTransponder)
+                
+                updateTotals(Wmn, physlinkid, wvl)
+                updateTotals(CUmn, physlinkid, cap)
+               
+                #25-9-2025 the following are the physicalLinks [src,dst,fiber,free capacity]
+                physicalLinks.append([sp[z],sp[z+1],vlink[2],roundatdecimals(maxGbpsPerWavelength-cap,3)])
+
+                z = z + 1
+
+        noWvl = 0
+        noCap = 0.0
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print("<tr><td class='actions'>-</td><td>-</td><td>",noWvl,"</td>")
+            print("<td>no wavelength id</td>")
+            print("<td>Destination</td><td>",N[sp[SPnodes-1]],"</td></tr>")
+        #EOP
+
+        updateTotals(Wmn, physlinkid, noWvl)
+        updateTotals(CUmn, physlinkid, noCap)
+    
+        virtlinkstep += 1   #count = count + 1   # virtual links counter
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        print ("</table>")
+    #EOP
+
+    #RoutingOfVirtualLinksOverPhysicalLinks
+
+    return physicalLinks, RoutingOfVirtualLinksOverWavelengths
+"""
+
+
+
+
 
 #>>>>>> 14-7-2026 start of WA with limits consideration
 def WavelengthsAssignmentWithoutLimitsConsideration(VLs, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, 
@@ -9835,12 +12462,14 @@ def printNetworkWavelengthsMapHTML(NetworkWavelengthsMap, L, N):
     print("<table class='data'>")
     print(f"<tr><th colspan='{num_wavelengths + 4}'>Network Wavelengths Resource Map</th></tr>")
     
+    # 1. Print Table Headers
     print("<tr>")
     print("<th>Link ID</th><th>Source</th><th>Destination</th><th>Fiber</th>")
     for w in range(num_wavelengths):
         print(f"<th>&lambda;{w}</th>")
     print("</tr>")
-    
+
+    # 2. Print Data Rows
     for l_id in range(num_links):
         src_node = N[L[l_id][0]]
         dst_node = N[L[l_id][1]]
@@ -9871,7 +12500,10 @@ def printNetworkWavelengthsMapHTML(NetworkWavelengthsMap, L, N):
 
 #15-7-2026
 def export_network_wavelengths_map(self, NetworkWavelengthsMap, L, N):
-        
+        """
+        Exports the NetworkWavelengthsMap to a new sheet in the Excel workbook.
+        Add this directly inside your Spreadsheet class.
+        """
         # Create or clear the sheet
         sheet_name = "Wavelengths Map"
         if sheet_name in self.wb.sheetnames:
@@ -9884,7 +12516,8 @@ def export_network_wavelengths_map(self, NetworkWavelengthsMap, L, N):
         if num_links == 0: return
         num_fibers = len(NetworkWavelengthsMap[0])
         num_wavelengths = len(NetworkWavelengthsMap[0][0])
-        
+
+        # 1. Setup Headers
         headers = ["Link ID", "Source Node", "Dest Node", "Fiber ID"] + [f"W{w}" for w in range(num_wavelengths)]
         ws.append(headers)
 
@@ -9895,9 +12528,11 @@ def export_network_wavelengths_map(self, NetworkWavelengthsMap, L, N):
             cell.fill = header_fill
             cell.alignment = Alignment(horizontal="center", vertical="center")
 
+        # 2. Setup colors for Data Cells
         occupied_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid") # Light red
         free_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")     # Light green
 
+        # 3. Populate Data
         for l_id in range(num_links):
             src_node = N[L[l_id][0]]
             dst_node = N[L[l_id][1]]
@@ -9923,6 +12558,7 @@ def export_network_wavelengths_map(self, NetworkWavelengthsMap, L, N):
                         cell.fill = free_fill
                         cell.value = '' # Clear text so it's just a clean green box
 
+        # 4. Auto-adjust column widths
         for col in ws.columns:
             max_length = 0
             column_letter = get_column_letter(col[0].column) 
@@ -10005,6 +12641,7 @@ def WavelengthsAssignmentWithConstraints(VLs, N, Nt, maxGbpsPerWavelength, Netwo
         if current_segment:
             segments.append(current_segment)
 
+        # 3. Wavelength Assignment and Constraint Check per segment
         path_blocked = False
         reservations = []  # To track for rollback
         PLiDs = []         # Final physical link assignments
@@ -10014,6 +12651,7 @@ def WavelengthsAssignmentWithConstraints(VLs, N, Nt, maxGbpsPerWavelength, Netwo
             assigned_w = None
             assigned_fibers = []
             
+            # Find continuous wavelength across this segment
             for w in range(num_wavelengths):
                 temp_fibers = []
                 can_fit_segment = True
@@ -10047,6 +12685,7 @@ def WavelengthsAssignmentWithConstraints(VLs, N, Nt, maxGbpsPerWavelength, Netwo
                     reservations.append((l_id, f_idx, assigned_w))
                     PLiDs.append((src, dst, f_idx, assigned_w))
 
+        # 4. Handle Rollback or Finalize Database/HTML Updates
         if path_blocked:
             # Rollback reservations
             for r_link, r_fiber, r_w in reservations:
@@ -10181,6 +12820,12 @@ def WavelengthsAssignmentWithConstraintsUsingKShortestPaths(VLs, N, Nt, maxGbpsP
         vlNum = vlink[2]
         virtlinkid = (vlSrc, vlDst, vlNum)
         VLidTag = f"({vlSrc},{vlDst},{vlNum})"
+
+        # 1. Route Calculation: Get K candidate paths
+        # NOTE: You will need to implement this function using Yen's algorithm or similar, 
+        # utilizing existing Dijkstra class.
+        # candidate_paths = find_k_shortest_paths(N, Nt, NmC, start_vertex_str, end_vertex_str, K=K_paths)
+        
         
         # Call Yen's algorithm using the numerical node IDs (vlSrc, vlDst)
         # Nt is your cost matrix. K=3 means it will try the shortest, 2nd shortest, and 3rd shortest.
@@ -10220,6 +12865,7 @@ def WavelengthsAssignmentWithConstraintsUsingKShortestPaths(VLs, N, Nt, maxGbpsP
             if current_segment:
                 segments.append(current_segment)
 
+            # 3. Wavelength Assignment and Constraint Check per segment
             path_blocked = False
             reservations = []  # To track for rollback
             PLiDs = []         # Final physical link assignments
@@ -10263,6 +12909,7 @@ def WavelengthsAssignmentWithConstraintsUsingKShortestPaths(VLs, N, Nt, maxGbpsP
                         reservations.append((l_id, f_idx, assigned_w))
                         PLiDs.append((src, dst, f_idx, assigned_w))
 
+            # 4. Success Evaluation
             if path_blocked:
                 # Rollback reservations for THIS specific path attempt and continue loop
                 for r_link, r_fiber, r_w in reservations:
@@ -10273,6 +12920,7 @@ def WavelengthsAssignmentWithConstraintsUsingKShortestPaths(VLs, N, Nt, maxGbpsP
                 assigned_successfully = True
                 break
 
+        # 5. Finalize Database, Arrays, and HTML Updates post-loop
         if not assigned_successfully:
             # All K paths failed
             routingResults[virtlinkid] = "Blocked: Capacity or Continuity Constraint"
@@ -11050,7 +13698,38 @@ def routeAllRequestsOfOneQueueOverVirtualTopologyDirectBypassUtilizeVirtualWavel
             
             # ex if body to here 
             # endif
-            
+            #no else since this is direct bypass
+            '''
+            else:   #if the request is <40Gbps attempt grooming
+                #SOP
+                if (GlobalPrintOutEnabled==True) :
+                    print("<li>Since the requirement is < 40 Gbps then an attempt to route traffic over existing virtual links will be made")
+                #EOP
+
+                CapForTheLogicalLink=remain
+                if (routeOneVirtualLinkOverTheVirtualTopologyMultihopBypass(nodes, que, req, treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, gr, ReUsedLightpaths, LightpathReuses, VLIDs, dbConnection,VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):   #try to route it over existing paths of the virtual topology
+                    
+                    #routed the required capacity successfully
+                    remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
+                    
+                    #graph_add_edge(gr,data[i][0],data[i][1],str(CapForTheLogicalLink),"free:0")
+
+                else:   #if it cannot be routed over existing paths of the virtual topology, then add a new virtual link for it
+                    
+                    #keep a copy of  the previous versions of the dictionaries to be able to only incremental updates of the content for shorter output
+                    prevVirtualLinkIDs = copyDictionary(VirtualLinkIDs)
+                                
+                    if (addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, gr, VLIDs, dbConnection,VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):
+                       #defaddNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
+                        #added new link to route required capacity successfully
+                        remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
+                        #remain = remain - CapForTheLogicalLink
+                        #remain=numpy.round(remain, decimals=3, out=None)
+
+                        # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
+                        TotalLightpaths[0] += 1
+            '''
+
             #endof_serving_current_TRreq_timestamp = time.process_time_ns()
             #time_for_serving_current_Treq = endof_serving_current_TRreq_timestamp - startof_serving_current_TRreq_timestamp
 
@@ -12052,7 +14731,37 @@ def routeAllRequestsOfTwoQueuesOverVirtualTopologyDirectBypass_Q1nextQ0(nodes, q
             
             # ex if body to here 
             # endif
+            #no else since this is direct bypass
+            '''
+            else:   #if the request is <40Gbps attempt grooming
+                #SOP
+                if (GlobalPrintOutEnabled==True) :
+                    print("<li>Since the requirement is < 40 Gbps then an attempt to route traffic over existing virtual links will be made")
+                #EOP
 
+                CapForTheLogicalLink=remain
+                if (routeOneVirtualLinkOverTheVirtualTopologyMultihopBypass(nodes, que, req, treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, gr, ReUsedLightpaths, LightpathReuses, VLIDs, dbConnection,VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):   #try to route it over existing paths of the virtual topology
+                    
+                    #routed the required capacity successfully
+                    remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
+                    
+                    #graph_add_edge(gr,data[i][0],data[i][1],str(CapForTheLogicalLink),"free:0")
+
+                else:   #if it cannot be routed over existing paths of the virtual topology, then add a new virtual link for it
+                    
+                    #keep a copy of  the previous versions of the dictionaries to be able to only incremental updates of the content for shorter output
+                    prevVirtualLinkIDs = copyDictionary(VirtualLinkIDs)
+                                
+                    if (addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, gr, VLIDs, dbConnection,VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):
+                       #defaddNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
+                        #added new link to route required capacity successfully
+                        remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
+                        #remain = remain - CapForTheLogicalLink
+                        #remain=numpy.round(remain, decimals=3, out=None)
+
+                        # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
+                        TotalLightpaths[0] += 1
+            '''
 
             #endof_serving_current_TRreq_timestamp = time.process_time_ns()
             #time_for_serving_current_Treq = endof_serving_current_TRreq_timestamp - startof_serving_current_TRreq_timestamp
@@ -12318,58 +15027,86 @@ def setTextCaptions(LatencyTimeUnit4csv):
     txtCaptions += "ProcessTime(sec);"
     txtCaptions += "TrReq_AvgLat_Q(HP)_AnyTypeRoutingOverVT_updatedFormula("+LatencyTimeUnit4csv+");"
     txtCaptions += "TrReq_AvgLat_Q(LP)_AnyTypeRoutingOverVT_updatedFormula("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TotalLightpaths(num);"
-    txtCaptions += "ReusedLightpaths(num);"
-    txtCaptions += "ReusedLightpaths(%);"
-    txtCaptions += "AverageLightpathReuses(num);"
-    txtCaptions += "AverageWavelengthsUtilisation(%);"
-    txtCaptions += "AverageFiberLinksUtilisation(%);"
-    txtCaptions += "TrReq_AvgLat_AllQs_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MinLat_AllQs_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MaxLat_AllQs_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_AvgLat_AllQs_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MinLat_AllQs_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MaxLat_AllQs_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_AvgLat_AllQs_GrmOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MinLat_AllQs_GrmOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MaxLat_AllQs_GrmOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_AvgLat_Q(HP)_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MinLat_Q(HP)_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MaxLat_Q(HP)_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_AvgLat_Q(HP)_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MinLat_Q(HP)_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MaxLat_Q(HP)_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_AvgLat_Q(HP)_GrmOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MinLat_Q(HP)_GrmOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MaxLat_Q(HP)_GrmOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_AvgLat_Q(LP)_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MinLat_Q(LP)_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MaxLat_Q(LP)_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_AvgLat_Q(LP)_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MinLat_Q(LP)_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MaxLat_Q(LP)_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_AvgLat_Q(LP)_GrmOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MinLat_Q(LP)_GrmOverVT("+LatencyTimeUnit4csv+");"
-    txtCaptions += "TrReq_MaxLat_Q(LP)_GrmOverVT("+LatencyTimeUnit4csv+");"
+    
+    #31-10-2026
     txtCaptions += "Limitations;"
     txtCaptions += "MaxFibersPerLink(num);"
     txtCaptions += "MaxWavelengthsPerFiber(num);"
     txtCaptions += "MaxGbpsPerWavelength(Gbps);"
+    txtCaptions += "TrafficRequests(num);"
+    txtCaptions += "PassTRs(num);"
+    txtCaptions += "PassTRs(%);"
+    txtCaptions += "BlockedTRs(num);"
+    txtCaptions += "BlockedTRs(%);"
+    txtCaptions += "TrafficRequestsQ_HP(num);"
+    txtCaptions += "PassTrafficRequestsQ_HP(num);"
+    txtCaptions += "PassTrafficRequestsQ_HP(%);"
+    txtCaptions += "BlockedTrafficRequestsQ_HP(num);"
+    txtCaptions += "BlockedTrafficRequestsQ_HP(%);"
+    txtCaptions += "TrafficRequestsQ_LP(num);"
+    txtCaptions += "PassTrafficRequestsQ_LP(num);"
+    txtCaptions += "PassTrafficRequestsQ_LP(%);"
+    txtCaptions += "BlockedTrafficRequestsQ_LP(num);"
+    txtCaptions += "BlockedTrafficRequestsQ_LP(%);"
+    txtCaptions += "TotalLightpaths(num);"
+    txtCaptions += "PassLightpaths(num);"
+    txtCaptions += "PassLightpaths(%);"
+    txtCaptions += "BlockedLightpaths(num);"
+    txtCaptions += "BlockedLightpaths(%);"
+    txtCaptions += "BlockedLPduetoFibers(num);"
+    txtCaptions += "BlockedLPduetoFibers(%);"
+    txtCaptions += "BlockedLPduetoWavContConstr(num);"
+    txtCaptions += "BlockedLPduetoWavContConstr(%);"
+    txtCaptions += "PassLightpaths(num);"
+    txtCaptions += "ReusedLightpaths(num);"
+    txtCaptions += "ReusedLightpaths(%);"
+    txtCaptions += "AverageLightpathReuses(num);"
+    
+    txtCaptions += "AverageWavelengthsUtilisation(%);"
+    txtCaptions += "AverageFiberLinksUtilisation(%);"
+
+    '''
+    #28-10-2026 not exporting detailed latency statistics since not 100% correct - need validation first
+    #txtCaptions += "TrReq_AvgLat_AllQs_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MinLat_AllQs_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MaxLat_AllQs_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_AvgLat_AllQs_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MinLat_AllQs_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MaxLat_AllQs_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_AvgLat_AllQs_GrmOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MinLat_AllQs_GrmOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MaxLat_AllQs_GrmOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_AvgLat_Q(HP)_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MinLat_Q(HP)_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MaxLat_Q(HP)_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_AvgLat_Q(HP)_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MinLat_Q(HP)_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MaxLat_Q(HP)_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_AvgLat_Q(HP)_GrmOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MinLat_Q(HP)_GrmOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MaxLat_Q(HP)_GrmOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_AvgLat_Q(LP)_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MinLat_Q(LP)_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MaxLat_Q(LP)_AnyTypeRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_AvgLat_Q(LP)_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MinLat_Q(LP)_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MaxLat_Q(LP)_NewVLRoutingOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_AvgLat_Q(LP)_GrmOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MinLat_Q(LP)_GrmOverVT("+LatencyTimeUnit4csv+");"
+    #txtCaptions += "TrReq_MaxLat_Q(LP)_GrmOverVT("+LatencyTimeUnit4csv+");"
+    '''
+    
     txtCaptions += "Latency_Router_port("+LatencyTimeUnit4csv+");"
     txtCaptions += "Latency_Transponder("+LatencyTimeUnit4csv+");"
     txtCaptions += "Traffic_QueueHP(%);"
     txtCaptions += "Traffic_QueueLP(%);"
 
-    txtCaptions += "PassLPs(VLs)(num);"
-    txtCaptions += "BlockedLPs(VLs)(num);"
-    txtCaptions += "PassLPs(VLs)(%);"
-    txtCaptions += "BlockedLPs(VLs)(%);"
-
-    txtCaptions += "PassTRs(num);"
-    txtCaptions += "BlockedTRs(num);"
-    txtCaptions += "PassTRs(%);"
-    txtCaptions += "BlockedTRs(%);"
-
+    #31-10-2026
+    #txtCaptions += "PassLPs(VLs)(num);"
+    #txtCaptions += "BlockedLPs(VLs)(num);"
+    #txtCaptions += "PassLPs(VLs)(%);"
+    #txtCaptions += "BlockedLPs(VLs)(%);"
+    
     #txtCaptions += "AverageLatencyOfTrafficRequestsNewFormula("+LatencyTimeUnit4csv+");"
     
     txtCaptions += "Node_Revisits(boolean);"
@@ -12401,6 +15138,234 @@ def setTextCaptions(LatencyTimeUnit4csv):
     
     return txtCaptions
 
+
+'''
+def old_readConfigNew(file):
+    cfgName = ""
+    cfgDescription = ""
+    cfgVersion = ""
+    cfgRuns = 0
+    cfgX = []
+    cfgNets=[]
+    cfgPrintout = ""
+    cfgKeepEveryNthReport = 0
+    cfgLamdagensaveload = ""
+    cfgLamdaFile = ""
+    cfgPdfOut = ""
+    cfgRunConfigs = []
+    cfgComputerName = ""
+    cfgProgFolder = ""
+    cfgDistributions = []    
+    cfgLimitConfigs = []
+    cfgLatencyComponent = []
+    cfgQHPpercentTrafficSplit = []
+    #cfgCheckForRevisits = ""
+    cfgConsiderTGRC = "" #TGRC=Traffic Grooming Rejection Criterion
+    cfgHardLatencyCap_Q_HP = 0.0
+    cfgHardLatencyCap_Q_LP = 0.0
+    cfgVirtWavCap = 0
+    cfgConsiderWCC = "" #WCC=Wavelength Continuity Constraint
+    
+    #numberofqueues = ""
+
+    fin = open(file,"r")
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    while (nextLine!="[Config_start]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine);     
+    if (nextLine=="[Name]"):
+        nextLine = fin.readline();  
+        nextLine = removeNewLine(nextLine); 
+        cfgName = nextLine
+    
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[Description]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgDescription = nextLine
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[Version]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgVersion = nextLine
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[Runs]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgRuns = int(nextLine)
+
+    while (nextLine!="[Xi where X={2, 4, 6, 8, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120, 160, 200, 320, 400, 640, 960, 1280}]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+
+    #nextLine = fin.readline(); 
+    #nextLine = removeNewLine(nextLine); 
+    #if (nextLine=="[Xi where X={2, 4, 6, 8, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120, 160, 200, 320, 640, 960, 1280}]"):
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine);
+    cfgX = nextLine.split(',')
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[Nets_start]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        while (nextLine!="[Nets_end]"):
+            cfgNets.append(nextLine)
+            nextLine = fin.readline();
+            nextLine = removeNewLine(nextLine); 
+    
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[Printout]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgPrintout = nextLine
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[KeepEveryNthReport]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgKeepEveryNthReport = int(nextLine)
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[Lambda]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgLamdagensaveload = nextLine
+    
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[LambdaTextFile]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgLamdaFile = nextLine
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[PDFout]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgPdfOut = nextLine
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[RunConfigurations(Program,Queues,Strategy)_start]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        while (nextLine!="[RunConfigurations(Program,Queues,Strategy)_end]"):
+            cfgRunConfigs.append(nextLine.split(','))
+            nextLine = fin.readline();
+            nextLine = removeNewLine(nextLine); 
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[ComputerName]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgComputerName = nextLine
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[ProgramFolder]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgProgFolder = nextLine
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[Distributions_start]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        while (nextLine!="[Distributions_end]"):
+            #nextLine = removeNewLine(nextLine); 
+            cfgDistributions.append(nextLine)
+            nextLine = fin.readline();
+            nextLine = removeNewLine(nextLine); 
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_start]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        while (nextLine!="[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_end]"):
+            cfgLimitConfigs.append(nextLine.split(','))
+            nextLine = fin.readline();
+            nextLine = removeNewLine(nextLine); 
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[LatencyComponentConfig(LRouterport,LTransponder)_start]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        while (nextLine!="[LatencyComponentConfig(LRouterport,LTransponder)_end]"):
+            cfgLatencyComponent.append(nextLine.split(','))
+            nextLine = fin.readline();
+            nextLine = removeNewLine(nextLine); 
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[QHP_percent_of_traffic_split]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine);
+        cfgQHPpercentTrafficSplit = nextLine.split(',')
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    #if (nextLine=="[CheckForRevisits]"):
+    if (nextLine=="[ConsiderTrafficGroomingRejectionCriterion]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgConsiderTGRC = nextLine #TGRC=Traffic Grooming Rejection Criterion
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[HardLatencyCap_Q_HP microsec]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgHardLatencyCap_Q_HP = float(nextLine)
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[HardLatencyCap_Q_LP microsec]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgHardLatencyCap_Q_LP = float(nextLine)
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[VirtualWavelengthCapacity]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgVirtWavCap = int(nextLine)
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[ConsiderWavelengthContinuityConstraint]"):
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgConsiderWCC = nextLine #WCC=WavelengthContinuityConstraint
+
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[Config_end]"):
+        fin.close()
+    
+    return cfgName, cfgDescription, cfgVersion, cfgRuns, cfgX, cfgNets, cfgPrintout, cfgKeepEveryNthReport, cfgLamdagensaveload, cfgLamdaFile, cfgPdfOut, cfgRunConfigs, cfgComputerName, cfgProgFolder, cfgDistributions, cfgLimitConfigs, cfgLatencyComponent, cfgQHPpercentTrafficSplit, cfgConsiderTGRC, cfgHardLatencyCap_Q_HP, cfgHardLatencyCap_Q_LP, cfgVirtWavCap, cfgConsiderWCC
+'''
+    
 
 
 def readConfigNew(file):
@@ -12873,6 +15838,27 @@ def initialiseWavelegthids(wavelegthids,L):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #<25-9-2025> calculation of traffic blocking due to criteria: limited fibers per link, wavelength continuity constraint
 
 def decideLimitations(N, HasWavConv, maxFibersPerLink):
@@ -12922,7 +15908,7 @@ def decideLimitations(N, HasWavConv, maxFibersPerLink):
 
     return Limitations        
 
-
+#25-10-2026
 def blockTrafficAccordingToCriteria(L, RoutingOfVirtualLinksOverWavelengths, criterion, HasWavConv):
     print("<div><li>HERE!!!</div>")
     """
@@ -13812,9 +16798,13 @@ def print_lightpath_routes_using_bullet_lists(links, link_list):
 
 #1-7-2026 developed a new function to print each lightpath's wavelengths
 def print_lightpath_routes(links, link_list):
-    
+    """
+    Extracts and prints the physical path and assigned wavelengths for each lightpath
+    in an HTML table format, merging the lightpath column for multiple hops.
+    """
     lightpaths = {}
-        
+    
+    # 1. Map the network state to track each lightpath's route
     for i, link in enumerate(link_list):
         for fiber_idx, fiber in enumerate(links[i]):
             for wave_idx, slot in enumerate(fiber):
@@ -13830,7 +16820,8 @@ def print_lightpath_routes(links, link_list):
                         'fiber': fiber_idx,
                         'channel': wave_idx
                     })
-        
+    
+    # 2. Print the extracted paths as an HTML table
     print("<h3>Lightpath Route Summary</h3>")
     if not lightpaths:
         print("<p>No active lightpaths found.</p>")
@@ -13844,12 +16835,15 @@ def print_lightpath_routes(links, link_list):
     print("</tr>")
     
     for lp, path in lightpaths.items():
+        # Retrieve the consistent color for this lightpath (requires the previously defined _get_pastel_color function)
         bg_color = _get_pastel_color(lp)
         n_hops = len(path)
         
         for idx, hop in enumerate(path):
+            # Apply the color to the entire row
             print(f"<tr style='background-color: {bg_color};'>")
             
+            # For the first hop, create the lightpath cell and merge it downward for 'n_hops'
             if idx == 0:
                 src, dst, id = split_string_tuple(lp)
                 print(f"<td rowspan='{n_hops}' style='padding: 8px; font-weight: bold;'>{src}</td>")
@@ -13961,6 +16955,101 @@ def assignWavelengthChannelsConsideringLimits_FollowingWavelengthsAssignment(L, 
 
 
 
+#24-9-2025
+# result = assignWavelengthChannelsConsideringLimits(NetworkWavelengthsMap) NOT USED
+'''
+def assignWavelengthChannelsConsideringLimits(NetworkWavelengthsMap, L, HasWavConv, ShortestPath, VLid):
+
+    #24-9-2025
+    #ShortestPath = [0,1,3,2]
+    #ShortestPath = [2,1,0]
+
+    PathWavConv = 1
+    
+    print("<table>")
+    print("<tr>")
+    print("<td>")
+    print("shortest path",ShortestPath)
+    pathlinks = path2links(ShortestPath)
+    print("<p>path links",pathlinks)
+    for lnk in pathlinks:
+        srcNode = lnk[0]
+        dstNode = lnk[1]
+        lnknum = linknumber(L,srcNode,dstNode)
+        PathWavConv *= HasWavConv[srcNode] * HasWavConv[dstNode]
+        print(f"<p>link number: {lnknum:d} - link:",lnk)
+        print(f"- src node:{srcNode:d} {'has' if HasWavConv[srcNode] else 'does not have':s} wavelength conversion ")
+        print(f"- dst node:{dstNode:d} {'has' if HasWavConv[dstNode] else 'does not have':s} wavelength conversion.")
+    
+    if PathWavConv == 1:
+        print(f"<p>All path nodes have wavelength conversion hardware - Wavelength continuity constraint will NOT be applied.")
+        WavelengthContinuity = 0
+    else:
+        print(f"<p>At least one node of the path does not have wavelength conversion hardware - Wavelength continuity constraint will be applied.")
+        WavelengthContinuity = 1
+        
+    
+    success, reason, LindID, FiberID, WavelengthID = reserveWavelengthChannels(ShortestPath, VLidm, (PathWavConv == 1), NetworkWavelengthsMap, L) #for a single lightpath
+    print("</td>")
+    print("</tr>")
+    print("<tr>")
+    print("<td>")
+    print_reservations(NetworkWavelengthsMap, L)
+    print("</td>")
+    print("</tr>")
+    print("</table>")
+    
+
+    #>>> 25-9-2025
+
+
+    # παλιά
+    # maxWavelengthsPerFiber = 16 # max 16 wavelengths are multiplexed in each fiber
+    # every 16 wavelengths a new fiber is assigned to the link
+
+    #23-9-2025
+
+    """αναθεση wavelength καναλιού σε κάθε link της διαδρομής
+
+    εδω θα γινεται η αναθεση wavelength καναλιού σε κάθε link της διαδρομής
+        συμφωνα με τους περιορισμους η μη
+            περιορισμενος αριθμος fiber / απεριοριστος αριθμος
+            wavelength continuity constraint (wavelength converters)
+                χωρις converters / converters σε μερικους κομβους / converters παντου
+    """
+    
+
+    """
+    if linkid in wavelengthIDs:
+        fibers = wavelengthIDs.get(linkid)
+        #assignFiberid(fibers,linkid)
+        #print("fibers",fibers)
+        #numberoffibers = len(fibers.keys())-1
+        #print("numberoffibers",numberoffibers)
+        
+        #getting the last key of the dictionary
+        templist = list(fibers.keys())
+        lastkey = templist[-1]
+
+        #print("lastkey",lastkey)
+        wavescount = fibers.get(lastkey)
+        #print("wavescount",wavescount)
+        wavescount +=1
+        if ( wavescount > (maxWavelengthsPerFiber-1) ):
+            lastkey += 1
+            wavescount = 0
+        fibers.update({lastkey:wavescount})
+        #print("returning for linkid",linkid,"fiberid",lastkey,"waveid",wavescount)
+        return lastkey, wavescount 
+    else:
+        print("assignWavelengthid Error: LinkID",linkid,"does not exist")
+        return -1, -1
+    """
+    return success, reason, LindID, FiberID, WavelengthID
+#end_of_def assignWavelengthChannelsConsideringLimits()
+'''
+
+
 
 def assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, linkid):
     # maxWavelengthsPerFiber = 16 # max 16 wavelengths are multiplexed in each fiber
@@ -14008,6 +17097,409 @@ def calculateTotalCapacity(R):
         sum += rq[2]
     return sum
 
+'''
+def NotUsed_selectQueue(interval1, interval2):
+    while True:
+        t1=time.process_time_ns()
+        time.sleep(interval1)
+        t2=time.process_time_ns()
+        GlobalQ = 0
+        print("queue 0 selected for ",t2-t1,"nsec")
+        t1=time.process_time_ns()
+        time.sleep(interval2)
+        t2=time.process_time_ns()
+        GlobalQ = 1
+        print("queue 1 selected for ",t2-t1,"nsec")
+
+def NotUsed_selectQueue_ForUseWith_testingTAS_py(shared_array):
+    """Function to run in the separate process."""
+    """Process modifies elements in the shared array."""
+    
+    timestamp = time.time()
+
+    appDir = "C:\\SimLight"
+    stdoutOriginal, sys.stdout, graphsPath = Log2pathCSV(appDir, "SelectQueueProcessStart")
+    
+    print(f"{shared_array[3]:.0f}; Process selectQueue in {__name__:s} is running at; X; {timestamp:.9f}; X")
+    
+    sys.stdout.close()
+    sys.stdout=stdoutOriginal
+    
+    #select Queue 0 for during the next t0 seconds
+    t0 = shared_array[0]
+    #select Queue 1 for during the next t1 seconds
+    t1 = shared_array[1]
+
+    while True:
+        # select Queue 0
+        shared_array[2] = 0.0
+        time.sleep(t0)
+
+        # select Queue 1
+        shared_array[2] = 1.0
+        time.sleep(t1)
+
+def NotUsed_activateTimeAwareShaper_ForUseWith_testingTAS_py(id):
+    
+    # Create a shared array of integers (change 'd' for other data types)
+    shared_array = multiprocessing.Array('d', range(4))
+    # shared_array[0] = Time for Queue 0 selection
+    # shared_array[1] = Time for Queue 1 selection
+    # shared_array[2] = Currently selected Queue
+    # shared_array[3] = just a number (afxon arithmos)
+    
+    shared_array[0] = 0.7
+    shared_array[1] = 0.3
+    shared_array[2] = 0.0 
+    shared_array[3] = id # just a number (afxon arithmos)
+
+    # Create and start the process
+    process = multiprocessing.Process(target=selectQueue, args=(shared_array,))
+    process.start()
+
+    start_time = time.time()
+
+    print("ID; Line; Queue; Timestamp; Elapsed time (sec)")
+    
+    # You can do other things in the main program here
+    for i in range(1000000):
+        #time.sleep(0.2)  # Simulate some main program work
+        
+        # Access the modified array from shared memory
+        # print("Modified array:", shared_array[:])
+
+        Queue = shared_array[2]
+        
+        timestamp = time.time()
+        elapsedTime = timestamp - start_time
+        # start_time = current_time
+    
+        #print("Main program Jumpball=",Jumpball)
+        print(f"{id:4d}, {i:9d}; {Queue:.0f}; {timestamp:.9f}; {elapsedTime:.9f}")
+        # end for
+        # pass  # Do some time-consuming operations here        
+
+    return process
+
+def NotUsed_activateTimeAwareShaper(TimeForHighPriorityQueue, TimeForLowPriorityQueue):
+    
+    # Create a shared array of integers (change 'd' for other data types)
+    shared_array = multiprocessing.Array('d', range(3))
+    # shared_array[0] = Time for Queue 0 selection
+    # shared_array[1] = Time for Queue 1 selection
+    # shared_array[2] = Currently selected Queue
+        
+    shared_array[0] = TimeForHighPriorityQueue
+    shared_array[1] = TimeForLowPriorityQueue
+    shared_array[2] = 0.0 
+
+    # Create and start the process
+    process = multiprocessing.Process(target=selectQueue, args=(shared_array,))
+    process.start()
+
+    start_time = time.time()
+
+    print("ID; Line; Queue; Timestamp; Elapsed time (sec)")
+    
+    # You can do other things in the main program here
+    for i in range(1000000):
+        #time.sleep(0.2)  # Simulate some main program work
+        
+        # Access the modified array from shared memory
+        # print("Modified array:", shared_array[:])
+
+        Queue = shared_array[2]
+        
+        timestamp = time.time()
+        elapsedTime = timestamp - start_time
+        # start_time = current_time
+    
+        #print("Main program Jumpball=",Jumpball)
+        print(f"{id:4d}, {i:9d}; {Queue:.0f}; {timestamp:.9f}; {elapsedTime:.9f}")
+        # end for
+        # pass  # Do some time-consuming operations here        
+
+    return process
+
+def NotWorking_selectQueue(queue_selection_process_shared_array):  
+    """Function to run in the separate process."""
+    """Process modifies elements in the shared array."""
+
+    appDir = "C:\\SimLight"
+    stdoutOriginal, sys.stdout, graphsPath = Log2pathCSV(appDir, "SelectQueueProcessStart")
+
+    #timestamp = time.time()
+
+    #appDir = "C:\\SimLight"
+    #stdoutOriginal, sys.stdout, graphsPath = Log2pathCSV(appDir, "SelectQueueProcessStart")
+    
+    #print(f"{shared_array[3]:.0f}; Process selectQueue in {__name__:s} is running at; X; {timestamp:.9f}; X")
+    
+    #sys.stdout.close()
+    #sys.stdout=stdoutOriginal
+    
+    #select Queue 0 for during the next t0 seconds
+    t0 = queue_selection_process_shared_array[0]
+    #select Queue 1 for during the next t1 seconds
+    t1 = queue_selection_process_shared_array[1]
+    print ("<p>t0=",t0)
+    print ("<p>t1=",t1)
+    while True:
+        # select Queue 0
+        queue_selection_process_shared_array[2] = 0.0
+        print("<p>queue=",queue_selection_process_shared_array[2])
+        time.sleep(t0)
+
+        # select Queue 1
+        queue_selection_process_shared_array[2] = 1.0
+        print("<p>queue=",queue_selection_process_shared_array[2])
+        time.sleep(t1)
+
+    sys.stdout.close()
+    sys.stdout=stdoutOriginal
+
+def NotUsed_terminateTimeAwareShaper(p):
+    # Wait for the time_counter process to finish (optional)
+    #process.join()
+    p.terminate()
+'''
+
+
+""" this does not produce a very good range
+def generateTrafficRequestsVariableBalance(dbConnection, N, graphsPath, lenQs, X, xi, Queuelabel, queueID, distribution, Qpercent):
+
+    ### generate and save lamda matrix traffic request values for the video queue
+
+    requests=[] # the original requests
+    #decoratedrequests=[] # the requests extended by an extra field about the priority class (0, 1, 2) 
+                        # used for sorting by class ascending and then by traffic demand descending
+    lamda=[]
+    rqsts=[]
+    Xvalue = X[xi]
+    #orismos range random traffic requests
+    #distributionMeanValueX = int(X[xi]/lenQs)
+    #distributionMeanValueX = int(X[xi]*Qpercent)
+    #traffic_demand_range_from = int(10 / lenQs)
+    #traffic_demand_range_from = distributionMeanValueX-(distributionMeanValueX*Qpercent)
+    #traffic_demand_range_from = 10*Qpercent #[(10*Q_HP_percent), (2*X*Q_HP_percent-(10*Q_HP_percent))]
+    #traffic_demand_range_from = roundatdecimals(traffic_demand_range_from, 1)
+    #traffic_demand_range_to = ((2 * distributionMeanValueX) - (int(10 / lenQs)))
+    #traffic_demand_range_to = distributionMeanValueX+(distributionMeanValueX*Qpercent)
+    #traffic_demand_range_to = 2*distributionMeanValueX-(10*Qpercent)
+    #traffic_demand_range_to = (2*Xvalue*Qpercent-(10*Qpercent)) #[(10*Q_HP_percent), (2*X*Q_HP_percent-(10*Q_HP_percent))]
+    #traffic_demand_range_to = roundatdecimals(traffic_demand_range_to, 1)
+
+    distributionMeanValueX = int(X[xi]*Qpercent)
+    XQueVal = Xvalue * Qpercent
+    traffic_demand_range_from = roundatdecimals( (XQueVal / 2.0), 1)
+    traffic_demand_range_to   = roundatdecimals( (2 * XQueVal - XQueVal / 2.0), 1)
+
+    # save lamda to text file
+    if (sys.argv[5]=="gensave"):
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print ("<table class='table1c'>")
+            print ("<tr><th colspan='"+str(len(N))+"' style='background:orange;'>Generate and save lamda matrix traffic requests to the",sys.argv[6],"text file</th></tr>")
+            print ("<tr><th colspan=",len(N),">[lamda]: Traffic demand per node pair (requests) in Gbps","xi=",xi,", X[",xi,"]=",X[xi],"for ",lenQs,"Queue." if lenQs==1 else "Queues.")
+            
+            if distribution=="Poisson":
+                #Poisson distribution
+                print ("<br><em style='font-size:0.8em'>The traffic demand between each node pair is random following a Poisson distribution around a mean traffic data amount,")
+                print (" which is centered at an identical average. That is, given an average demand intensity X &isin; {20,40, . . . ,120} Gbps, ")
+                print ("the actual demand between a node pair is generated by a random function distributed following the Poisson process within the range ")    
+            elif distribution == "Uniform":
+                #Uniform distribution
+                print ("<br><em style='font-size:0.6em'>The traffic demand between each node pair is random following a Uniform distribution within a certain range,")
+                print (" which is centered at an identical average. That is, given an average demand intensity X &isin; {20,40, . . . ,120} Gb/s, ")
+                print (f"the actual demand between a node pair is generated by a random function uniformly distributed within the range ")
+
+            print (f"[{traffic_demand_range_from},{traffic_demand_range_to}] Gbps with mean value of the distribution X={distributionMeanValueX}.</em></th></tr>")
+            
+        #EOP
+
+        komvoi = len(N)
+        megethosdeigmatos = komvoi * komvoi - komvoi
+        if distribution=="Poisson":
+            #Poisson distribution
+            deigma = generateDistributedTrafficRequestValuesThatFollowThePoissonProcess(traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, megethosdeigmatos)
+        elif distribution == "Uniform":
+            #Uniform ditribution
+            deigma = generateUniformlyDistributedTrafficRequestValues(traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, megethosdeigmatos) 
+        stoixeioDeigmatos = 0
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            graphDistribution(N, traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, deigma, distribution, graphsPath+pathseparatortoken()+f"TR_sample_histogram_Q_{("HP" if queueID==0 else "LP"):s}.png")
+            print (f"<tr><th colspan='{str(len(N))}' style='background:orange;'>")
+            print (f"<img src='{graphsPath+pathseparatortoken()}TR_sample_histogram_Q_{("HP" if queueID==0 else "LP"):s}.png' style='display: block; margin-left: auto; margin-right: auto; width: 30%;' ")
+            print ("alt='Traffic requests sample data histogram'></th></tr>")
+        #EOP
+
+        for x in range(len(N)):
+            #SOP
+            if (GlobalPrintOutEnabled==True) :
+                print("<tr>")
+            #EOP
+            for y in range(len(N)):
+                if (x!=y):
+                    #SOP
+                    if (GlobalPrintOutEnabled==True) :
+                        print("<td>")
+                    #EOP
+                    rnd=1 #rnd=numpy.random.randint(0, 10) #0 to 10 requests per virtual link, randomly
+                        #originally I have created a version that the total traffic demand for a node pair might be the aggregation (sum) of a random number (up to 10) of sub-demands from regional routers
+                    
+                    rqsts = []
+                    rqsts.append(float(deigma[stoixeioDeigmatos]))
+                    stoixeioDeigmatos = stoixeioDeigmatos + 1
+
+                    #if distribution=="Poisson":
+                        #Poisson distribution
+                        #rqsts=generateDistributedTrafficRequestValuesThatFollowThePoissonProcess(traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, 1) #1 is the number of samples. If number greater than 1, it can be considered the grooming of Chatterjee et al.
+                    #elif distribution == "Uniform":
+                        #Uniform ditribution
+                        #rqsts=generateUniformlyDistributedTrafficRequestValues(traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, 1) # X = [20, 40, 60, 80, 100, 120], one request
+                    
+                    #SOP
+                    if (GlobalPrintOutEnabled==True) :
+                        print(" m=",x,"n=",y)
+                    #EOP
+
+                    
+                    for i in range(len(rqsts)):
+                        requests.append([x, y, rqsts[i]])
+                    
+                    l=calculateLamdaMatrixSums(rqsts) #lamda is the sum of all requests for the same pair of nodes #can be considered the grooming of Chatterjee et al.
+
+                    #SOP
+                    if (GlobalPrintOutEnabled==True) :
+                        print("</td>")
+                    #EOP
+                else:
+                    l=0
+                    #SOP
+                    if (GlobalPrintOutEnabled==True) :
+                        print("<td>diagonal, no traffic for","m=",x,"n=",y,"</td>")
+                    #EOP
+                lamda.append([x, y, l])
+            #SOP
+            if (GlobalPrintOutEnabled==True) :
+                print("</tr>")
+            #EOP
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print ("</table>")
+        #EOP
+
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print ("<table class='table1c'>")
+            print ("<tr><th colspan="+str(len(N)+1)+">[lamda]: Traffic demand per node pair (requests) in Gbps","xi=",xi,", X[",xi,"]=",X[xi])
+            print ("<tr><td></td>")
+            for i in range(len(N)):
+                print("<td>%9s</td>" % N[i], end=" ")
+            print("</tr>")
+            for x in range(len(N)):
+                print("<tr>")
+                print ("<td>",N[x], "</td>", end="")
+                for y in range(len(N)):
+                    a=len(lamda)
+                    print("<td>%9.3f</td>" % (lamda[x*len(N)+y][2]), end=" ")
+                print("</tr>")
+            print ("</table>")
+        #EOP
+
+        fout = open(sys.argv[6],"a")
+                        # prefer to write lamda to the output text file since requests do not include the 0.0 capacity for nodes where i==Nj
+        for r in lamda: #lamda include the 0.0 capacity for nodes where i==j
+            #fout.write(str(r[0])+","+str(r[1])+","+"{:0.3f}".format(r[2])+"\n")
+            fout.write(Queuelabel+","+str(r[0])+","+str(r[1])+","+"{:0.3f}".format(r[2])+"\n")
+        fout.close()
+
+    elif (sys.argv[5]=="load"):   # load lamda from text file NEW reads the queue labels
+        fin = open(sys.argv[6],"r")
+        lamda = []
+        requests = []
+        nextLine = fin.readline();
+        while (nextLine!=""):
+            temp = nextLine.split(',');
+            if (temp[0] == Queuelabel):
+                lamda.append([int(temp[1]),int(temp[2]),float(temp[3])])   # the input text file has the lamda matrix which includes the 0.0 capacity for nodes where i==j    
+                if int(temp[1]) != int(temp[2]):                           # requests do not include the 0.0 capacity for nodes where i==j, hence remove 0.0 capacity where i==j
+                    requests.append([int(temp[1]),int(temp[2]),float(temp[3])])
+            nextLine = fin.readline();
+    
+        ''' OLD does not read the traffic reqquests file with queue labels
+        elif (sys.argv[5]=="load"):   # load lamda from text file
+            fin = open(sys.argv[6],"r")
+            lamda = []
+            requests = []
+            nextLine = fin.readline();
+            while (nextLine!=""):
+                temp = nextLine.split(',');
+                lamda.append([int(temp[0]),int(temp[1]),float(temp[2])])   # the input text file has the lamda matrix which includes the 0.0 capacity for nodes where i==j    
+                if int(temp[0]) != int(temp[1]):                           # requests do not include the 0.0 capacity for nodes where i==j, hence remove 0.0 capacity where i==j
+                    requests.append([int(temp[0]),int(temp[1]),float(temp[2])])
+                nextLine = fin.readline();
+        ''' 
+        
+        #SOP
+        if (GlobalPrintOutEnabled==True) :
+            print ("<table class='table1c'>")
+            print ("<tr><th style='background:cyan;'>Loaded lamda matrix traffic requests from the",sys.argv[6],"text file</th></tr>")
+            print ("</table>")
+        #EOP
+
+        if (GlobalPrintOutEnabled==True) :
+            print ("<table class='table1c'>")
+            print ("<tr><th colspan="+str(len(N)+1)+">[lamda]: Traffic demand per node pair (requests) in Gbps","xi=",xi,", X[",xi,"]=",X[xi])
+            print ("<tr><td></td>")
+            for i in range(len(N)):
+                print("<td>%9s</td>" % N[i], end=" ")
+            print("</tr>")
+        
+            for x in range(len(N)):
+                print("<tr>")
+                print ("<td>",N[x], "</td>", end="")
+                for y in range(len(N)):
+                    a=len(lamda)
+                    if (x==y):
+                        print("<td>%9.3f</td>" % (0.0), end=" ")
+                    else:
+                        print("<td>%9.3f</td>" % (lamda[x*len(N)+y][2]), end=" ") #error out of range when load #2DO
+                print("</tr>")
+            print ("</table>")
+        #EOP
+
+    sortTrafficRequestsDescending(requests) #the original sort order according to the Shen Tucker paper
+    #sortTrafficRequestsAscending(requests)
+    #sortDecoratedTrafficRequestsClassAscendingTrafficDemandDescending(decoratedrequests)
+
+    #SOP
+    if (GlobalPrintOutEnabled==True) :
+        printTrafficRequests(requests,N,"For the "+Queuelabel+" Queue.")
+        #nextReqID = saveTrafficRequests2sqlite(dbConnection, requests, N, graphsPath, Queuelabel, queueID) #, startReqID)
+        #saveTrafficRequests2sqlite(dbConnection, requests, N, graphsPath, Queuelabel, queueID)
+        #saveTrafficRequests2csv(requests,N,graphsPath)
+    #EOP
+
+    saveTrafficRequests2sqlite(dbConnection, requests, N, graphsPath, Queuelabel, queueID)
+
+    return requests #, nextReqID
+"""
+
+''' 19-8-2026 spotted a flaw
+def generateSplitTrafficRanges(Xval, Qpercent):
+    if Xval < 20.0:
+        base = 1.0
+    else:
+        base = 10.0
+    distMeanX = int(Xval*Qpercent)
+    range_from = roundatdecimals( (base*Qpercent), 1)
+    range_to   = roundatdecimals( ((2*Xval-base)*Qpercent), 1)
+
+    return distMeanX, range_from, range_to
+'''
 
 #19-8-2026 new version
 def generateSplitTrafficRanges(Xval, Qpercent):
@@ -14129,6 +17621,32 @@ def generateTrafficRequestsVariableBalance(dbConnection, N, graphsPath, lenQs, X
             #Pareto ditribution
             #deigma = generateParetoDistributedTrafficRequestValues(traffic_demand_range_from, traffic_demand_range_to, alpha, megethosdeigmatos)
 
+            '''
+            #18-8-2026 example of validation of values for a distribution
+            # # 1. Generate the entire array of traffic requests
+            generated_traffic_array = generateParetoDistributedTrafficRequestValues(apo, alpha, megethosdeigmatos)
+
+            # 2. Pass the entire array into the validation function
+            is_valid, p_value = validateParetoDistribution(generated_traffic_array, alpha, apo)
+
+            if is_valid:
+                print(f"Validation Passed! p-value: {p_value}")
+            else:
+                print(f"Validation Failed! p-value: {p_value}") 
+            ''' 
+
+            '''
+            # Generate bursty internet traffic targeting a mean of Xvalue (using a single function)
+            deigma = generateParetoDistributedTrafficRequestValues(distributionMeanValueX, megethosdeigmatos, alpha=1.5)
+
+            isValidPareto, Pvalue = validateParetoDistribution(deigma, traffic_demand_range_from, traffic_demand_range_to)
+
+            #SOP
+            if (GlobalPrintOutEnabled==True) :
+                #graphDistribution(N, traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, deigma, distribution, graphsPath+pathseparatortoken()+f"TR_sample_histogram_Q_{("HP" if queueID==0 else "LP"):s}.png")
+                print (f"<h3>is valid Pareto: {isValidPareto}, p value:{Pvalue}</h3>")
+            #EOP
+            '''
 
         elif distribution == "Weibull":
             #Weibull Setup
@@ -14147,6 +17665,9 @@ def generateTrafficRequestsVariableBalance(dbConnection, N, graphsPath, lenQs, X
                 #graphDistribution(N, traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, deigma, distribution, graphsPath+pathseparatortoken()+f"TR_sample_histogram_Q_{("HP" if queueID==0 else "LP"):s}.png")
                 print (f"<h3>is valid Weibull: {isValidWeibull}, p value:{Pvalue}</h3>")
             #EOP
+
+
+
 
 
         stoixeioDeigmatos = 0
@@ -14998,7 +18519,14 @@ def getWavelengthsOFVirtualLinks(sqliteConnection, vlsrc, vldst, vlnum):
 
 
 def mergeStringListsInBrackets(s):
-    
+    """
+    Merges a string of bracketed lists, removes adjacent duplicates at the borders,
+    and returns a new list-like string.
+
+    Example:
+        "[5, 4][4, 3, 1][1, 2]" -> "[5, 4, 3, 1, 2]"
+    """
+    # Step 1: Extract all numbers using regex
     list_of_lists = re.findall(r'\[([^\[\]]+)\]', s)
     
     result = []
@@ -15008,16 +18536,33 @@ def mergeStringListsInBrackets(s):
             if not result or result[-1] != n:
                 result.append(n)
 
+    # Step 2: Convert result list to string format
     return f"[{', '.join(map(str, result))}]"
 
 
 def string_to_int_list(s):
-    
+    """
+    Converts a string like "[1, 3, 5]" to a list of integers [1, 3, 5].
+
+    Parameters:
+        s (str): A string representing a list of integers.
+
+    Returns:
+        list of int: The parsed list of integers.
+    """
     return [int(x.strip()) for x in s.strip("[]").split(",") if x.strip().isdigit()]
 
 
 def detect_node_revisits(path):
+    """
+    Detects and reports node revisits in the given path.
+
+    Parameters:
+        path (list): A list of node identifiers (e.g., integers).
     
+    Returns:
+        list: A list of revisited nodes in order of reappearance.
+    """
     seen = set()
     revisited = []
 
@@ -15032,7 +18577,15 @@ def detect_node_revisits(path):
 
 
 def has_revisits(path):
-    
+    """
+    Returns True if there are any revisited nodes in the path.
+
+    Parameters:
+        path (list of int): The sequence of node visits.
+
+    Returns:
+        bool: True if any node is revisited, False otherwise.
+    """
     seen = set()
     for node in path:
         if node in seen:
@@ -15109,8 +18662,8 @@ def VirtualPathLeadsToRevisitsOnPhysicalTopology(virtualpath, N, Nt, NmC):
 
     return HasRevisits
 
-
-
+'''
+#old version of resultsDBUpdateOfVLs_LPs()
 def resultsDBUpdateOfVLs_LPs(routingResult, dbConnection):   # results and db update for Virtual Links = Lightpaths
 
     passLPs = []
@@ -15171,9 +18724,207 @@ def resultsDBUpdateOfVLs_LPs(routingResult, dbConnection):   # results and db up
         dbConnection.commit()
 
     return passLPs, blockedLPs
+'''
+
+'''
+#26-10-2026 (morning) new version of resultsDBUpdateOfVLs_LPs()
+def resultsDBUpdateOfVLs_LPs(routingResult, dbConnection, blockedVLsInfo=None):
+    """
+    Updates VirtualLinks and RoutingTrafficRequestsOverVirtualTopology with exact
+    pass/blocking reasons ('Pass', 'Blocked: NoFreeFibers', 'Blocked: WavContConstr')
+    and stores detailed bottleneck diagnostics in BlockedVirtualLinksDiagnostics.
+    """
+    passLPs = []
+    blockedLPs = []
+    blockedLPs_Fibers = []
+    blockedLPs_WCC = []
+
+    # Group virtual links by their exact result string
+    results_by_status = {}
+    for vlid, status in routingResult.items():
+        if status.startswith("Pass"):
+            passLPs.append(vlid)
+            norm_status = "Pass"
+        else:
+            blockedLPs.append(vlid)
+            norm_status = status
+            if "NoFreeFibers" in status:
+                blockedLPs_Fibers.append(vlid)
+            elif "WavContConstr" in status:
+                blockedLPs_WCC.append(vlid)
+
+        results_by_status.setdefault(norm_status, []).append(vlid)
+
+    # 1. Update RoutingTrafficRequestsOverVirtualTopology and VirtualLinks per status group
+    for status_str, vl_list in results_by_status.items():
+        if not vl_list:
+            continue
+        safe_status = status_str.replace("'", "''")
+        tuple_list_sql = ",".join(f"({vl[0]:d},{vl[1]:d},{vl[2]:d})" for vl in vl_list)
+
+        sql_rtrovt = (
+            f"UPDATE RoutingTrafficRequestsOverVirtualTopology "
+            f"SET result = '{safe_status}' "
+            f"WHERE (vlsrc, vldst, vlnum) IN ({tuple_list_sql});"
+        )
+        dbConnection.execute(sql_rtrovt)
+
+        sql_vls = (
+            f"UPDATE VirtualLinks "
+            f"SET result = '{safe_status}' "
+            f"WHERE (src, dst, num) IN ({tuple_list_sql});"
+        )
+        dbConnection.execute(sql_vls)
+
+    dbConnection.commit()
+
+    
+    # 2. Store detailed per-VL blocking diagnostics in a dedicated SQLite table
+    if blockedVLsInfo is not None:
+        dbConnection.execute("""
+            CREATE TABLE IF NOT EXISTS BlockedVirtualLinksDiagnostics (
+                vlsrc integer NOT NULL,
+                vldst integer NOT NULL,
+                vlnum integer NOT NULL,
+                blockingReason text NOT NULL,
+                description text NOT NULL,
+                saturatingPhysicalLinks text NOT NULL,
+                failedSegment text NOT NULL,
+                PRIMARY KEY (vlsrc, vldst, vlnum),
+                FOREIGN KEY (vlsrc, vldst, vlnum) REFERENCES VirtualLinks (src, dst, num)
+            );
+        """)
+        dbConnection.execute("DELETE FROM BlockedVirtualLinksDiagnostics;")
+
+        diag_rows = []
+        for (vlsrc, vldst, vlnum), info in blockedVLsInfo.items():
+            diag_rows.append((
+                vlsrc,
+                vldst,
+                vlnum,
+                info.get("reason", "Unknown"),
+                info.get("description", ""),
+                str(info.get("saturating_links", [])),
+                str(info.get("continuity_failed_segment", []))
+            ))
+
+        if diag_rows:
+            dbConnection.executemany(
+                """INSERT INTO BlockedVirtualLinksDiagnostics
+                   (vlsrc, vldst, vlnum, blockingReason, description, saturatingPhysicalLinks, failedSegment)
+                   VALUES (?, ?, ?, ?, ?, ?, ?);""",
+                diag_rows
+            )
+        dbConnection.commit()
+
+    return passLPs, blockedLPs, blockedLPs_Fibers, blockedLPs_WCC
+'''
+
+#26-10-2026 (evening) latest new version of resultsDBUpdateOfVLs_LPs()
+def resultsDBUpdateOfVLs_LPs(routingResult, dbConnection, blockedVLsInfo=None):
+    """
+    Updates VirtualLinks and RoutingTrafficRequestsOverVirtualTopology with exact
+    pass/blocking reasons and stores detailed bottleneck diagnostics in BlockedVirtualLinksDiagnostics.
+    """
+    passLPs = []
+    blockedLPs = []
+    blockedLPs_Fibers = []
+    blockedLPs_WCC = []
+
+    # Group virtual links by their exact result string
+    results_by_status = {}
+    for vlid, status in routingResult.items():
+        if status.startswith("Pass"):
+            passLPs.append(vlid)
+            norm_status = "Pass"
+        else:
+            blockedLPs.append(vlid)
+            norm_status = status
+            if "NoFreeFibers" in status:
+                blockedLPs_Fibers.append(vlid)
+            elif "WavContConstr" in status:
+                blockedLPs_WCC.append(vlid)
+
+        results_by_status.setdefault(norm_status, []).append(vlid)
+
+        # Ensure every virtual link in routingResult exists in VirtualLinks parent table
+        dbConnection.execute(
+            """INSERT OR IGNORE INTO VirtualLinks (src, dst, num, caputil, capfree, result)
+               VALUES (?, ?, ?, 0.0, 0.0, ?);""",
+            (vlid[0], vlid[1], vlid[2], norm_status)
+        )
+    dbConnection.commit()
+
+    # 1. Update RoutingTrafficRequestsOverVirtualTopology and VirtualLinks per status group
+    for status_str, vl_list in results_by_status.items():
+        if not vl_list:
+            continue
+        safe_status = status_str.replace("'", "''")
+        tuple_list_sql = ",".join(f"({vl[0]:d},{vl[1]:d},{vl[2]:d})" for vl in vl_list)
+
+        sql_rtrovt = (
+            f"UPDATE RoutingTrafficRequestsOverVirtualTopology "
+            f"SET result = '{safe_status}' "
+            f"WHERE (vlsrc, vldst, vlnum) IN ({tuple_list_sql});"
+        )
+        dbConnection.execute(sql_rtrovt)
+
+        sql_vls = (
+            f"UPDATE VirtualLinks "
+            f"SET result = '{safe_status}' "
+            f"WHERE (src, dst, num) IN ({tuple_list_sql});"
+        )
+        dbConnection.execute(sql_vls)
+
+    dbConnection.commit()
+
+    # 2. Store detailed per-VL blocking diagnostics in a dedicated SQLite table
+    if blockedVLsInfo is not None:
+        dbConnection.execute("DROP TABLE IF EXISTS BlockedVirtualLinksDiagnostics;")
+        dbConnection.execute("""
+            CREATE TABLE BlockedVirtualLinksDiagnostics (
+                vlsrc integer NOT NULL,
+                vldst integer NOT NULL,
+                vlnum integer NOT NULL,
+                blockingReason text NOT NULL,
+                description text NOT NULL,
+                ShortestpathAsInt text NOT NULL,
+                ShortestpathAsStr text NOT NULL,
+                saturatingPhysicalLinks text NOT NULL,
+                failedSegment text NOT NULL,
+                PRIMARY KEY (vlsrc, vldst, vlnum)
+            );
+        """)
+
+        diag_rows = []
+        for (vlsrc, vldst, vlnum), info in blockedVLsInfo.items():
+            diag_rows.append((
+                vlsrc,
+                vldst,
+                vlnum,
+                info.get("reason", "Unknown"),
+                info.get("description", ""),
+                str(info.get("physical_path_nodes", [])),
+                info.get("physical_path_str", ""),
+                str(info.get("saturating_links", [])),
+                str(info.get("continuity_failed_segment", []))
+            ))
+
+        if diag_rows:
+            dbConnection.executemany(
+                """INSERT INTO BlockedVirtualLinksDiagnostics
+                   (vlsrc, vldst, vlnum, blockingReason, description,
+                    ShortestpathAsInt, ShortestpathAsStr, saturatingPhysicalLinks, failedSegment)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);""",
+                diag_rows
+            )
+        dbConnection.commit()
+
+    return passLPs, blockedLPs, blockedLPs_Fibers, blockedLPs_WCC
 
 
-
+'''
+#old version of resultsDBUpdateOfTRs()
 def resultsDBUpdateOfTRs(dbConnection):   # results and db update for Traffic Requests
 
     # prwta epilegw ta blocked TRs 
@@ -15225,7 +18976,77 @@ def resultsDBUpdateOfTRs(dbConnection):   # results and db update for Traffic Re
         dbConnection.commit()
 
     return passTRs, blockedTRs
+'''
 
+#26-10-2026 new version of resultsDBUpdateOfTRs()
+def resultsDBUpdateOfTRs(dbConnection):
+    """
+    Updates TrafficRequests based on the results of their virtual links in
+    RoutingTrafficRequestsOverVirtualTopology.
+    """
+    # Select all traffic requests that use at least one blocked virtual link
+    sqlBlock = """
+        SELECT DISTINCT reqquenum, reqnum, result
+        FROM RoutingTrafficRequestsOverVirtualTopology
+        WHERE result LIKE 'Blocked%'
+    """
+    cursor = dbConnection.execute(sqlBlock)
+    dataset = cursor.fetchall()
+
+    # Track blocked TRs and aggregate their blocking reasons if a TR spans multiple blocked VLs
+    blockedTR_reasons = {}
+    for quenum, reqnum, res_str in dataset:
+        blockedTR_reasons.setdefault((quenum, reqnum), set()).add(res_str)
+
+    blockedTRs = list(blockedTR_reasons.keys())
+
+    # Select TRs where NO virtual link was blocked
+    sqlPass = """
+        SELECT DISTINCT reqquenum, reqnum
+        FROM RoutingTrafficRequestsOverVirtualTopology
+        WHERE (reqquenum, reqnum) NOT IN (
+            SELECT DISTINCT reqquenum, reqnum
+            FROM RoutingTrafficRequestsOverVirtualTopology
+            WHERE result LIKE 'Blocked%'
+        )
+    """
+    cursor = dbConnection.execute(sqlPass)
+    passTRs = [(row[0], row[1]) for row in cursor.fetchall()]
+
+    # Update passed TrafficRequests
+    if len(passTRs) > 0:
+        tuple_list_sql = ",".join(f"({trq[0]:d},{trq[1]:d})" for trq in passTRs)
+        sqlUpdatePass = f"UPDATE TrafficRequests SET result = 'Pass' WHERE (quenum, num) IN ({tuple_list_sql});"
+        dbConnection.execute(sqlUpdatePass)
+
+    # Update blocked TrafficRequests with their specific blocking cause
+    for (quenum, reqnum), reasons in blockedTR_reasons.items():
+        if len(reasons) == 1:
+            tr_status = next(iter(reasons))
+        else:
+            tr_status = "Blocked: NoFreeFibers & WavContConstr"
+        safe_status = tr_status.replace("'", "''")
+        dbConnection.execute(
+            f"UPDATE TrafficRequests SET result = '{safe_status}' WHERE quenum = {quenum:d} AND num = {reqnum:d};"
+        )
+
+    dbConnection.commit()
+    return passTRs, blockedTRs
+
+
+#31-10-2026 new version of resultsDBUpdateOfTRs()
+def resultsFromDBaboutTRs(dbConnection, queID):
+    sql = f"select count(num) from TrafficRequests where quenum={queID} and result='Pass';"
+    cursor = dbConnection.execute(sql)
+    dataset = cursor.fetchall()
+    passed = dataset[0][0]
+
+    sql = f"select count(num) from TrafficRequests where quenum={queID} and result like 'Block%';"
+    cursor = dbConnection.execute(sql)
+    dataset = cursor.fetchall()
+    blocked = dataset[0][0]
+
+    return passed, blocked
 
 
 def updateDB_RoutingVirtualLinksOverPhysicalTopology_forHeaviestHottestAndComparison(newRoutings, routingResults, dbConnection):
@@ -15423,10 +19244,15 @@ def OLDVERSION_updateDB_RoutingVirtualLinksOverPhysicalTopology(newRoutings, rou
             dbConnection.execute(sqlBlock)
             dbConnection.commit()
 
-
-#21-8-2026 new version
+'''
+#26-10-2026 replacing the 21-8-2026 version of updateDB_RoutingVirtualLinksOverPhysicalTopology()
+#21-8-2026 version
 def updateDB_RoutingVirtualLinksOverPhysicalTopology(newRoutings, routingResults, dbConnection):
-
+    """
+    Updates the SQLite database with the physical routes of virtual links.
+    Filters out blocked/ghost routes (containing -1) to prevent FOREIGN KEY constraint failures.
+    """
+    # Formulate the SQL statement for batch insertion based on your schema
     sql5 = """INSERT INTO RoutingVirtualLinksOverPhysicalTopology 
               (vlsrc, vldst, vlnum, plsrc, pldst, fiberid, waveid, type, NumberOfHops, 
                ShortestpathAsInt, ShortestpathAsStr, PhysicalLinkDirection, 
@@ -15449,9 +19275,11 @@ def updateDB_RoutingVirtualLinksOverPhysicalTopology(newRoutings, routingResults
             num_hops = len(physical_path)
             
             for hop_index, hop in enumerate(physical_path):
+                # Extract hop data (plsrc, pldst, fiberid, waveid)
                 plsrc = hop[0]
                 pldst = hop[1]
                 
+                # CRITICAL FIX: Filter out blocked placeholder routes (-1)
                 if plsrc != -1 and pldst != -1:
                     fiberid = hop[2] if len(hop) > 2 else 0
                     waveid = hop[3] if len(hop) > 3 else 0
@@ -15466,13 +19294,16 @@ def updateDB_RoutingVirtualLinksOverPhysicalTopology(newRoutings, routingResults
                     else:
                         PLtype = "Middle"
                         
+                    # Format the path tracking strings
                     shPathAsInt = str([h[0] for h in physical_path] + [physical_path[-1][1]]) 
                     shPathAsStr = str(shPathAsInt) # Simplified for DB insertion
                     
+                    # Default values for network logic tracking
                     PhysicalLinkDirection = 1 
                     LatIP = 0.0 
                     LatTransp = 0.0 
                     
+                    # Append the valid route to the batch array
                     array.append((
                         vlsrc, vldst, vlnum, plsrc, pldst, fiberid, waveid, 
                         PLtype, num_hops, shPathAsInt, shPathAsStr, 
@@ -15486,9 +19317,84 @@ def updateDB_RoutingVirtualLinksOverPhysicalTopology(newRoutings, routingResults
             dbConnection.commit()
         except Exception as e:
             print(f"<div><li><b>Database Error during bulk update:</b> {e}</li></div>")
+'''
+
+#26-10-2026 new version of updateDB_RoutingVirtualLinksOverPhysicalTopology()
+def updateDB_RoutingVirtualLinksOverPhysicalTopology(newRoutings, routingResults, dbConnection):
+    """
+    1. Records all passed and blocked virtual-to-physical assignments (including exact
+       blocking reasons) in RoutingVirtualLinksOverPhysicalTopologyWithLimitResults.
+    2. Marks all valid lightpaths in RoutingVirtualLinksOverPhysicalTopology as 'Pass'.
+    """
+    newRoutings = normalize_dict(newRoutings)
+
+    array = []
+    for vlid, hops in newRoutings.items():
+        res_status = routingResults.get(vlid, "Blocked")
+        for hop in hops:
+            array.append((
+                vlid[0], vlid[1], vlid[2],
+                hop[0], hop[1], hop[2], hop[3],
+                res_status
+            ))
+
+    if len(array) > 0:
+        dbConnection.execute("""
+            CREATE TABLE IF NOT EXISTS RoutingVirtualLinksOverPhysicalTopologyWithLimitResults (
+                vlsrc integer NOT NULL,
+                vldst integer NOT NULL,
+                vlnum integer NOT NULL,
+                plsrc integer NOT NULL,
+                pldst integer NOT NULL,
+                fiberid integer NOT NULL,
+                waveid integer NOT NULL,
+                result text NOT NULL,
+                PRIMARY KEY (vlsrc, vldst, vlnum, plsrc, pldst, fiberid, waveid),
+                FOREIGN KEY (vlsrc, vldst, vlnum) REFERENCES VirtualLinks (src, dst, num)
+            );
+        """)
+        dbConnection.commit()
+
+        dbConnection.execute("DELETE FROM RoutingVirtualLinksOverPhysicalTopologyWithLimitResults;")
+        dbConnection.executemany(
+            """INSERT INTO RoutingVirtualLinksOverPhysicalTopologyWithLimitResults
+               (vlsrc, vldst, vlnum, plsrc, pldst, fiberid, waveid, result)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?);""",
+            array
+        )
+
+        # Mark all active routes in RoutingVirtualLinksOverPhysicalTopology as 'Pass'
+        dbConnection.execute("""
+            UPDATE RoutingVirtualLinksOverPhysicalTopology
+            SET result = 'Pass'
+            WHERE result = 'ok';
+        """)
+        dbConnection.commit()
 
 
+'''
+#old version
+def removeDB_BlockedVirtualLinksOverPhysicalTopology(newRoutings, routingResults, dbConnection):
+    
+    sqlBlock = "DELETE from RoutingVirtualLinksOverPhysicalTopology Where result = 'Blocked'"
 
+    dbConnection.execute(sqlBlock)
+    dbConnection.commit()
+'''
+
+
+#26-10-2026 new version of removeDB_BlockedVirtualLinksOverPhysicalTopology()
+def removeDB_BlockedVirtualLinksOverPhysicalTopology(newRoutings, routingResults, dbConnection):
+    sqlBlock = "DELETE FROM RoutingVirtualLinksOverPhysicalTopology WHERE result LIKE 'Blocked%';"
+    dbConnection.execute(sqlBlock)
+    dbConnection.commit()
+
+'''
+def removeDB_BlockedVirtualLinksOverPhysicalTopology(newRoutings, routingResults, dbConnection):
+    sqlBlock = "DELETE FROM RoutingVirtualLinksOverPhysicalTopology WHERE result LIKE 'Blocked%';"
+    dbConnection.execute(sqlBlock)
+    dbConnection.commit()
+'''
 
 def updateDB_RoutingVirtualLinksOverPhysicalTopology_Copy(newRoutings, routingResults, dbConnection):
 
@@ -15567,14 +19473,6 @@ def updateDB_RoutingVirtualLinksOverPhysicalTopology_Copy(newRoutings, routingRe
             dbConnection.commit()
 
 
-def removeDB_BlockedVirtualLinksOverPhysicalTopology(newRoutings, routingResults, dbConnection):
-    
-    sqlBlock = "DELETE from RoutingVirtualLinksOverPhysicalTopology Where result = 'Blocked'"
-
-    dbConnection.execute(sqlBlock)
-    dbConnection.commit()
-
-
 def calculateWmnFromSQLite(dbConnection,L):
 
     sql= """
@@ -15585,7 +19483,8 @@ def calculateWmnFromSQLite(dbConnection,L):
     cursor = dbConnection.execute(sql)
     dataset = cursor.fetchall()
 
-
+'''
+not used
 def calculatePhysicalLinkStatisticsAndPowerParametersBeforeLimitations(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection):
     # used for power calculation
 
@@ -15656,18 +19555,23 @@ def calculatePhysicalLinkStatisticsAndPowerParametersBeforeLimitations(N, L, S, 
     #EOP
 
     return wUaverage, fUaverage
+'''
 
 
 
 
-
+#26-10-2026 latest version
 def calculatePhysicalLinkStatisticsAndPowerParametersAfterLimitations(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection):
     # used for power calculation
+
+    # Reset fmn and Amn so previous values are not accumulated twice
+    initialiseSet(fmn, L, [])
+    initialiseSet(Amn, L, [])
 
     #SOP
     if (GlobalPrintOutEnabled==True) :   
         print ("<table class='data'>")
-        print ("<tr><th colspan=9>Statistics about Physical Links before applying limitations</th></tr>")
+        print ("<tr><th colspan=9>Statistics about Physical Links After Wavelength Assignment with Limitations</th></tr>")
         print ("<tr><th>Physical Link</th><th>Wavelengths w<sub>mn</sub></th>")
         print ("<th>Fibers f<sub>mn</sub></th><th>Distance L<sub>mn</sub> (km)</th>")
         print ("<th>Capacity requested (Gbps)</th><th>Free capacity (Gbps)</th>")
@@ -15685,8 +19589,12 @@ def calculatePhysicalLinkStatisticsAndPowerParametersAfterLimitations(N, L, S, W
     keys.sort()
     for key in keys:
         wl = Wmn.get(key)
+        # Convert numpy.float64 directly to a plain Python float (or int)
+        fibers = float(numpy.ceil(wl / maxWavelengthsPerFiber)) if maxWavelengthsPerFiber > 0 else 0.0
+
         #fibers = int((wl/maxWavelengthsPerFiber)+1)
-        fibers=numpy.ceil(wl/maxWavelengthsPerFiber) 
+        #fibers=numpy.ceil(wl/maxWavelengthsPerFiber) 
+
         CU = roundatdecimals(CUmn.get(key),3)                                                                        # CU : capacity utilised
         CR = wl * maxGbpsPerWavelength                                                                               # CR : capacity required
         CF = roundatdecimals((CR - CU), 3)                                                                           # CF : capacity free
@@ -15696,8 +19604,12 @@ def calculatePhysicalLinkStatisticsAndPowerParametersAfterLimitations(N, L, S, W
         wUtotal += wU
         fUtotal += fU
 
-        updateTotals(fmn, key, fibers)
+        # Assign directly instead of adding to old fmn[key]
+        fmn[key] = fibers
         distance = Lmn.get(key)
+
+        #updateTotals(fmn, key, fibers)
+        #distance = Lmn.get(key)
 
         #SOP
         if (GlobalPrintOutEnabled==True) :    
@@ -15719,11 +19631,20 @@ def calculatePhysicalLinkStatisticsAndPowerParametersAfterLimitations(N, L, S, W
     ##########key = linknumber(L, sp[0],sp[1])
     ##########numOfEDFAs = int ( ( dist[key] / distEDFA - 1.0 ) + 2.0 )
 
+    '''
     for physicallink in L:
         key = linknumber(L,physicallink[0],physicallink[1])
         LmnValue = Lmn.get(key)
         value = numpy.ceil(LmnValue / S - 1.0) + 2 if S>0 else 0  # prevent division by zero
         accumulatePowerParameters(Amn, key, value)
+    '''
+    
+    for physicallink in L:
+        key = linknumber(L, physicallink[0], physicallink[1])
+        LmnValue = Lmn.get(key)
+        # Convert numpy.float64 directly to a plain Python float
+        value = float(numpy.ceil(LmnValue / S - 1.0) + 2) if S > 0 else 0.0
+        Amn[key] = value
 
     #SOP
     if (GlobalPrintOutEnabled==True) :
@@ -15734,7 +19655,115 @@ def calculatePhysicalLinkStatisticsAndPowerParametersAfterLimitations(N, L, S, W
 
 
 
+'''
+#26-10-2026 new version
+def calculatePhysicalLinkStatisticsAndPowerParametersAfterLimitations(
+    N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn,
+    LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection
+):  # used for power calculation
+    global GlobalPrintOutEnabled
 
+    # Reset fmn and Amn in-place to plain 0.0 floats so old values (or lists) are not accumulated
+    fmn.clear()
+    Amn.clear()
+    initialiseSet(fmn, L, [])
+    initialiseSet(Amn, L, [])
+
+    #SOP
+    if (GlobalPrintOutEnabled == True):
+        print("<table class='data'>")
+        print("<tr><th colspan=9>Statistics about Physical Links After Wavelength Assignment with Limitations</th></tr>")
+        print("<tr><th>Physical Link</th><th>Wavelengths w<sub>mn</sub></th>")
+        print("<th>Fibers f<sub>mn</sub></th><th>Distance L<sub>mn</sub> (km)</th>")
+        print("<th>Capacity requested (Gbps)</th><th>Free capacity (Gbps)</th>")
+        print("<th>Reserved capacity for wavelengths (Gbps)</th>")
+        print("<th>Wavelegth Utilisation (%)<br><span style='font-size:0.6em;'>Capacity requested / Capacity of the wavelengths</span></th>")
+        print("<th>Fiber Link Utilisation (%)<br><span style='font-size:0.6em;'>Capacity requested / Capacity of the fibers</span></th></tr>")
+    #EOP
+
+    # Statistics about Physical Links
+    wUtotal = 0.0  # wavelength utilisation total
+    fUtotal = 0.0  # fiber utilisation total
+
+    keys = list(Wmn.keys())
+    keys.sort()
+    for key in keys:
+        wl = float(Wmn.get(key, 0.0))
+        fibers = float(numpy.ceil(wl / maxWavelengthsPerFiber)) if maxWavelengthsPerFiber > 0 else 0.0
+
+        raw_cu = CUmn.get(key, 0.0)
+        CU = roundatdecimals(float(raw_cu if raw_cu is not None else 0.0), 3)        # CU : capacity utilised
+        CR = float(wl * maxGbpsPerWavelength)                                        # CR : capacity required
+        CF = roundatdecimals((CR - CU), 3)                                           # CF : capacity free
+        wU = roundatdecimals((CU / CR * 100.0), 1) if CR > 0 else 0.0                # wU : wavelength utilisation percentage
+        fU = roundatdecimals((CU / (fibers * maxFiberCapacity) * 100.0), 1) if (fibers * maxFiberCapacity) > 0 else 0.0  # fU : fiber link utilisation percentage
+
+        wUtotal += wU
+        fUtotal += fU
+
+        # Store plain Python float directly (prevents double accumulation and [2.] NumPy array output)
+        fmn.update({key: fibers})
+        distance = Lmn.get(key)
+
+        #SOP
+        if (GlobalPrintOutEnabled == True):
+            print("<tr><td>", N[L[key][0]] + "-" + N[L[key][1]], "</td><td>", wl, "</td><td>", fibers, "</td><td>", distance, "</td><td>", CU, "</td><td>", CF, "</td><td>", CR, "</td><td>", wU, "</td><td>", fU, "</td></tr>")
+        #EOP
+
+    wUaverage = wUtotal / len(keys) if len(keys) > 0 else 0.0  # prevent division by zero
+    fUaverage = fUtotal / len(keys) if len(keys) > 0 else 0.0  # prevent division by zero
+
+    wUaverage = roundatdecimals(wUaverage, 1)
+    fUaverage = roundatdecimals(fUaverage, 1)
+
+    #SOP
+    if (GlobalPrintOutEnabled == True):
+        print("</table>")
+    #EOP
+
+    # Calculate number of EDFAs (Amn) per fiber on each physical link
+    for physicallink in L:
+        key = linknumber(L, physicallink[0], physicallink[1])
+        LmnValue = float(Lmn.get(key, 0.0))
+        value = float(numpy.ceil(LmnValue / S - 1.0) + 2.0) if S > 0 else 0.0  # prevent division by zero
+        Amn.update({key: value})
+
+    #SOP
+    if (GlobalPrintOutEnabled == True):
+        printAmn(Amn, N, L)
+    #EOP
+
+    return wUaverage, fUaverage
+'''
+
+#26-10-2026 the latest version
+def getWmnFromDB(Wmn, L, dbConnection):
+    Wmn = {i: 0.0 for i in range(len(L))}
+    sql = "SELECT plsrc, pldst, count(waveid) FROM RoutingVirtualLinksOverPhysicalTopology WHERE result = 'Pass' GROUP BY plsrc, pldst;"
+    cursor = dbConnection.execute(sql)
+    dataset = cursor.fetchall()
+    for row in dataset:
+        key = linknumber(L, row[0], row[1])
+        if key is not None:
+            Wmn[key] = roundatdecimals(Wmn.get(key, 0.0) + float(row[2]), 0)   # sum both (m,n) and (n,m)
+    return Wmn
+
+
+'''
+#26-10-2026 new version considering only the Pass 
+def getWmnFromDB(Wmn, L, dbConnection):
+    Wmn = {}
+    sql = "SELECT plsrc, pldst, count(waveid) FROM RoutingVirtualLinksOverPhysicalTopology WHERE result = 'Pass' GROUP BY plsrc, pldst;"
+    cursor = dbConnection.execute(sql)
+    dataset = cursor.fetchall()
+    for row in dataset:
+        key = linknumber(L, row[0], row[1])
+        Wmn[key] = roundatdecimals(float(row[2]), 0)   # number of wavelengths on physical link (m,n)
+    return Wmn
+'''
+
+'''
+#old version
 def getWmnFromDB(Wmn, L, dbConnection):
 
     Wmn = {}
@@ -15747,9 +19776,23 @@ def getWmnFromDB(Wmn, L, dbConnection):
         Wmn[key] = roundatdecimals(float(row[2]),0)   # number of wavelengths on physical link (m,n)
     
     return Wmn
+'''
 
 
+#26-10-2026 the latest version
+def getCUmnFromDB(CUmn, L, dbConnection):
+    CUmn = {i: 0.0 for i in range(len(L))}
+    sql = "SELECT plsrc, pldst, sum(routeTReqOverVTutilCap) FROM route_traffic_requests_over_virtual_and_physical_topology GROUP BY plsrc, pldst;"
+    cursor = dbConnection.execute(sql)
+    dataset = cursor.fetchall()
+    for row in dataset:
+        key = linknumber(L, row[0], row[1])
+        if key is not None and row[2] is not None:
+            CUmn[key] = roundatdecimals(CUmn.get(key, 0.0) + float(row[2]), 3)  # sum both (m,n) and (n,m)
+    return CUmn
 
+'''
+#previous version
 def getCUmnFromDB(CUmn, L, dbConnection):
 
     CUmn = {}
@@ -15762,8 +19805,10 @@ def getCUmnFromDB(CUmn, L, dbConnection):
         CUmn[key] = roundatdecimals(row[2],3)   # number of wavelengths on physical link (m,n)
     
     return CUmn
+'''
 
-
+'''
+#old version of getSigmaCijFromDB()
 def getSigmaCijFromDB(SigmaCij, N, dbConnection):
 
     SigmaCij = {}
@@ -15775,6 +19820,22 @@ def getSigmaCijFromDB(SigmaCij, N, dbConnection):
         srcnode = row[0]
         SigmaCij[srcnode] = roundatdecimals(row[1],3)   # number of wavelengths on physical link (m,n)
     
+    return SigmaCij
+'''
+
+#26-10-2026 new version of getSigmaCijFromDB()
+def getSigmaCijFromDB(SigmaCij, N, dbConnection):
+    SigmaCij = {}
+    sql = """
+        SELECT vlsrc, count(vlnum)
+        FROM RoutingTrafficRequestsOverVirtualTopology
+        WHERE type = 'New' AND result = 'Pass'
+        GROUP BY vlsrc;
+    """
+    cursor = dbConnection.execute(sql)
+    for row in cursor.fetchall():
+        srcnode = row[0]
+        SigmaCij[srcnode] = roundatdecimals(row[1], 3)
     return SigmaCij
 
 
@@ -15998,6 +20059,147 @@ def getWmnPerQueue(dbConnection, queue):
 
 
 
+
+
+#27-10-2026
+#7-2-2026
+def evaluatePowerConsumptionPerQueue(
+    dbConnection, Di, Di_Q0, Di_Q1, Er, Et, Ee, SigmaCij, N, L, Amn=None
+):
+    """
+    Computes per-class power consumption (PowerQ_HP, PowerQ_LP) in Watts
+    according to Equation (4):
+      E_k = sum_i Er * (Delta_i^k + sum_{j!=i} W_{ij}^k)
+          + sum_m sum_n Et * w_{mn}^k
+          + sum_m sum_n Ee * A_{mn} * f_{mn}^k
+    """
+    global GlobalPrintOutEnabled, maxWavelengthsPerFiber
+
+    num_nodes = len(N)
+    num_links = len(L)
+
+    # 1. Per-class optical-interface router ports: sum_{j != i} W_{ij}^k
+    # Only count virtual links newly established by queue k (type = 'New' AND result = 'Pass')
+    SigmaCij_Q0 = {i: 0.0 for i in range(num_nodes)}
+    SigmaCij_Q1 = {i: 0.0 for i in range(num_nodes)}
+
+    sql_sigma = """
+        SELECT reqquenum, vlsrc, COUNT(*)
+        FROM (
+            SELECT DISTINCT reqquenum, vlsrc, vldst, vlnum
+            FROM RoutingTrafficRequestsOverVirtualTopology
+            WHERE type = 'New' AND result = 'Pass'
+        )
+        GROUP BY reqquenum, vlsrc;
+    """
+    cursor = dbConnection.execute(sql_sigma)
+    for reqquenum, vlsrc, cnt in cursor.fetchall():
+        q_idx = int(reqquenum)
+        src_node = int(vlsrc)
+        if q_idx == 0:
+            SigmaCij_Q0[src_node] = roundatdecimals(float(cnt), 3)
+        elif q_idx == 1:
+            SigmaCij_Q1[src_node] = roundatdecimals(float(cnt), 3)
+
+    # 2. Per-class physical wavelength channels: w_{mn}^k
+    # Join physical wavelength hops with the originating queue (type = 'New') of each virtual link
+    Wmn_Q0 = {k: 0.0 for k in range(num_links)}
+    Wmn_Q1 = {k: 0.0 for k in range(num_links)}
+
+    sql_wmn = """
+        SELECT rtv.reqquenum, rvp.plsrc, rvp.pldst, COUNT(rvp.waveid)
+        FROM RoutingVirtualLinksOverPhysicalTopology AS rvp
+        INNER JOIN (
+            SELECT DISTINCT vlsrc, vldst, vlnum, reqquenum
+            FROM RoutingTrafficRequestsOverVirtualTopology
+            WHERE type = 'New' AND result = 'Pass'
+        ) AS rtv
+            ON rvp.vlsrc = rtv.vlsrc
+           AND rvp.vldst = rtv.vldst
+           AND rvp.vlnum = rtv.vlnum
+        WHERE rvp.result = 'Pass'
+        GROUP BY rtv.reqquenum, rvp.plsrc, rvp.pldst;
+    """
+    cursor = dbConnection.execute(sql_wmn)
+    for reqquenum, plsrc, pldst, cnt in cursor.fetchall():
+        key = linknumber(L, int(plsrc), int(pldst))
+        if key is not None:
+            q_idx = int(reqquenum)
+            if q_idx == 0:
+                Wmn_Q0[key] = roundatdecimals(Wmn_Q0.get(key, 0.0) + float(cnt), 0)
+            elif q_idx == 1:
+                Wmn_Q1[key] = roundatdecimals(Wmn_Q1.get(key, 0.0) + float(cnt), 0)
+
+    # 3. Per-class fiber activation flags: f_{mn}^k
+    # Equation (4) binary flag: f_{mn}^k = 1 only for the first class to activate link (m, n), 0 otherwise.
+    # (If multiple fibers per link are active and you want fmn_Q0 + fmn_Q1 == fmn, see Note below.)
+    fmn_Q0 = {k: 0.0 for k in range(num_links)}
+    fmn_Q1 = {k: 0.0 for k in range(num_links)}
+
+    for k in range(num_links):
+        w_hp = float(Wmn_Q0.get(k, 0.0))
+        w_lp = float(Wmn_Q1.get(k, 0.0))
+        if maxWavelengthsPerFiber > 0:
+            # Generalizes Eq. (4) to multi-fiber links while remaining strictly binary (0 or 1) on single-fiber links
+            f_hp = float(numpy.ceil(w_hp / maxWavelengthsPerFiber)) if w_hp > 0 else 0.0
+            f_tot = float(numpy.ceil((w_hp + w_lp) / maxWavelengthsPerFiber)) if (w_hp + w_lp) > 0 else 0.0
+            f_lp = f_tot - f_hp
+        else:
+            f_hp = 1.0 if w_hp > 0 else 0.0
+            f_lp = 1.0 if (w_hp == 0 and w_lp > 0) else 0.0
+
+        fmn_Q0[k] = f_hp
+        fmn_Q1[k] = f_lp
+
+    # 4. Compute the three power terms of Equation (4) for each class
+    # Term 1: IP Router Ports
+    PowerIP_HP = 0.0
+    PowerIP_LP = 0.0
+    for i in range(num_nodes):
+        PowerIP_HP += float(Er) * (float(Di_Q0.get(i, 0.0)) + float(SigmaCij_Q0.get(i, 0.0)))
+        PowerIP_LP += float(Er) * (float(Di_Q1.get(i, 0.0)) + float(SigmaCij_Q1.get(i, 0.0)))
+
+    # Term 2: WDM Transponders
+    PowerTrans_HP = 0.0
+    PowerTrans_LP = 0.0
+    for k in range(num_links):
+        PowerTrans_HP += float(Et) * float(Wmn_Q0.get(k, 0.0))
+        PowerTrans_LP += float(Et) * float(Wmn_Q1.get(k, 0.0))
+
+    # Term 3: EDFAs
+    PowerEDFA_HP = 0.0
+    PowerEDFA_LP = 0.0
+    if Amn is not None:
+        for k in range(num_links):
+            valAmn = float(numpy.asarray(Amn.get(k, 0.0)).item())
+            PowerEDFA_HP += float(Ee) * valAmn * fmn_Q0[k]
+            PowerEDFA_LP += float(Ee) * valAmn * fmn_Q1[k]
+
+    PowerQ_HP = roundatdecimals((PowerIP_HP + PowerTrans_HP + PowerEDFA_HP)/1000.0, 3)
+    PowerQ_LP = roundatdecimals((PowerIP_LP + PowerTrans_LP + PowerEDFA_LP)/1000.0, 3)
+    
+    PowerIP_HP = roundatdecimals(PowerIP_HP/1000.0, 3)
+    PowerTrans_HP = roundatdecimals(PowerTrans_HP/1000.0, 3)
+    PowerEDFA_HP = roundatdecimals(PowerEDFA_HP/1000.0, 3)
+    PowerIP_LP = roundatdecimals(PowerIP_LP/1000.0, 3)
+    PowerTrans_LP = roundatdecimals(PowerTrans_LP/1000.0, 3)
+    PowerEDFA_LP = roundatdecimals(PowerEDFA_LP/1000.0, 3)
+
+    #SOP
+    if GlobalPrintOutEnabled == True:
+        print("<table class='data'>")
+        print("<tr><th colspan=5>Per-Class Power Consumption Breakdown (kWatts)</th></tr>")
+        print(f"<tr><th colspan=5>{mathPowerPerQueueFormula()}</th></tr>")
+        print("<tr><th>Class</th><th>IP Router Ports (kW)</th><th>WDM Transponders (kW)</th><th>EDFAs (kW)</th><th>Total Power (kW)</th></tr>")
+        print(f"<tr><td>Q<sub>HP</sub> (Q0)</td><td>{roundatdecimals(PowerIP_HP, 3)}</td><td>{roundatdecimals(PowerTrans_HP, 3)}</td><td>{roundatdecimals(PowerEDFA_HP, 3)}</td><td><b>{PowerQ_HP}</b></td></tr>")
+        print(f"<tr><td>Q<sub>LP</sub> (Q1)</td><td>{roundatdecimals(PowerIP_LP, 3)}</td><td>{roundatdecimals(PowerTrans_LP, 3)}</td><td>{roundatdecimals(PowerEDFA_LP, 3)}</td><td><b>{PowerQ_LP}</b></td></tr>")
+        print(f"<tr><td><b>Sum (E<sub>HP</sub> + E<sub>LP</sub>)</b></td><td>{roundatdecimals(PowerIP_HP + PowerIP_LP, 3)}</td><td>{roundatdecimals(PowerTrans_HP + PowerTrans_LP, 3)}</td><td>{roundatdecimals(PowerEDFA_HP + PowerEDFA_LP, 3)}</td><td><b>{roundatdecimals(PowerQ_HP + PowerQ_LP, 3)}</b></td></tr>")
+        print("</table>")
+    #EOP
+
+    return PowerQ_HP, PowerQ_LP
+
+''' old version
 #7-2-2026
 def evaluatePowerConsumptionPerQueue(dbConnection, Di, Di_Q0, Di_Q1, Er, Et, Ee, SigmaCij, N, L):
 
@@ -16257,7 +20459,7 @@ def evaluatePowerConsumptionPerQueue(dbConnection, Di, Di_Q0, Di_Q1, Er, Et, Ee,
     #EOP
 
     return PowerQ_HP, PowerQ_LP
-
+'''
 
 
 def convertVTtoOldFormatForRoutingOverPhysicalTopology(VirtualLinkTotals, N):
@@ -16359,7 +20561,17 @@ def calculateSomePowerParametersForNodesAndLinks(VT, N, Cij, SigmaCij):
 
 
 def normalize_dict(data: dict) -> dict:
+    """
+    Normalize dictionary values so each key maps to a flat list of tuples.
     
+    Input can be either:
+        {(a, b, c): [[(i, j, k, l), (w, x, y, z)]], ...}
+    or
+        {(a, b, c): [(i, j, k, l), (w, x, y, z)], ...}
+        
+    Returns:
+        {(a, b, c): [(i, j, k, l), (w, x, y, z)], ...}
+    """
     normalized = {}
     for key, value in data.items():
         if len(value) > 0 and isinstance(value[0], list):
@@ -16610,8 +20822,11 @@ def numberOfusesPerLightpath():
             COUNT(DISTINCT TReqQueNum || TReqReqNum) AS NumberOfUses
         FROM 
             route_traffic_requests_over_virtual_and_physical_topology
-        WHERE 
-            TReqResult = 'Pass'
+        WHERE (TReqQueNum, TReqReqNum) IN (
+               SELECT quenum, num
+               FROM TrafficRequests
+               WHERE result = 'Pass'
+              )
         GROUP BY 
             VLsrc,
             VLdst,
@@ -16621,7 +20836,35 @@ def numberOfusesPerLightpath():
     """
 
 
+#27-10-2026 new version
+def latencyPerQueueNewFormula(sqliteConnection):
+    query = """
+        SELECT 
+            L.TReqQueNum,
+            COUNT(L.TReqReqNum) AS NumberOfRequests,
+            AVG(L.TrafficRequestLatency) AS AvgQueueLatency,
+            MAX(L.TrafficRequestLatency) AS MaxQueueLatency,
+            MIN(L.TrafficRequestLatency) AS MinQueueLatency
+        FROM LatencyOfTrafficRequest AS L
+        INNER JOIN TrafficRequests AS TR
+            ON L.TReqQueNum = TR.quenum AND L.TReqReqNum = TR.num
+        WHERE TR.result = 'Pass'
+        GROUP BY L.TReqQueNum
+        ORDER BY L.TReqQueNum ASC;
+    """
+    cursor = sqliteConnection.execute(query)
+    rows = cursor.fetchall()
 
+    # Always preserve index 0 -> Q_HP (Queue 0) and index 1 -> Q_LP (Queue 1)
+    avg_by_queue = {0: 0.0, 1: 0.0}
+    for row in rows:
+        q_idx = int(row[0])
+        if row[2] is not None:
+            avg_by_queue[q_idx] = roundatdecimals(float(row[2]), 3)
+
+    return [avg_by_queue[0], avg_by_queue[1]]
+
+''' #27-10-2026 old version
 def latencyPerQueueNewFormula(sqliteConnection):
     #18-5-2026
     query="""
@@ -16653,6 +20896,7 @@ def latencyPerQueueNewFormula(sqliteConnection):
     #print("<li>latency per Queue",data)
 
     return data
+'''
 
 def getTimeStampString():
     current_time = datetime.now()
@@ -16731,7 +20975,10 @@ def calculate_converter_overhead(path_wavelengths, Lwc, Ewc):
 
 #22-8-2026
 def saveConverterOverheads2sqlite(sqliteConnection, overheads_data):
-    
+    """
+    Saves detailed wavelength converter overheads per traffic request to the database.
+    overheads_data is a list of tuples: (que, req, converters_used, lat_overhead, pow_overhead)
+    """
     try:
         for row in overheads_data:
             sql = "INSERT INTO WavelengthConverterOverheads (TReqQueNum, TReqReqNum, ConvertersUsed, LatencyOverhead, PowerOverhead) VALUES (%d, %d, %d, %.3f, %.3f);" % (row[0], row[1], row[2], row[3], row[4])
@@ -16739,5 +20986,3 @@ def saveConverterOverheads2sqlite(sqliteConnection, overheads_data):
         sqliteConnection.commit()
     except sqlite3.Error as err:
         error("Error during insertion to WavelengthConverterOverheads table. "+err.sqlite_errorname, err.sqlite_errorcode)
-
-

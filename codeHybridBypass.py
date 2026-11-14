@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # SimLight by Konstantinos Delistavrou 2021, 2022, 2023, 2024, 2025, 2026
-# Hybrid Bypass algorithm by Konstantinos Delistavrou, 2024
+# Hybrid Bypass algorithm by Konstantinos Delistavrou, 2024, 2025, 2026
 #
 # command line arguments
 #
@@ -33,25 +33,23 @@
 # argv[25]  wavelength converter power consumption (Watt)
 # argv[26]  number of shortest paths to consider during wavelength assignment : 1 will utilise Dijkstra's shortest path algorithm for the shortest path only, block traffic otherwise
 #                                                                               k will try utilise Yen's algorithm to discover the 2nd, 3rd, ... k-th shortest alternatives, blocking traffic if wavelength assignment fails for all
-#
-# example
-#
+# example...
 # python codeHybridBypass.py N6L8_STnet_NoWavConv.txt 9 TestRun detailreport gensave Traffic-Requests.txt nopdf 2 keepreport Laptop C:\simlight Uniform Hybrid2Q -1 3 100 30 100 50 CheckForRevisits -1.0 -1.0
 # 
-# dependencies
-#
+# Dependencies
+# ~~~~~~~~~~~~
 # install...
-# pip install numpy   # NumPy library used for calculations
-# pip install networkx
-# pip install pyvis # PyVis used for visualisations
-#                     network visualisation https://pyvis.readthedocs.io/en/latest/tutorial.html
-#                                           https://pyvis.readthedocs.io/en/latest/install.html
-# download sqlite-dll-win-x64-3450200.zip from https://www.sqlite.org/download.html, unpack, and copy sqlite sqlite3.dll and sqlite3.def files to the application directory
-# to save as pdf install software for OS from https://wkhtmltopdf.org/
-#                                             https://wkhtmltopdf.org/downloads.html
-#                install wrapper for python $pip install pdfkit
+# pip install numpy scipy networkx pyvis matplotlib pdfkit
 #
-#Legend... .................................................
+# NumPy library used for calculations
+# PyVis used for visualisations
+# network visualisation                          https://pyvis.readthedocs.io/en/latest/tutorial.html
+#                                                https://pyvis.readthedocs.io/en/latest/install.html
+# download sqlite-dll-win-x64-3450200.zip from   https://www.sqlite.org/download.html, unpack, and copy sqlite sqlite3.dll and sqlite3.def files to the application directory
+# to save as pdf install software for OS from    https://wkhtmltopdf.org/
+#                                                https://wkhtmltopdf.org/downloads.html
+#
+#Legend.....................................................
 #
 #2DO : elaboration needed
 #Done : elaboration completed
@@ -70,6 +68,7 @@
 #~></Section>: end of code section
 #
 #...........................................................
+
 
 from pydoc import doc
 from turtle import update
@@ -114,7 +113,6 @@ if ( sys.argv[3] != ""):
     experimentName = sys.argv[3]
 else:
     experimentName = "Default Experiment"
-
 
 #create an error log
 #errlog = open(experimentName+"_Errors.txt","w")
@@ -223,10 +221,8 @@ NmC = networkWithCosts(Nm,Nt,L,Dist)
 xi = int(sys.argv[2])
 
 X = []
-#original_X = [20, 40, 60, 80, 100, 120]
-#original_X = [20, 40, 60, 80, 100, 120, 160, 320, 640, 960, 1280]
-#original_X = [2, 4, 6, 8, 10, 15, 20] # to measure in the loads of Lee & Rhee paper
-#original_X = [2, 4, 6, 8, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120, 160, 200, 320, 640, 960, 1280]
+#original_X = [20, 40, 60, 80, 100, 120] original Shen & Tucker paper average traffic demands
+#original_X = [2, 4, 6, 8, 10, 15, 20]   compatible to the loads of Lee & Rhee paper
 original_X  = [2, 4, 6, 8, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120, 160, 200, 320, 400, 640, 960, 1280]
 
 for Xitem in original_X:
@@ -523,18 +519,24 @@ if (GlobalSOP==True) :
 
 # used for power calculation
 # Di: number of ports that are used to aggregate the data traffic from low end routers at node i
-
 # calculate for one or two queues
 for req in aggregatedTReqs:
-    #print ("<li>req",req)
     accumulatePowerParameters(SigmaLamda_id, req[0], req[2])
 
+#27-10-2026
+for key in SigmaLamda_id:
+    slid = SigmaLamda_id.get(key, 0.0)
+    value = float(numpy.ceil(slid / B))
+    Di.update({key: value})
+
+'''
 for key in SigmaLamda_id:
     slid = SigmaLamda_id.get(key)
     value = numpy.ceil(slid / B)
     Di.update({key:value})
-#SOP
+'''
 
+#SOP
 if (GlobalSOP==True) :
     printDi(Di, N, SigmaLamda_id)
 #EOP
@@ -546,10 +548,16 @@ if lenQs == 2:
         #print ("<li>req",req)
         accumulatePowerParameters(SigmaLamda_id_Q0, req[0], req[2])
 
+    #27-10-2026
+    for key in SigmaLamda_id_Q0:
+        slid = SigmaLamda_id_Q0.get(key, 0.0)
+        Di_Q0.update({key: float(numpy.ceil(slid / B)) if B > 0 else 0.0})
+    '''
     for key in SigmaLamda_id_Q0:
         slid = SigmaLamda_id_Q0.get(key)
         value = numpy.ceil(slid / B)
         Di_Q0.update({key:value})
+    '''
 
     #SOP
     if (GlobalSOP==True) :
@@ -558,18 +566,29 @@ if lenQs == 2:
 
     #for the Q1
     for req in TReqsForQueue[1]:
-        #print ("<li>req",req)
         accumulatePowerParameters(SigmaLamda_id_Q1, req[0], req[2])
 
+    #27-10-2026
+    for key in SigmaLamda_id_Q1:
+        slid = SigmaLamda_id_Q1.get(key, 0.0)
+        Di_Q1.update({key: float(numpy.ceil(slid / B)) if B > 0 else 0.0})
+    '''
     for key in SigmaLamda_id_Q1:
         slid = SigmaLamda_id_Q1.get(key)
         value = numpy.ceil(slid / B)
         Di_Q1.update({key:value})
+    '''
 
     #SOP
     if (GlobalSOP==True) :
         printDiPerQueue(QueueNames[1], Di_Q1, N, SigmaLamda_id_Q1)
     #EOP
+
+    #27-10-2026
+    # Optional: To guarantee strict additivity (E_total = E_HP + E_LP) when both classes
+    # have fractional remainders at node i, set Di[i] = Di_Q0[i] + Di_Q1[i]:
+    for i in range(len(N)):
+        Di[i] = float(Di_Q0.get(i, 0.0)) + float(Di_Q1.get(i, 0.0))
 
 #~></Section traffic requests and traffic load amount generation>
 
@@ -717,6 +736,7 @@ for VLkey in VirtualLinkTotals:
     else:
         vtFinalvalue = [caputil]
     newVTFinal.update({(s,d,num):vtFinalvalue})
+
 
 #print ("<div>New VTfinal=",VTfinal,"</div>")
 
@@ -1116,6 +1136,7 @@ if (GlobalSOP==True) :
 # Define this globally before the match block so all cases and loggers can access it
 NumberOfShortestPaths = 1 if sys.argv[26]==None else int(sys.argv[26])
 
+''' 26-10-2026: I replace the old match limitations...
 match limitations:
     #case 1
     case ["UnlimitedFibersPerLink", "NoWavContConstr"] :
@@ -1235,6 +1256,7 @@ match limitations:
         #EOP
 
     #case 5
+    #25-10-2026>>>>>>
     case ["LimitedFibersPerLink", "FullWavContConstr"]:
         #SOP
         if (GlobalSOP==True) :
@@ -1242,11 +1264,20 @@ match limitations:
         #EOP
 
         # 1. FIRST, generate the base routing and phyLinks using your original function
+        phyLinks, RoutingOfVirtualLinksOverWavelengths = WavelengthsAssignmentWithLimitsConsideration( 
+            VT, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, 
+            Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, 
+            EDFAdist, networkWithCosts, wavelegthids, LatRouterPort, LatTransponder, dbConnection
+        )
+
+        # 1. FIRST, generate the base routing and phyLinks using your original function
+        """
         phyLinks, RoutingOfVirtualLinksOverWavelengths = WavelengthsAssignmentWithoutLimitsConsideration(
             VT, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, 
             Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist, 
             EDFAdist, networkWithCosts, wavelegthids, LatRouterPort, LatTransponder, dbConnection
         )
+        """
 
         # 2. Apply legacy blocking logic
         newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults, netmap = blockTrafficAccordingToCriteria(
@@ -1318,77 +1349,83 @@ match limitations:
     case _:
         error("Invalid Combination of Limitations!",555)
         exit(555)
+'''
 
+# %% [markdown]
+"""
+How the 6 Cases Map to This Unified Logic
+| Case | `limitations` Tuple | Initial Fibers in Map | Dynamic Fiber Expansion | `effective_HasWavConv` | Possible Blocking Causes |
+| --- | --- | --- | --- | --- | --- |
+| **Case 1** | `["UnlimitedFibersPerLink", "NoWavContConstr"]`  | `1` | Yes (appends fibers as needed) | `[1, 1, ..., 1]` (1-hop segments) | None (`0%` blocking) |
+| **Case 2** | `["UnlimitedFibersPerLink", "FullWavContConstr"]` | `1` | Yes (appends fibers when no continuous &lambda; fits existing fibers) | `[0, 0, ..., 0]` (1 full-path segment) | None (`0%` blocking) |
+| **Case 3** | `["UnlimitedFibersPerLink", "PartialWavContConstr"]` | `1` | Yes (appends fibers per segment when needed) | `HasWavConv` (splits at converters) | None (`0%` blocking) |
+| **Case 4** | `["LimitedFibersPerLink", "NoWavContConstr"]`| `maxFibersPerLink` | No | `[1, 1, ..., 1]` (1-hop segments)| `Blocked: NoFreeFibers` only |
+| **Case 5** | `["LimitedFibersPerLink", "FullWavContConstr"]`| `maxFibersPerLink` | No | `[0, 0, ..., 0]` (1 full-path segment) | `Blocked: NoFreeFibers` or `Blocked: WavContConstr` |
+| **Case 6** | `["LimitedFibersPerLink", "PartialWavContConstr"]` | `maxFibersPerLink` | No | `HasWavConv` (splits at converters) | `Blocked: NoFreeFibers` or `Blocked: WavContConstr` |
+"""
+# %%
+
+#26-10-2026 new WA considering limitations
+limitations = decideLimitations(N, HasWavConv, maxFibersPerLink)
+NumberOfShortestPaths = 1 if sys.argv[26] is None else int(sys.argv[26])
+
+# Validate that limitations is one of the 6 supported combinations
+valid_fiber_modes = {"UnlimitedFibersPerLink", "LimitedFibersPerLink"}
+valid_wcc_modes = {"NoWavContConstr", "FullWavContConstr", "PartialWavContConstr"}
+if limitations[0] not in valid_fiber_modes or limitations[1] not in valid_wcc_modes:
+    error("Invalid Combination of Limitations!", 555)
+    exit(555)
+
+# Execute integrated Routing + Wavelength Assignment + Blocking
+(
+    phyLinks,
+    RoutingOfVirtualLinksOverWavelengths,
+    routingResults,
+    NetworkWavelengthsMap,
+    blockedVLsInfo
+) = WavelengthsAssignmentWithLimitsConsideration(
+    VT, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, maxFibersPerLink,
+    limitations, HasWavConv, Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, Dist,
+    EDFAdist, networkWithCosts, LatRouterPort, LatTransponder, dbConnection,
+    K_paths=NumberOfShortestPaths
+)
+
+# Keep variable alias for compatibility with any downstream loggers/visualizers
+newRoutingOfVirtualLinksOverWavelengthsWithLimits = RoutingOfVirtualLinksOverWavelengths
+
+# Separate blocked virtual links by specific blocking cause
+blockedByFibers = {
+    vlid: info for vlid, info in blockedVLsInfo.items()
+    if info["reason"] == "NoFreeFibers"
+}
+blockedByWCC = {
+    vlid: info for vlid, info in blockedVLsInfo.items()
+    if info["reason"] == "WavContConstr"
+}
+
+TotalBlockedVLs = len(blockedVLsInfo)
+TotalBlockedVLdueFibCapExhaust = len(blockedByFibers)
+TotalBlockedVLdueWavContConstr = len(blockedByWCC)
+
+# SOP
+if GlobalSOP:
+    print(f"<div><li>Applied integrated WA with limits: {limitations[0]}, {limitations[1]}</div>")
+    print(f"<div><li>Total Blocked VLs: {TotalBlockedVLs} "
+          f"(Fiber/Capacity Exhaustion: {TotalBlockedVLdueFibCapExhaust}, "
+          f"Wavelength Continuity Constraint: {TotalBlockedVLdueWavContConstr})</div>")
+    if blockedByFibers:
+        print(f"<div><li>VLs blocked due to Limited Fibers: {list(blockedByFibers.keys())}</div>")
+    if blockedByWCC:
+        print(f"<div><li>VLs blocked due to Wavelength Continuity: {list(blockedByWCC.keys())}</div>")
+    print_reservations(NetworkWavelengthsMap, L)
+    print_lightpath_routes(NetworkWavelengthsMap, L)
+# EOP
 
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #~></Section Wavelength assignment with limitations>
 
 
-#22-8-2026 
-# --- CALCULATE DETAILED OVERHEADS PER TRAFFIC REQUEST ---
 
-# 1. Count total converters used per Virtual Link (Lightpath)
-vl_converter_counts = {}
-for vl_key, value in RoutingOfVirtualLinksOverWavelengths.items():
-    converters = 0
-    
-    # Extract the hops list safely without modifying the original dictionary
-    hops = value[0] if (len(value) > 0 and isinstance(value[0], list)) else value
-    
-    if len(hops) > 1:
-        wave_index = 6  # Make sure this is your correct wavelength ID index
-        
-        for i in range(len(hops) - 1):
-            # Safety check: Ensure both hops are valid tuples/lists long enough to contain wave_index
-            if isinstance(hops[i], (list, tuple)) and len(hops[i]) > wave_index and \
-                isinstance(hops[i+1], (list, tuple)) and len(hops[i+1]) > wave_index:
-                
-                if hops[i][wave_index] != hops[i+1][wave_index]:
-                    converters += 1
-                    
-    vl_converter_counts[vl_key] = converters
-
-total_pow_overhead_HP = 0.0
-total_pow_overhead_LP = 0.0
-lat_overheads_HP = []
-lat_overheads_LP = []
-
-# List to hold detailed DB records: (TReqQueNum, TReqReqNum, ConvertersUsed, LatencyOverhead, PowerOverhead)
-detailed_request_overheads = []
-
-# 2. Map converters back to specific Traffic Requests
-for (que, req), route_info_list in ReqRouteInfo.items():
-    req_converters = 0
-    for step_data in route_info_list:
-        vl_tuple = (step_data[0], step_data[1], step_data[2]) 
-        if vl_tuple in vl_converter_counts:
-            req_converters += vl_converter_counts[vl_tuple]
-    
-    # Calculate exact overheads for this specific traffic request
-    req_lat_overhead = req_converters * float(Lwc)
-    req_pow_overhead = req_converters * float(Ewc)
-    
-    # Save to the detailed list for the database
-    detailed_request_overheads.append((que, req, req_converters, req_lat_overhead, req_pow_overhead))
-    
-    # 3. Aggregate metrics by Queue
-    if que == 0:
-        total_pow_overhead_HP += req_pow_overhead
-        lat_overheads_HP.append(req_lat_overhead)
-    elif que == 1:
-        total_pow_overhead_LP += req_pow_overhead
-        lat_overheads_LP.append(req_lat_overhead)
-
-# 4. Save the detailed metrics to SQLite
-saveConverterOverheads2sqlite(dbConnection, detailed_request_overheads)
-
-# 5. Calculate Mean Latency Overheads
-mean_lat_overhead_HP = sum(lat_overheads_HP) / len(lat_overheads_HP) if lat_overheads_HP else 0.0
-mean_lat_overhead_LP = sum(lat_overheads_LP) / len(lat_overheads_LP) if lat_overheads_LP else 0.0
-
-if GlobalSOP:
-    print(f"<li>Saved {len(detailed_request_overheads)} detailed request overheads to WavelengthConverterOverheads table.</li>")
-# -----------------------------------------------------------------
 
 
 '''  
@@ -1514,12 +1551,14 @@ if (GlobalSOP==True) :
     #printRoutingOfVirtualLinksOverWavelengthsWithLimitResultsAsTable(newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults)
 #EOP
 
-
+'''
+#27-10-2026 do not need calculation BEFORE
 # 29-9-2025 calculate physical link statistics and power consumption using the data before limitations
 
 CUmn = getCUmnFromDB(CUmn, L, dbConnection)
 Wmn = getWmnFromDB(Wmn, L, dbConnection)
 SigmaCij = getSigmaCijFromDB(SigmaCij, N, dbConnection)
+'''
 
 #8-2-2026 do not calculate stats and power before limitations because Amn after limitations becomes +300%
 # wUaverage, fUaverage = calculatePhysicalLinkStatisticsAndPowerParametersBeforeLimitations(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection) # before updating limits and blockings
@@ -1527,9 +1566,11 @@ SigmaCij = getSigmaCijFromDB(SigmaCij, N, dbConnection)
 
 # 29-9-2025 update the databases according to the limitations
 
-#<28-9-2025> statistics about the traffic requests that were blocked due to limitations
-#for each lightpath (virtual link) whether it was passed or blocked
+#<28-9-2025> 
+#start of statistics @ about the traffic requests that were blocked due to limitations for each lightpath (virtual link) whether it was passed or blocked
 
+'''
+#old block of resultsDBUpdateOfVLs_LPs() etc.
 passLPs, blockedLPs = resultsDBUpdateOfVLs_LPs(routingResults, dbConnection)
 
 totalLPs = len(routingResults) #how many lightpaths 
@@ -1551,14 +1592,50 @@ if (GlobalSOP==True) :
         print ("<tr><td>Blocked lightpath (virtual link) ",lp,"from",N[lp[0]],"to",N[lp[1]],"number",lp[2],"</td></tr>")
     print ("</table>")
 #EOP
+'''
+
+#26-10-2026 new block of resultsDBUpdateOfVLs_LPs() etc.
+passLPs, blockedLPs, blockedLPs_Fibers, blockedLPs_WCC = resultsDBUpdateOfVLs_LPs(
+    routingResults, dbConnection, blockedVLsInfo
+)
+
+totalLPs = len(routingResults)
+countPassLPs = len(passLPs)
+countBlockedLPs = len(blockedLPs)
+countBlockedLPs_Fibers = len(blockedLPs_Fibers)
+countBlockedLPs_WCC = len(blockedLPs_WCC)
+percBlockedLPs_Fibers = roundatdecimals( (countBlockedLPs_Fibers / countBlockedLPs * 100.0), 1) if countBlockedLPs>0.0 else 0.0
+percBlockedLPs_WCC    = roundatdecimals( (countBlockedLPs_WCC    / countBlockedLPs * 100.0), 1) if countBlockedLPs>0.0 else 0.0
+
+passLPsPercent = roundatdecimals((countPassLPs / totalLPs * 100.0), 1) if totalLPs > 0 else 0.0
+blockedLPsPercent = roundatdecimals((countBlockedLPs / totalLPs * 100.0), 1) if totalLPs > 0 else 0.0
+
+# SOP
+if GlobalSOP:
+    print("<table width='60%' class='data'>")
+    print("<tr><th colspan=1>New statistics after limits</th></tr>")
+    print(f"<tr><th colspan=1>Total lightpaths (virtual links): {totalLPs}, Pass: {countPassLPs} ({passLPsPercent}%)</th></tr>")
+    print(f"<tr><th colspan=1>Total Blocked lightpaths: {countBlockedLPs} ({blockedLPsPercent}%), "
+          f"NoFreeFibers: {countBlockedLPs_Fibers} ({percBlockedLPs_Fibers}%), WavContConstr: {countBlockedLPs_WCC} ({percBlockedLPs_WCC}%)</th></tr>")
+    for lp in passLPs:
+        print(f"<tr><td>Pass lightpath (virtual link) {lp} from {N[lp[0]]} to {N[lp[1]]} number {lp[2]}</td></tr>")
+    for lp in blockedLPs:
+        reason_str = routingResults.get(lp, "Blocked")
+        print(f"<tr><td>{reason_str} lightpath (virtual link) {lp} from {N[lp[0]]} to {N[lp[1]]} number {lp[2]}</td></tr>")
+    print("</table>")
+# EOP
+
 
 #for each traffic request whether it was passed or blocked
 
 passTRs, blockedTRs = resultsDBUpdateOfTRs(dbConnection)
+#end of statistics @ about the traffic requests that were blocked due to limitations
 
 #print ("<li>Passed traffic requests:",passTRs)
 #print ("<li>Blocked traffic requests:",blockedTRs)
 
+
+"""#<27-10-2026 replacing this block> start vvv
 updateDB_RoutingVirtualLinksOverPhysicalTopology(newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults, dbConnection)
 
 removeDB_BlockedVirtualLinksOverPhysicalTopology(newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults, dbConnection)
@@ -1585,30 +1662,302 @@ if (GlobalSOP==True) :
 #</28-9-2025>
 
 
+'''
+#27-10-2026 moved here
+
+#22-8-2026 
+# --- CALCULATE DETAILED OVERHEADS PER TRAFFIC REQUEST ---
+
+# 1. Count total converters used per Virtual Link (Lightpath)
+vl_converter_counts = {}
+for vl_key, value in RoutingOfVirtualLinksOverWavelengths.items():
+    converters = 0
+    
+    # Extract the hops list safely without modifying the original dictionary
+    hops = value[0] if (len(value) > 0 and isinstance(value[0], list)) else value
+    
+    if len(hops) > 1:
+        wave_index = 6  # Make sure this is your correct wavelength ID index
+        
+        for i in range(len(hops) - 1):
+            # Safety check: Ensure both hops are valid tuples/lists long enough to contain wave_index
+            if isinstance(hops[i], (list, tuple)) and len(hops[i]) > wave_index and \
+                isinstance(hops[i+1], (list, tuple)) and len(hops[i+1]) > wave_index:
+                
+                if hops[i][wave_index] != hops[i+1][wave_index]:
+                    converters += 1
+                    
+    vl_converter_counts[vl_key] = converters
+
+total_pow_overhead_HP = 0.0
+total_pow_overhead_LP = 0.0
+lat_overheads_HP = []
+lat_overheads_LP = []
+
+# List to hold detailed DB records: (TReqQueNum, TReqReqNum, ConvertersUsed, LatencyOverhead, PowerOverhead)
+detailed_request_overheads = []
+
+# 2. Map converters back to specific Traffic Requests
+for (que, req), route_info_list in ReqRouteInfo.items():
+    req_converters = 0
+    for step_data in route_info_list:
+        vl_tuple = (step_data[0], step_data[1], step_data[2]) 
+        if vl_tuple in vl_converter_counts:
+            req_converters += vl_converter_counts[vl_tuple]
+    
+    # Calculate exact overheads for this specific traffic request
+    req_lat_overhead = req_converters * float(Lwc)
+    req_pow_overhead = req_converters * float(Ewc)
+    
+    # Save to the detailed list for the database
+    detailed_request_overheads.append((que, req, req_converters, req_lat_overhead, req_pow_overhead))
+    
+    # 3. Aggregate metrics by Queue
+    if que == 0:
+        total_pow_overhead_HP += req_pow_overhead
+        lat_overheads_HP.append(req_lat_overhead)
+    elif que == 1:
+        total_pow_overhead_LP += req_pow_overhead
+        lat_overheads_LP.append(req_lat_overhead)
+
+# 4. Save the detailed metrics to SQLite
+saveConverterOverheads2sqlite(dbConnection, detailed_request_overheads)
+
+# 5. Calculate Mean Latency Overheads
+mean_lat_overhead_HP = sum(lat_overheads_HP) / len(lat_overheads_HP) if lat_overheads_HP else 0.0
+mean_lat_overhead_LP = sum(lat_overheads_LP) / len(lat_overheads_LP) if lat_overheads_LP else 0.0
+
+if GlobalSOP:
+    print(f"<li>Saved {len(detailed_request_overheads)} detailed request overheads to WavelengthConverterOverheads table.</li>")
+# -----------------------------------------------------------------
+'''
+
+#<27-10-2026 updated version>
+
+#22-8-2026
+# --- CALCULATE DETAILED OVERHEADS PER PASSED TRAFFIC REQUEST ---
+passed_vl_set = set(passLPs)
+passed_tr_set = set(passTRs)
+
+# 1. Count total converters used per PASSED Virtual Link (Lightpath)
+vl_converter_counts = {}
+for vl_key, value in RoutingOfVirtualLinksOverWavelengths.items():
+    # Skip blocked virtual links
+    if vl_key not in passed_vl_set:
+        continue
+
+    converters = 0
+    # Extract the hops list safely without modifying the original dictionary
+    hops = value[0] if (len(value) > 0 and isinstance(value[0], list)) else value
+
+    if len(hops) > 1:
+        for i in range(len(hops) - 1):
+            if isinstance(hops[i], (list, tuple)) and isinstance(hops[i+1], (list, tuple)):
+                # In 4-tuple hops (plsrc, pldst, fiberid, waveid), waveid is index 3; in 7-tuple hops, index 6
+                wave_index = 6 if len(hops[i]) > 6 else (3 if len(hops[i]) > 3 else -1)
+                if wave_index != -1 and len(hops[i+1]) > wave_index:
+                    if hops[i][wave_index] != hops[i+1][wave_index]:
+                        converters += 1
+
+    vl_converter_counts[vl_key] = converters
+
+# 2. Map Virtual Link converters back ONLY to PASSED Traffic Requests
+total_pow_overhead_HP = 0.0
+total_pow_overhead_LP = 0.0
+lat_overheads_HP = []
+lat_overheads_LP = []
+
+# List to hold detailed DB records: (TReqQueNum, TReqReqNum, ConvertersUsed, LatencyOverhead, PowerOverhead)
+detailed_request_overheads = []
+
+for (que, req), route_info_list in ReqRouteInfo.items():
+    # Skip blocked traffic requests
+    if (que, req) not in passed_tr_set:
+        continue
+
+    req_converters = 0
+    for step_data in route_info_list:
+        vl_tuple = (step_data[0], step_data[1], step_data[2])
+        if vl_tuple in vl_converter_counts:
+            req_converters += vl_converter_counts[vl_tuple]
+
+    req_lat_overhead = roundatdecimals(req_converters * Lwc, 3)
+    req_pow_overhead = roundatdecimals(req_converters * Ewc, 3)
+
+    detailed_request_overheads.append((que, req, req_converters, req_lat_overhead, req_pow_overhead))
+
+    if que == 0:
+        lat_overheads_HP.append(req_lat_overhead)
+        total_pow_overhead_HP += req_pow_overhead
+    elif que == 1:
+        lat_overheads_LP.append(req_lat_overhead)
+        total_pow_overhead_LP += req_pow_overhead
+
+# 4. Save the detailed metrics to SQLite
+saveConverterOverheads2sqlite(dbConnection, detailed_request_overheads)
+
+# 5. Calculate Mean Latency Overheads across PASSED requests only
+mean_lat_overhead_HP = sum(lat_overheads_HP) / len(lat_overheads_HP) if lat_overheads_HP else 0.0
+mean_lat_overhead_LP = sum(lat_overheads_LP) / len(lat_overheads_LP) if lat_overheads_LP else 0.0
+
+if GlobalSOP:
+    print(f"<li>Saved {len(detailed_request_overheads)} detailed request overheads to WavelengthConverterOverheads table.</li>")
+# -----------------------------------------------------------------
+#</27-10-2026 replacing this block> end ^^^
+"""
+
+#31-10-2026
+passTRs_Q0, blockedTRs_Q0 = resultsFromDBaboutTRs(dbConnection,0)
+passTRs_Q1, blockedTRs_Q1 = resultsFromDBaboutTRs(dbConnection,1)
+TRs_Q0 = passTRs_Q0 + blockedTRs_Q0
+TRs_Q1 = passTRs_Q1 + blockedTRs_Q1
+passpercTRs_Q0 = roundatdecimals((passTRs_Q0 / TRs_Q0 * 100), 1)
+blockedpercTRs_Q0 = roundatdecimals((blockedTRs_Q0 / TRs_Q0 * 100), 1)
+passpercTRs_Q1 = roundatdecimals((passTRs_Q1 / TRs_Q1 * 100), 1)
+blockedpercTRs_Q1 = roundatdecimals((blockedTRs_Q1 / TRs_Q1 * 100), 1)
+
+#<27-10-2026 new version of the block> start vvv
+updateDB_RoutingVirtualLinksOverPhysicalTopology(newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults, dbConnection)
+
+removeDB_BlockedVirtualLinksOverPhysicalTopology(newRoutingOfVirtualLinksOverWavelengthsWithLimits, routingResults, dbConnection)
+
+# --- RESTORE THESE TRAFFIC REQUEST STATISTICS LINES ---
+totalTRs = len(passTRs) + len(blockedTRs)  # how many traffic requests
+countPassTRs = len(passTRs)                # how many of the traffic requests were passed
+countBlockedTRs = len(blockedTRs)          # how many of the traffic requests were blocked
+passTRsPercent = roundatdecimals((countPassTRs / totalTRs * 100.0), 1) if totalTRs > 0 else 0.0
+blockedTRsPercent = roundatdecimals((countBlockedTRs / totalTRs * 100.0), 1) if totalTRs > 0 else 0.0
+
+# SOP
+if (GlobalSOP == True):
+    print("<table width='60%' class='data'>")
+    print("<tr><th colspan=1>New statistics after limits</th></tr>")
+    print("<tr><th colspan=1>Total traffic requests", totalTRs, ", Pass", countPassTRs, ", ", passTRsPercent, "%</th></tr>")
+    print("<tr><th colspan=1>Total traffic requests", totalTRs, ", Blocked", countBlockedTRs, ", ", blockedTRsPercent, "%</th></tr>")
+    print(f"<tr><th colspan=1>Q<sub>HP</sub>: {TRs_Q0}, pass {passTRs_Q0} ({passpercTRs_Q0}%), blocked {blockedTRs_Q0} ({blockedpercTRs_Q0}%) </th></tr>")
+    print(f"<tr><th colspan=1>Q<sub>LP</sub>: {TRs_Q1}, pass {passTRs_Q1} ({passpercTRs_Q1}%), blocked {blockedTRs_Q1} ({blockedpercTRs_Q1}%) </th></tr>")
+    for trq in passTRs:
+        print("<tr><td>Pass traffic request ", trq, "queue", trq[0], "number", trq[1], "</td></tr>")
+    for trq in blockedTRs:
+        print("<tr><td>Blocked traffic request ", trq, "queue", trq[0], "number", trq[1], "</td></tr>")
+    print("</table>")
+# EOP
+# ------------------------------------------------------
+
+#</28-9-2025>
+
+#22-8-2026
+# --- CALCULATE DETAILED OVERHEADS PER PASSED TRAFFIC REQUEST ---
+passed_vl_set = set(passLPs)
+passed_tr_set = set(passTRs)
+
+# 1. Count total converters used per PASSED Virtual Link (Lightpath)
+vl_converter_counts = {}
+for vl_key, value in RoutingOfVirtualLinksOverWavelengths.items():
+    # Skip blocked virtual links
+    if vl_key not in passed_vl_set:
+        continue
+
+    converters = 0
+    hops = value[0] if (len(value) > 0 and isinstance(value[0], list)) else value
+
+    if len(hops) > 1:
+        for i in range(len(hops) - 1):
+            if isinstance(hops[i], (list, tuple)) and isinstance(hops[i+1], (list, tuple)):
+                wave_index = 6 if len(hops[i]) > 6 else (3 if len(hops[i]) > 3 else -1)
+                if wave_index != -1 and len(hops[i+1]) > wave_index:
+                    if hops[i][wave_index] != hops[i+1][wave_index]:
+                        converters += 1
+
+    vl_converter_counts[vl_key] = converters
+
+# 2. Map Virtual Link converters back ONLY to PASSED Traffic Requests
+total_pow_overhead_HP = 0.0
+total_pow_overhead_LP = 0.0
+lat_overheads_HP = []
+lat_overheads_LP = []
+
+# List to hold detailed DB records: (TReqQueNum, TReqReqNum, ConvertersUsed, LatencyOverhead, PowerOverhead)
+detailed_request_overheads = []
+
+for (que, req), route_info_list in ReqRouteInfo.items():
+    # Skip blocked traffic requests
+    if (que, req) not in passed_tr_set:
+        continue
+
+    req_converters = 0
+    for step_data in route_info_list:
+        vl_tuple = (step_data[0], step_data[1], step_data[2])
+        if vl_tuple in vl_converter_counts:
+            req_converters += vl_converter_counts[vl_tuple]
+
+    # Cast Lwc and Ewc to float() so int * str never occurs
+    req_lat_overhead = roundatdecimals(req_converters * float(Lwc), 3)
+    req_pow_overhead = roundatdecimals(req_converters * float(Ewc), 3)
+
+    detailed_request_overheads.append((que, req, req_converters, req_lat_overhead, req_pow_overhead))
+
+    if que == 0:
+        lat_overheads_HP.append(req_lat_overhead)
+        total_pow_overhead_HP += req_pow_overhead
+    elif que == 1:
+        lat_overheads_LP.append(req_lat_overhead)
+        total_pow_overhead_LP += req_pow_overhead
+
+# 3. Save the detailed metrics to SQLite
+saveConverterOverheads2sqlite(dbConnection, detailed_request_overheads)
+
+# 4. Calculate Mean Latency Overheads across PASSED requests only
+mean_lat_overhead_HP = sum(lat_overheads_HP) / len(lat_overheads_HP) if lat_overheads_HP else 0.0
+mean_lat_overhead_LP = sum(lat_overheads_LP) / len(lat_overheads_LP) if lat_overheads_LP else 0.0
+
+if GlobalSOP:
+    print(f"<li>Saved {len(detailed_request_overheads)} detailed request overheads to WavelengthConverterOverheads table.</li>")
+# -----------------------------------------------------------------
+#</27-10-2026 new version of the block> end ^^^
+
+#</27-10-2026 updated version>
 
 # 29-9-2025 calculate physical link statistics and power consumption using the data AFTER limitations
-
-
 
 CUmn = getCUmnFromDB(CUmn, L, dbConnection)
 Wmn = getWmnFromDB(Wmn, L, dbConnection)
 SigmaCij = getSigmaCijFromDB(SigmaCij, N, dbConnection)
 
-wUaverage, fUaverage = calculatePhysicalLinkStatisticsAndPowerParametersAfterLimitations(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection) # before updating limits and blockings
+#26-10-2026 statistics only after limitations
+wUaverage, fUaverage = calculatePhysicalLinkStatisticsAndPowerParametersAfterLimitations(
+                          N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, 
+                          LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, 
+                          dbConnection) # before updating limits and blockings
 
-PowerIP, PowerTransponders, PowerEDFAs, PowerTotal = evaluatePowerConsumption(N, L, SigmaCij, Wmn, CUmn, Lmn, fmn, Em, El, Amn, Di, Er, Et, Ee, B)
+PowerIP, PowerTransponders, PowerEDFAs, PowerTotal = evaluatePowerConsumption(
+                                                         N, L, SigmaCij, Wmn, CUmn, 
+                                                         Lmn, fmn, Em, El, Amn, Di, 
+                                                         Er, Et, Ee, B)
 
-#7-2-2026
-PowerQ_HP, PowerQ_LP = evaluatePowerConsumptionPerQueue(dbConnection, Di, Di_Q0, Di_Q1, Er, Et, Ee, SigmaCij, N, L)
-
-
-
+#27-10-2026
+# Compute per-class power consumption E_HP and E_LP (Eq. 4)
+PowerQ_HP, PowerQ_LP = evaluatePowerConsumptionPerQueue(
+                           dbConnection, Di, Di_Q0, Di_Q1, 
+                           Er, Et, Ee, SigmaCij, N, L, Amn)
+'''#7-2-2026
+PowerQ_HP, PowerQ_LP = evaluatePowerConsumptionPerQueue(
+                           dbConnection, Di, Di_Q0, Di_Q1, 
+                           Er, Et, Ee, SigmaCij, N, L)
+'''
 
 #22-8-2026
 # Add wavelength converter overheads to total power consumption
+'''
 PowerQ_HP += total_pow_overhead_HP
 PowerQ_LP += total_pow_overhead_LP
 PowerTotal = PowerTotal + total_pow_overhead_HP + total_pow_overhead_LP
+'''
+#27-10-2026
+PowerQ_HP = roundatdecimals(PowerQ_HP + total_pow_overhead_HP, 3)
+PowerQ_LP = roundatdecimals(PowerQ_LP + total_pow_overhead_LP, 3)
+PowerTotal = roundatdecimals(PowerTotal + total_pow_overhead_HP + total_pow_overhead_LP, 3)
+
 
 '''
 # Add wavelength converter overheads to average latencies
@@ -1619,17 +1968,6 @@ else:
 
 avgLatQ_LP = roundatdecimals(averageLatPerQueue[1] + mean_lat_overhead_LP, 3)
 '''
-
-
-#SOP
-if (GlobalSOP==True) :
-    print ("<table class='tableLat'>")
-    print ("<tr><td>LatRouterPort:",LatRouterPort," ",LatencyTimeUnit,"</td></tr>")
-    print ("<tr><td>LatTransponder:",LatTransponder," ",LatencyTimeUnit,"</td></tr>")
-    print ("<tr><td>LatEDFA:",LatEDFA," ",LatencyTimeUnit,"</td></tr>")
-    print ("<tr><td>LatFiberKilometer:",LatFiberKilometer," ",LatencyTimeUnit,"</td></tr>")
-    print ("</table>")   
-#EOP
 
 #now = datetime.now()
 #timeStamp = "y"+str(now.year)+"_m"+str(now.month)+"_d"+str(now.day)+"_h"+str(now.hour)+"_m"+str(now.minute)+"_s"+str(now.second)+"_u"+str(now.microsecond)
@@ -1668,15 +2006,21 @@ TotalCapacity = roundatdecimals(TotalCapacity,3)
 #reuses = 0 # no reused lightpaths (virtual links) for Direct # reused, reuses = CountLightpathsReusedReuses(VirtualLinkTotals)
 
 #Mix uses both direct and multihop bypass
-reused, reuses = CountLightpathsReusedReuses(VirtualLinkTotals)
+
+#31-10-2026 count reused lightpaths and their reuses from DB, hence not using the old subprogram
+#reused, reuses = CountLightpathsReusedReuses(VirtualLinkTotals)
+reusedLPs, LPreuses = CountLightpathsReusedReusesFromDB(dbConnection)
+
+
 
 
 #print ("<h4>reused",reused, "reuses", reuses,"</h4>")
 
-lightpaths = len(VirtualLinkTotals) #TotalLightpaths[0] # number of virtual (lightpath) links
-
-PercentReusedLightpaths = reused / lightpaths * 100
-AverageLightpathReuses = reuses / reused if reused > 0 else "NotApplicable"
+#31-10-2026 correcting the statistics
+#lightpaths = len(VirtualLinkTotals) #TotalLightpaths[0] # number of virtual (lightpath) links
+activeLPs = countPassLPs
+PercentReusedLightpaths = reusedLPs / activeLPs * 100
+AverageLightpathReuses = LPreuses / reusedLPs if reusedLPs > 0 else "NotApplicable"
 
 txtN = str(len(N))
 txtL = str(len(L))
@@ -1694,24 +2038,24 @@ txtPowerQ_LP = str(PowerQ_LP)
 #txtProcess = str(roundatdecimals(ProcessTime*1.0e-9, 6))
 txtProcess = str(roundatdecimals(ProcessTime, 3))
 
-txtLightpaths = str(lightpaths)
-txtReusedLightpaths = str(reused) 
+txtPassLightpaths = str(activeLPs)
+txtReusedLightpaths = str(reusedLPs) 
 
 txtPercentReusedLightpaths = str(roundatdecimals(PercentReusedLightpaths,1))
 
 #21-8-2026
 #txtAverageLightpathReuses = str(roundatdecimals(AverageLightpathReuses,3))
 # Calculate and format the average reuses safely
-if reused > 0:
-    AverageLightpathReuses = reuses / reused
-    txtAverageLightpathReuses = str(roundatdecimals(AverageLightpathReuses, 3))
+if reusedLPs > 0:
+    AverageLightpathReuses = LPreuses / reusedLPs
+    #31-10-2026
+    #txtAverageLightpathReuses = str(roundatdecimals((AverageLightpathReuses-1)*100.0, 1))
+    txtAverageLightpathReuses = str(roundatdecimals((AverageLightpathReuses), 3))
 else:
     txtAverageLightpathReuses = "NotApplicable"
 
-
 #txtLightpathReuses = str(LightpathReuses[0])
 #txtLightpathReuses = str(reuses)
-
 
 txtLatencyTotal = "-" #str(LatencyTotal)
 txtLatencyTotal_Q0 = "-" #str(LatencyTotal_Q0)
@@ -1732,7 +2076,7 @@ saveLatencyPerTrafficRequestToDatabase_according_to_the_old_latency_formula(dbCo
 
 '''
 #18-5-2026
-#PROSOXI! Η ΚΛΗΣΗ ΤΗΣ latencyPerQueueNewFormula() ΠΡΕΠΕΙ ΝΑ ΕΠΕΤΑΙ ΤΩΝ saveLatencyPerTrafficRequestToDatabase() ΚΑΙ saveLatencyPerTrafficRequestToDatabase_according_to_the_old_latency_formula() ΓΙΑΤΙ ΧΡΗΣΙΜΟΠΟΙΕΙ ΤΟΝ ΠΙΝΑΚΑ ΒΑΣΗΣ ΔΕΔΟΜΕΝΩΝ ΠΟΥ ΟΡΙΖΟΥΝ ΑΥΤΕΣ ΟΙ ΣΥΝΑΡΤΗΣΕΙΣ!
+#PROSOXI! H KLHSH THS latencyPerQueueNewFormula() PREPEI NA EPETAI TWN saveLatencyPerTrafficRequestToDatabase() KAI saveLatencyPerTrafficRequestToDatabase_according_to_the_old_latency_formula() GIATI XRISIMOPOIEI TON PINAKA THS BASHS DEDOMENWN POY OPIZOYN AYTA TA YPOPROGRAMMATA!
 averageLatPerQueue = latencyPerQueueNewFormula(dbConnection)
 
 
@@ -1763,6 +2107,8 @@ avgLatQ_LP = roundatdecimals(averageLatPerQueue[1],3)
 #18-5-2026 end of markup
 '''
 
+'''
+#<27-10-2026 replace>
 #22-8-2026
 #PROSOXI! Η ΚΛΗΣΗ ΤΗΣ latencyPerQueueNewFormula() ΠΡΕΠΕΙ ΝΑ ΕΠΕΤΑΙ ΤΩΝ saveLatencyPerTrafficRequestToDatabase() ΚΑΙ saveLatencyPerTrafficRequestToDatabase_according_to_the_old_latency_formula() ΓΙΑΤΙ ΧΡΗΣΙΜΟΠΟΙΕΙ ΤΟΝ ΠΙΝΑΚΑ ΒΑΣΗΣ ΔΕΔΟΜΕΝΩΝ ΠΟΥ ΟΡΙΖΟΥΝ ΑΥΤΕΣ ΟΙ ΣΥΝΑΡΤΗΣΕΙΣ!
 averageLatPerQueue = latencyPerQueueNewFormula(dbConnection)
@@ -1779,6 +2125,19 @@ else:
     avgLatQ_HP = roundatdecimals(mean_lat_overhead_HP, 3)
     avgLatQ_LP = roundatdecimals(mean_lat_overhead_LP, 3)
 # -------------------------------------------------------------------------------
+#</27-10-2026 replace>
+'''
+#<27-10-2026 replacement>
+#22-8-2026
+#PROSOXI! Η ΚΛΗΣΗ ΤΗΣ latencyPerQueueNewFormula() ΠΡΕΠΕΙ ΝΑ ΕΠΕΤΑΙ ΤΩΝ saveLatencyPerTrafficRequestToDatabase() ΚΑΙ saveLatencyPerTrafficRequestToDatabase_according_to_the_old_latency_formula() ΓΙΑΤΙ ΧΡΗΣΙΜΟΠΟΙΕΙ ΤΟΝ ΠΙΝΑΚΑ ΒΑΣΗΣ ΔΕΔΟΜΕΝΩΝ ΠΟΥ ΟΡΙΖΟΥΝ ΑΥΤΕΣ ΟΙ ΣΥΝΑΡΤΗΣΕΙΣ!
+averageLatPerQueue = latencyPerQueueNewFormula(dbConnection)
+
+#22-8-2026
+# --- NEW BLOCK: Add wavelength converter overheads to average latencies safely ---
+avgLatQ_HP = roundatdecimals(averageLatPerQueue[0] + mean_lat_overhead_HP, 3) if len(averageLatPerQueue) > 0 and averageLatPerQueue[0] > 0 else 0.0
+avgLatQ_LP = roundatdecimals(averageLatPerQueue[1] + mean_lat_overhead_LP, 3) if len(averageLatPerQueue) > 1 and averageLatPerQueue[1] > 0 else 0.0
+# -------------------------------------------------------------------------------
+#</27-10-2026 replacement>
 
 #18-5-2026 end of markup
 
@@ -1814,21 +2173,53 @@ ts = datetime.now()
 
 timeStamp = f"y{ts.year:04d}_m{ts.month:02d}_d{ts.day:02d}_h{ts.hour:02d}_m{ts.minute:02d}_s{ts.second:02d}_u{ts.microsecond:06d}"
 
-
 txtLine  = UUID+";"
 txtLine += timeStamp+";"+computername+";"+programfolder+";"+Algorithm+";"+str(lenQs)+";"+schedulingstrategy+";"+experimentName+";"+netName+";"+txtN+";"+txtL+";"+txtX+";"
 txtLine += txtDistribution+";"+txtCap+";"+txtPowerIP+";"+txtPowerTransponders+";"
 txtLine += txtPowerEDFAs+";"+txtPower+";"+txtPowerQ_HP+";"+txtPowerQ_LP+";"+txtProcess+";"
 
 #18-5-2026
-#txtLine += f"{avgLatQ_HP};{avgLatQ_LP};"
 txtLine += f"{avgLatQ_HP:.3f};{avgLatQ_LP:.3f};"
 
-txtLine += txtLightpaths+";"+txtReusedLightpaths+";"
-txtLine += txtPercentReusedLightpaths+";"+txtAverageLightpathReuses+";"
+#31-10-2026
+txtLine += list2string(limitations,",")+";"
+txtLine += str(maxFibersPerLink)+";"
+txtLine += str(maxWavelengthsPerFiber)+";"
+txtLine += str(maxGbpsPerWavelength)+";"
+txtLine += str(TRs_Q0+TRs_Q1)+";"
+txtLine += str(countPassTRs)+";"
+txtLine += str(passTRsPercent)+";"
+txtLine += str(countBlockedTRs)+";"
+txtLine += str(blockedTRsPercent)+";"
+txtLine += str(TRs_Q0)+";"
+txtLine += str(passTRs_Q0)+";"
+txtLine += str(passpercTRs_Q0)+";"
+txtLine += str(blockedTRs_Q0)+";"
+txtLine += str(blockedpercTRs_Q0)+";"
+txtLine += str(TRs_Q1)+";"
+txtLine += str(passTRs_Q1)+";"
+txtLine += str(passpercTRs_Q1)+";"
+txtLine += str(blockedTRs_Q1)+";"
+txtLine += str(blockedpercTRs_Q1)+";"
+txtLine += str(totalLPs)+";"
+txtLine += str(countPassLPs)+";"
+txtLine += str(passLPsPercent)+";"  
+txtLine += str(countBlockedLPs)+";"
+txtLine += str(blockedLPsPercent)+";"
+txtLine += str(countBlockedLPs_Fibers)+";"
+txtLine += str(percBlockedLPs_Fibers)+";"
+txtLine += str(countBlockedLPs_WCC)+";" 
+txtLine += str(percBlockedLPs_WCC)+";"  
+txtLine += txtPassLightpaths+";"
+txtLine += txtReusedLightpaths+";"
+txtLine += txtPercentReusedLightpaths+";"
+txtLine += txtAverageLightpathReuses+";"
+
 txtLine += txtwUaverage+";"
 txtLine += txtfUaverage+";"
 
+#28-10-2026 not exporting detailed latency statistics since not 100% correct - need validation first
+'''  
 for stat in LatQAnyTypeAny:
     token = ""
     if stat == None:
@@ -1918,23 +2309,18 @@ for stat in LatQ1TypeGrm:
     else:
         token = f"{stat:.3f};"
     txtLine += token
+'''
 
-txtLine += list2string(limitations,",")+";"
-txtLine += str(maxFibersPerLink)+";"
-txtLine += str(maxWavelengthsPerFiber)+";"
-txtLine += str(maxGbpsPerWavelength)+";"
 txtLine += str(LatRouterPort)+";"
 txtLine += str(LatTransponder)+";"
 txtLine += str(trafficPercentOfQueueHP)+";"
 txtLine += str(trafficPercentOfQueueLP)+";"
-txtLine += str(countPassLPs)+";"
-txtLine += str(countBlockedLPs)+";"
-txtLine += str(passLPsPercent)+";"
-txtLine += str(blockedLPsPercent)+";"
-txtLine += str(countPassTRs)+";"
-txtLine += str(countBlockedTRs)+";"
-txtLine += str(passTRsPercent)+";"
-txtLine += str(blockedTRsPercent)+";"
+
+#31-10-2026
+#txtLine += str(countPassLPs)+";"
+#txtLine += str(countBlockedLPs)+";"
+#txtLine += str(passLPsPercent)+";"
+#txtLine += str(blockedLPsPercent)+";"
 
 #txtLine += AverageLatencyOfTrafficRequests(dbConnection)+";"
 
@@ -1978,15 +2364,36 @@ txtLine += "\n"
 fout.write(txtLine)
 fout.close()
 
+
+#28-10-2026 relocate here for the average latency results to work
+#SOP
+if (GlobalSOP==True) :
+    print ("<table class='tableLat'>")
+    print ("<tr><th>Latency parameters</th></tr>")
+    print ("<tr><td>LatRouterPort:",LatRouterPort," ",LatencyTimeUnit,"</td></tr>")
+    print ("<tr><td>LatTransponder:",LatTransponder," ",LatencyTimeUnit,"</td></tr>")
+    print ("<tr><td>LatEDFA:",LatEDFA," ",LatencyTimeUnit,"</td></tr>")
+    print ("<tr><td>LatFiberKilometer:",LatFiberKilometer," ",LatencyTimeUnit,"</td></tr>")
+    print ("</table>")   
+
+    print ("<table class='tableLat'>")
+    print (f"<tr><th>Average latency per traffic class in the network</th></tr>")
+    print (f"<tr><th>{mathLatencyPerDemandFormula()}</th></tr>")       
+    print (f"<tr><td>Average Latency for the traffic demands of Q<sub>HP</sub>={avgLatQ_HP:.3f}({LatencyTimeUnit})</td></tr>")
+    print (f"<tr><td>Average Latency for the traffic demands of Q<sub>LP</sub>={avgLatQ_LP:.3f}({LatencyTimeUnit})</td></tr>")
+    print ("</table>")   
+#EOP
+
 #SOP
 if (GlobalSOP==True) :
     print ("<table class='table1c' id='results'>")
     print ("<tr><th>RunID (UUID)</th><th>Algorithm</th><th>Experiment name</th><th>Network</th><th>Number of nodes</th><th>Number of links</th><th>X (Gbps)</th><th>Total capacity processed (Gbps)</th><th>Power of IP routers (kWatt)</th><th>Power of WDM Transponders (kWatt)</th><th>Power of EDFAs (kWatt)</th><th>TotalPower (kWatt)</th><th>Power Q<sub>HP</sub>(kWatt)</th><th>Power Q<sub>LP</sub>(kWatt)</th><th>Process Time (sec)</th>")
     
     #18-5-2026
-    print ("<th>Average Latency for the traffic demands of Q<sub>HP</sub>("+LatencyTimeUnit+")</th><th>Average Latency for the traffic demands of Q<sub>LP</sub>("+LatencyTimeUnit+")</th>")
+    print ("<th class='Lat'>Average Latency for the traffic demands of Q<sub>HP</sub>("+LatencyTimeUnit+")</th>")
+    print ("<th class='Lat'>Average Latency for the traffic demands of Q<sub>LP</sub>("+LatencyTimeUnit+")</th>")
     
-    print ("<th>Total lightpaths</th><th>Reused Lightpaths</th><th>Percent of Reused Lightpaths (%)</th><th>Average Lightpaths Reuses</th><th>Average wavelengths utilisation (%)</th><th>Average fiber links utilisation (%)</th>")
+    print ("<th>Active (Pass) lightpaths</th><th>Reused Lightpaths out of the active</th><th>Percent of the active Lightpaths that are reused (%)</th><th>Average Lightpaths Reuses</th><th>Average wavelengths utilisation (%)</th><th>Average fiber links utilisation (%)</th>")
     print ("<th>limitations</th>")
     print ("<th>maxFibersPerLink</th>")
     print ("<th>maxWavelengthsPerFiber</th>")
@@ -1997,12 +2404,18 @@ if (GlobalSOP==True) :
     print ("<th>Traffic_QueueLP (%)</th>")
     print ("</tr>")
     
-    print ("<tr><th>"+UUID+"</th><th>"+Algorithm+"</th><th>"+experimentName+"</th><th>"+netName+"</th><th>"+txtN+"</th><th>"+txtL+"</th><th>"+txtX+"</th><th>"+txtCap+"</th><th>"+txtPowerIP+"</th><th>"+txtPowerTransponders+"</th><th>"+txtPowerEDFAs+"</th><th>"+txtPower+"</th><th>"+txtPowerQ_HP+"</th><th>"+txtPowerQ_LP+"</th><th>"+txtProcess+"</th>")
+    print ("<tr><th>"+UUID+"</th><th>"+Algorithm+"</th><th>"+experimentName+"</th>")
+    print ("<th>"+netName+"</th><th>"+txtN+"</th><th>"+txtL+"</th><th>"+txtX+"</th>")
+    print ("<th>"+txtCap+"</th><th>"+txtPowerIP+"</th><th>"+txtPowerTransponders+"</th>")
+    print ("<th>"+txtPowerEDFAs+"</th><th>"+txtPower+"</th><th>"+txtPowerQ_HP+"</th>")
+    print ("<th>"+txtPowerQ_LP+"</th><th>"+txtProcess+"</th>")
     
     #18-5-2026
     print (f"<th>{avgLatQ_HP:.3f}</th><th>{avgLatQ_LP:.3f}</th>")
     
-    print ("<th>"+txtLightpaths+"</th><th>"+txtReusedLightpaths+"</th><th>"+txtPercentReusedLightpaths+"</th><th>"+txtAverageLightpathReuses+"</th><th>"+txtwUaverage+"</th><th>"+txtfUaverage+"</th>")
+    print ("<th>"+txtPassLightpaths+"</th><th>"+txtReusedLightpaths+"</th>")
+    print ("<th>"+txtPercentReusedLightpaths+"</th><th>"+txtAverageLightpathReuses+"</th>")
+    print ("<th>"+txtwUaverage+"</th><th>"+txtfUaverage+"</th>")
     print ("<th>"+list2string(limitations,",")+"</th>")
     print ("<th>"+str(maxFibersPerLink)+"</th>")
     print ("<th>"+str(maxWavelengthsPerFiber)+"</th>")
@@ -2016,6 +2429,8 @@ if (GlobalSOP==True) :
     
     print ("</table>")
     
+    #28-10-2026 not printing detailed latency statistics since not 100% correct - need validation first
+    '''
     print ("<table class='tableLat0'>")
     print ("<tr><th colspan='3'>Measuring Latency per Traffic Request. Statistics for All Queues, All Types of routing traffic requests over the virtual topology</th></tr>")
     print ("<tr><th>Average Latency of traffic requests</th><th>Minimum Latency of a traffic request</th><th>Maximum Latency of a traffic request</th></tr>")
@@ -2140,7 +2555,8 @@ if (GlobalSOP==True) :
             print (f"<th>{stat:s}</th>")
         else:
             print (f"<th>{stat:.3f}</th>")
-    print ("</tr></table>")    
+    print ("</tr></table>") 
+    '''
 
     print ("</body></html>")
 #EOP
@@ -2291,7 +2707,16 @@ spr.export_lightpath_routes(NetworkWavelengthsMap, L)
 spreadsheet_filename = f"{graphsPath}\\Alg_{alg}_Net-{netName}_X-{str(X[xi])}.xlsx"
 spr.save(spreadsheet_filename)
 
+cursor = dbConnection.execute("""
+    DROP TABLE LatencyOfThreadOfTrafficRequestTemp;
+""")
+cursor = dbConnection.execute("""
+    DROP TABLE LatencyOfTrafficRequestTemp;
+""")
+
 #close DB connection
 if dbConnection:
     dbConnection.close()
 
+
+# %%
