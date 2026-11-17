@@ -53,14 +53,16 @@ Dependencies for running each simulated algorithm are described in the correspon
 [id1]: ## "spam proof e-mail address, type it yourself"
 For assistance feel free to contact me at [delistaνrου(α)υοm.edυ.gr][id1]
 
-This repository holds a snapshot of the stable version 2, while development actively continues!
+This repository holds a snapshot of the stable version 3, while development actively continues!
 
-Hybrid Bypass has been updated in November 2025 to:
+Hybrid Bypass has been updated in November 2026 to:
+- support generation of random traffic based on four distribution processes: Uniform, Poisson, Weibull, Pareto
 - apply traffic blocking due to constraints (limited resources, wavelength continuity, hard latency cap)
-- simulate the presence or absence of wavelength converters on network nodes
+- simulate the presence or absence of wavelength converters, supporting sparse placement on network nodes
 - realize variable traffic splits between the two input traffic queues
-- penalize node revisits on traffic grooming
+- penalize node revisits on traffic grooming (TGRC)
 - support variable number of fibers per link, wavelength numbers per fiber, wavelength channel capacities
+- support alternative reporting and graph export features: results in CSV, database, and spreadsheet form; detailed or basic, HTML, PDF reports; graphics in interactive HTML, layered GEFX formats
 
 Comments and remarks are welcome.
 

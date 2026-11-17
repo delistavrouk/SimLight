@@ -4,6 +4,8 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import hashlib 
 import ast
+import struct
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 
 
 class Spreadsheet:
@@ -385,8 +387,8 @@ class Spreadsheet:
 
 
 
-
-
+    #14-11-2026
+    '''
     #21-7-2026 addition of function for exporting to Excel spreadsaheet
     def _export_generic_data(self, sheet_name, headers, data_rows):
         """
@@ -424,6 +426,64 @@ class Spreadsheet:
                     pass
             adjusted_width = (max_length + 2)
             ws.column_dimensions[column_letter].width = adjusted_width
+    '''
+
+    #14-11-2026
+    def _sanitize_excel_value(self, val):
+        """Cleans illegal XML control characters and decodes accidental SQLite binary float blobs."""
+        if val is None or isinstance(val, (int, float, bool)):
+            return val
+        if isinstance(val, (bytes, bytearray)):
+            # If a numpy.float64 was stored in SQLite as an 8-byte binary BLOB, unpack it back to float
+            if len(val) == 8:
+                try:
+                    return round(struct.unpack("<d", val)[0], 3)
+                except Exception:
+                    pass
+            val = val.decode("utf-8", errors="ignore")
+        if isinstance(val, str):
+            # If the string contains raw 8-byte IEEE-754 bytes coerced to str, or control chars, strip them
+            cleaned = ILLEGAL_CHARACTERS_RE.sub("", val)
+            return cleaned
+        return str(val)
+
+    def _export_generic_data(self, sheet_name, headers, data_rows):
+        """
+        A private helper method to handle the repetitive tasks of creating/clearing 
+        a worksheet, writing headers, applying basic formatting, and writing data rows.
+        """
+        # Create or clear the sheet
+        if sheet_name in self.wb.sheetnames:
+            ws = self.wb[sheet_name]
+            ws.delete_rows(1, ws.max_row)
+        else:
+            ws = self.wb.create_sheet(title=sheet_name)
+
+        # Write and style headers
+        ws.append(headers)
+        for col_num, cell in enumerate(ws[1], 1):
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
+            cell.border = Border(bottom=Side(style='thin'))
+
+        # Write sanitized data rows
+        for row in data_rows:
+            sanitized_row = [self._sanitize_excel_value(item) for item in row]
+            ws.append(sanitized_row)
+
+        # Auto-adjust column widths for readability
+        for col in ws.columns:
+            max_length = 0
+            column_letter = col[0].column_letter
+            for cell in col:
+                try:
+                    if cell.value and len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 2)
+            ws.column_dimensions[column_letter].width = adjusted_width
+
 
     # ==========================================
     # Specific Data Export Wrappers

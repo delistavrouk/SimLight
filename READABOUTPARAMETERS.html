@@ -172,7 +172,26 @@
             <tr><td class='arg'> argv[24] </td><td class='use'>  wavelength converter latency (microsecond)</td><td class='val'>  &lt;integer&gt; </td><td class='con'>   [WavelengthConverterLatency_msec,WavelengthConverterPowerConsumption_Watt)_start]<br>...<br>[WavelengthConverterLatency_msec,WavelengthConverterPowerConsumption_Watt)_end] </td><td class='exm'>       100,50      </td><td class='HyB'>  ✓</td><td class='DiB'>           </td><td class='MhB'>         </td><td class='HtC'>            </td></tr>
             <tr><td class='arg'> argv[25] </td><td class='use'>  wavelength converter power consumption (Watt)</td><td class='val'>  &lt;integer&gt; </td><td class='con'>   [WavelengthConverterLatency_msec,WavelengthConverterPowerConsumption_Watt)_start]<br>...<br>[WavelengthConverterLatency_msec,WavelengthConverterPowerConsumption_Watt)_end] </td><td class='exm'>       100,50      </td><td class='HyB'>  ✓</td><td class='DiB'>           </td><td class='MhB'>         </td><td class='HtC'>            </td></tr>
             <tr><td class='arg'> argv[26] </td><td class='use'>  number of shortest paths to consider during wavelength assignment : 1 will utilise Dijkstra's shortest path algorithm for the shortest path only, block traffic otherwise <br>k will try utilise Yen's algorithm to discover the 2nd, 3rd, ... k-th shortest alternatives, blocking traffic if wavelength assignment fails for all</td><td class='val'>  &lt;integer&gt; </td><td class='con'>   [NumberOfShortestPathsConsiderDuringWavAssign] </td><td class='exm'>       10      </td><td class='HyB'>  ✓</td><td class='DiB'>           </td><td class='MhB'>         </td><td class='HtC'>            </td></tr>
-            
+            <tr><td class='arg'> argv[27] </td><td class='use'>
+                <table>
+                    <tr><th colspan="6">Virtual Topology Graph Export Modes</td></tr>
+                    <tr>
+                        <th>Mode Value</th>
+                        <th>Per-Request HTML file<br>(VT_after_Step*.html)</th>
+                        <th>Multilayer GEXF<br>(VT_AllSteps.gexf)</th>
+                        <th>Multilayer GraphML<br>(VT_AllSteps.graphml)</th>
+                        <th>Dynamic single-file HTML<br>(VT_AllSteps.html)</th>
+                        <th>Static Summary Graphs<br>(PhysicalTopology.html, VirtualTopology.html, etc.)</th>
+                    </tr>
+                    <tr><td>"per_step_html"</td><td>Yes</td><td>No</td><td>No</td><td>No</td><td>Yes</td></tr>
+                    <tr><td>"gexf"</td><td>No</td><td>Yes</td><td>No</td><td>No</td><td>Yes</td></tr>
+                    <tr><td>"graphml"</td><td>No</td><td>No</td><td>Yes</td><td>No</td><td>Yes</td></tr>
+                    <tr><td>"slider_html"</td><td>No</td><td>No</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+                    <tr><td>"none"</td><td>No</td><td>No</td><td>No</td><td>No</td><td>Yes</td></tr>
+                    <tr><td>"all"</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+                    <tr><td colspan="6">You can also combine modes using ',' or '+', e.g. "gexf+slider_html", to export both single-file formats while skipping the hundreds of individual VT_after_Step*.html files.</td></tr>
+                </table>
+            </td><td class='val'>  &lt;text&gt; </td><td class='con'> [VirtualTopologyGraphsExportMode] </td><td class='exm'>slider_html</td><td class='HyB'>✓</td><td class='DiB'>           </td><td class='MhB'>         </td><td class='HtC'>            </td></tr>
 		</tbody>
     </table>
 </div>

@@ -1,33 +1,17 @@
 ﻿# -*- coding: utf-8 -*-
 
-# Konstantinos Delistavrou 2021, 2022, 2023, 2024, 2025
+# Konstantinos Delistavrou 2021, 2022, 2023, 2024, 2025, 2026
 # Library of subroutines for SimLight IpoWDM RWA simulator
 
 protocol = "File:///"
 #protocol = "http://"
 
-# SOP: Start of printout
-# EOP: End of printout
-
-#2DO : elaboration needed
-#Done : elaboration completed
-#>>> : elaboration priority
-#Novelties
-
-CurrentRunUUID = 0
-
-GlobalPrintOutEnabled = False
-
-maxFibersPerLink       = 0
-maxWavelengthsPerFiber = 0
-maxGbpsPerWavelength   = 0
-B                      = 0
-maxFiberCapacity       = 0
-maxLinkCapacity        = 0
-
-GlobalVirtLinkID = 0
-
-GlobalStringOutcomes = ""
+#SOP       : Start of printout
+#EOP       : End of printout
+#2DO       : elaboration needed
+#Done      : elaboration completed
+#>>>       : elaboration priority
+#Novelties : Novel features
 
 '''
 defined in codeDirect_x_.py and codeMultihop_x_.py for use with...
@@ -37,24 +21,34 @@ if (GlobalPrintOutEnabled==True) :
 #EOP
 '''
 
+'''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Supported Export Modes (GlobalVTGraphExportMode)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Mode Value      Per-Request PyVis HTML  Dynamic Multilayer GEXF     Single-File Step-Slider HTML    Static Summary Graphs  
+                (VT_after_Step*.html)   (VT_AllSteps.gexf)          (VT_AllSteps.html)              (PhysicalTopology.html, VirtualTopology.html, etc.)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"per_step_html" Yes                     No                          No                              Yes
+"gexf"          No                      Yes                         No                              Yes
+"slider_html"   No                      No                          Yes                             Yes
+"graphml"
+"none"          No                      No                          No                              Yes
+"all"           Yes                     Yes                         Yes                             Yes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+You can also combine modes using a + or comma, such as "gexf+slider_html", to export both single-file formats while skipping the hundreds of individual VT_after_Step*.html files.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+'''
+
 import numpy   # NumPy library used for calculations
 import random
 import sys
 import os
-#import shutil
 import re
-#import glob
 import threading
 import time
-#import queue
-#import multiprocessing
-#from multiprocessing import Process, Value, Array, Pipe
-#import asyncio
-#import signal
 import operator
 import sqlite3
 from datetime import datetime
-#from codeClassVT import *
 import platform
 import numpy as np
 from scipy.stats import poisson
@@ -69,6 +63,28 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 import scipy.stats as stats
 import scipy.special as special
 import math
+import json
+import os
+import re
+import networkx as nx
+import colorsys
+from xml.sax.saxutils import escape as _xml_escape
+
+
+
+CurrentRunUUID          = 0
+GlobalPrintOutEnabled   = False
+maxFibersPerLink        = 0
+maxWavelengthsPerFiber  = 0
+maxGbpsPerWavelength    = 0
+B                       = 0
+maxFiberCapacity        = 0
+maxLinkCapacity         = 0
+GlobalVirtLinkID        = 0
+GlobalStringOutcomes    = ""
+GlobalVTGraphExportMode = "slider_html"
+GlobalVTSnapshots       = {}   # Shared memory buffer of VT step snapshots keyed by output folder (graphsPath)
+
 
 
 def SetGlobalCurrentRunUUID(value):
@@ -125,32 +141,115 @@ def randomcolor(x):
     C = "#"+hex(R).split('x')[-1]+hex(G).split('x')[-1]+hex(B).split('x')[-1]
     return C
 
+#15-11-2026
 def setNodeColours(nodes):
-    # set the colours of the network nodes
-    out = []
-    for node in nodes:
-        r = randomcolor(node)
-        if (out != []):
-            while (r in out):
-                r = randomcolor(node)
-        out.append(r)
-    return out
+    """
+    Assigns a strictly unique, visually distinct, light hex color (#RRGGBB)
+    to every node in `nodes` so black label text (#000000) always has high contrast.
+    """
+    # 24 hand-picked, mutually distinct light/vivid-pastel colors (covers STnet, NSFnet, USnet)
+    distinct_palette = [
+        "#60a5fa",  # 0: Sky Blue
+        "#4ade80",  # 1: Mint Green
+        "#facc15",  # 2: Warm Yellow
+        "#fb7185",  # 3: Coral Rose
+        "#c084fc",  # 4: Lavender Purple
+        "#fb923c",  # 5: Tangerine Orange
+        "#2dd4bf",  # 6: Teal Cyan
+        "#a3e635",  # 7: Lime Green
+        "#f472b6",  # 8: Hot Pink
+        "#818cf8",  # 9: Indigo Periwinkle
+        "#38bdf8",  # 10: Cerulean
+        "#fbbf24",  # 11: Amber Gold
+        "#f87171",  # 12: Salmon Red
+        "#a78bfa",  # 13: Violet
+        "#34d399",  # 14: Emerald Mint
+        "#e879f9",  # 15: Orchid Magenta
+        "#fcd34d",  # 16: Sand Yellow
+        "#93c5fd",  # 17: Ice Blue
+        "#86efac",  # 18: Pastel Green
+        "#fda4af",  # 19: Blush Pink
+        "#fdba74",  # 20: Peach
+        "#67e8f9",  # 21: Aqua Cyan
+        "#d9f99d",  # 22: Chartreuse
+        "#d8b4fe",  # 23: Lilac
+    ]
+
+    def hex_to_rgb(h):
+        h = h.lstrip("#")
+        return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+    def color_distance(rgb1, rgb2):
+        # Weighted perceptual Euclidean distance (redmean approximation)
+        r_mean = (rgb1[0] + rgb2[0]) / 2.0
+        dr = rgb1[0] - rgb2[0]
+        dg = rgb1[1] - rgb2[1]
+        db = rgb1[2] - rgb2[2]
+        return math.sqrt(
+            (2.0 + r_mean / 256.0) * (dr ** 2)
+            + 4.0 * (dg ** 2)
+            + (2.0 + (255.0 - r_mean) / 256.0) * (db ** 2)
+        )
+
+    Ncolours = []
+    used_hex = set()
+    used_rgb = []
+
+    golden_ratio_conjugate = 0.618033988749895
+    lightness_Ring = [0.76, 0.85, 0.70, 0.81]
+    saturation_Ring = [0.85, 0.75, 0.90]
+    candidate_idx = 0
+
+    for i in range(len(nodes)):
+        if i < len(distinct_palette):
+            hex_col = distinct_palette[i]
+            rgb_col = hex_to_rgb(hex_col)
+        else:
+            # For networks > 24 nodes: search golden-ratio HLS candidates until
+            # finding one with maximum perceptual distance from all existing colors
+            min_dist_threshold = 85.0
+            while True:
+                hue = (candidate_idx * golden_ratio_conjugate) % 1.0
+                lightness = lightness_Ring[candidate_idx % len(lightness_Ring)]
+                saturation = saturation_Ring[candidate_idx % len(saturation_Ring)]
+                candidate_idx += 1
+
+                r, g, b = colorsys.hls_to_rgb(hue, lightness, saturation)
+                rgb_col = (int(round(r * 255)), int(round(g * 255)), int(round(b * 255)))
+                hex_col = "#{:02x}{:02x}{:02x}".format(*rgb_col)
+
+                if hex_col in used_hex:
+                    continue
+
+                if all(color_distance(rgb_col, prev) >= min_dist_threshold for prev in used_rgb):
+                    break
+
+                # Gradually relax threshold only if the color space becomes crowded (>100 nodes)
+                min_dist_threshold *= 0.995
+
+        used_hex.add(hex_col)
+        used_rgb.append(rgb_col)
+        Ncolours.append(hex_col)
+
+    return Ncolours
 
 def graph_new(name, directedgraph):
     # create a new graph instance
-    #net = Network(directed=True, heading=name)
-    #net = Network()
     net = Network(directed=directedgraph)
-    #net.repulsion(node_distance=200, spring_length=400)
-    #net.toggle_physics(True) # true elastic network graph - false static
     net.toggle_physics(True)
     net.repulsion(node_distance=200, central_gravity=0.1, spring_length=400, spring_strength=0.1, damping=0.1)
     return net
 
-def graph_add_node(gr,id,l,colours):
-    #add a node to a graph
-    gr.add_node(id,title=str(id),label=l,color=colours[id])
-            
+#14-11-2026
+def graph_add_node(gr, id, label, Ncolours):
+    gr.add_node(
+        id,
+        label=label,
+        title=label,
+        color=Ncolours[id],
+        font={"color": "#000000", "size": 14, "strokeWidth": 4, "strokeColor": "#ffffff"}
+    )
+
 def graph_add_edge(gr,apo,pros,t,l):
     #add an adge between two nodes of a graph
     gr.add_edge(apo, pros, weight=0.90, color="#000000", title=t, label=l, arrowStrikethrough=False)
@@ -164,19 +263,908 @@ def graph_show(gr,path):
     filename = os.path.join(path, s)
     #gr.show_buttons()
     gr.show(s)
+
+#14-11-2026 new block for all graph export modes (per request VT HTML file, GEFX, single HTML file with interactive slider) <start>
+
+def setVTGraphExportMode(mode):
+    #Helper to change the VT graph export mode from codeHybridBypass.py or CLI
+    global GlobalVTGraphExportMode
+    GlobalVTGraphExportMode = str(mode).strip().lower()
+
+def getVTGraphExportMode():
+    return GlobalVTGraphExportMode
+
+#15-11-2026
+def _get_active_vt_modes():
+    #Parses GlobalVTGraphExportMode into a set of active export flags.
+    raw = str(GlobalVTGraphExportMode).strip().lower()
+    if not raw or raw == "none":
+        return set()
+    if raw == "all":
+        return {"per_step_html", "gexf", "graphml", "slider_html"}
+    tokens = {t.strip() for t in raw.replace("+", ",").split(",") if t.strip()}
+    if "all" in tokens:
+        return {"per_step_html", "gexf", "graphml", "slider_html"}
+    if "none" in tokens:
+        return set()
+    return tokens
+
+def finalize_vt_graph_exports(path):
+    #Flushes accumulated snapshots in GlobalVTSnapshots[path] to GEXF, GraphML, and Single-File Slider HTML according to GlobalVTGraphExportMode
     
+    modes = _get_active_vt_modes()
+    exported_files = {}
+
+    if "gexf" in modes:
+        gexf_path = export_vt_snapshots_to_gexf(path, "VirtualTopology_AllSteps.gexf")
+        if gexf_path:
+            exported_files["gexf"] = gexf_path
+
+    if "graphml" in modes:
+        graphml_path = export_vt_snapshots_to_graphml(path, "VirtualTopology_AllSteps.graphml")
+        if graphml_path:
+            exported_files["graphml"] = graphml_path
+
+    if "slider_html" in modes:
+        html_path = export_vt_snapshots_to_html(path, "VirtualTopology_AllSteps.html")
+        if html_path:
+            exported_files["slider_html"] = html_path
+
+    GlobalVTSnapshots.pop(path, None)
+    return exported_files
+
 def graph_save(gr, path, name):
-    filename = name
-    #gr.save_graph(filename)
-    newfilename = os.path.join(path, filename)
-    gr.save_graph(newfilename)
-    #shutil.copyfile(filename, newfilename)
+    modes = _get_active_vt_modes()
+    is_vt_step = name.startswith("VT_after_Step")
+    is_vt_final = (name == "VirtualTopology.html")
 
+    # 1. Record snapshot into memory if any multilayer format is enabled
+    if ({"gexf", "graphml", "slider_html"} & modes) and (is_vt_step or is_vt_final):
+        record_vt_step_snapshot(gr, path, name)
+        if is_vt_final:
+            finalize_vt_graph_exports(path)
 
+    # 2. Save individual PyVis HTML files when appropriate
+    if (not is_vt_step) or ("per_step_html" in modes):
+        newfilename = os.path.join(path, name)
+        gr.save_graph(newfilename)
+
+def _hex_to_rgb(hex_color):
+    #Converts '#rrggbb' or '#rgb' to (r, g, b) integers for GEXF viz attributes
+    if not isinstance(hex_color, str):
+        return 70, 130, 180
+    c = hex_color.strip().lstrip("#")
+    if len(c) == 3:
+        c = "".join(ch * 2 for ch in c)
+    if len(c) != 6:
+        return 70, 130, 180
+    try:
+        return int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
+    except ValueError:
+        return 70, 130, 180
+
+def _infer_queue_tag(step_label):
+    #Extracts queue label ('Q0 (HP)', 'Q1 (LP)', or 'Summary') from step_label
+    m = re.search(r"Que(\d+)", step_label)
+    if m:
+        q = int(m.group(1))
+        return f"Q{q} ({'HP' if q == 0 else 'LP'})"
+    return "Summary"
+
+#14-11-2026
+def record_vt_step_snapshot(gr, path, name):
+    #Captures an immutable snapshot of the PyVis Network (`gr`) for the current
+    #Virtual Topology routing step. Compatible with both GEXF and Delta HTML exporters.
+    
+    if not name.startswith("VT") and name != "VirtualTopology.html":
+        return
+
+    step_label = os.path.splitext(name)[0]
+
+    nodes_snap = []
+    for n in getattr(gr, "nodes", []):
+        nodes_snap.append({
+            "id": n.get("id"),
+            "label": str(n.get("label", n.get("id"))),
+            "title": str(n.get("title", n.get("id"))),
+            "color": str(n.get("color", "#4682B4")),
+        })
+
+    edges_snap = []
+    for idx, e in enumerate(getattr(gr, "edges", [])):
+        edges_snap.append({
+            "id": f"e_{idx}",
+            "from": e.get("from"),
+            "to": e.get("to"),
+            "label": str(e.get("label", "")),
+            "title": str(e.get("title", "")),
+            "color": str(e.get("color", "#000000")),
+            "weight": e.get("weight", 0.90),
+            "dashes": bool(e.get("dashes", False)),
+            "arrowStrikethrough": bool(e.get("arrowStrikethrough", False)),
+        })
+
+    GlobalVTSnapshots.setdefault(path, []).append({
+        "step_label": step_label,
+        "nodes": nodes_snap,
+        "edges": edges_snap,
+    })
+
+def export_vt_snapshots_to_html(path, filename="VirtualTopology_AllSteps.html"):
+    #High-performance, compact single-file HTML exporter designed to scale smoothly to NSFnet, USnet, and larger topologies without browser stalls.
+    #Uses string-table deduplication, unchanged-step reference sharing, circular pre-layout, continuous splines (no dynamic Bezier physics nodes), and DOM pagination.
+    
+    snapshots = GlobalVTSnapshots.get(path, [])
+    if not snapshots:
+        return None
+
+    #Collect all unique nodes once and pre-calculate circular coordinates
+    node_map = {}
+    for snap in snapshots:
+        for n in snap["nodes"]:
+            nid = n["id"]
+            if nid not in node_map:
+                node_map[nid] = dict(n)
+
+    sorted_nids = sorted(node_map.keys(), key=lambda x: (isinstance(x, str), x))
+    num_nodes = max(1, len(sorted_nids))
+    radius = max(240, num_nodes * 24)
+
+    
+    #14-11-2026
+    base_nodes = []
+    for idx, nid in enumerate(sorted_nids):
+        angle = (2.0 * math.pi * idx) / num_nodes - (math.pi / 2.0)
+        n_obj = node_map[nid]
+        fill_hex = n_obj["color"]
+        base_nodes.append({
+            "id": nid,
+            "label": n_obj["label"],
+            "title": n_obj["title"],
+            "color": {
+                "background": fill_hex,          # Node's normal fill color from Ncolours
+                "border": "#1e293b",              # Normal border color (dark slate)
+                "highlight": {
+                    "background": fill_hex,      # Keep node's own fill color when clicked (or use "#fef08a" for bright yellow)
+                    "border": "#dc2626"          # Selected border color when clicked (vivid red)
+                },
+                "hover": {
+                    "background": fill_hex,      # Keep node's own fill color on mouse hover
+                    "border": "#2563eb"          # Hover border color (royal blue)
+                }
+            },
+            "x": round(radius * math.cos(angle), 1),
+            "y": round(radius * math.sin(angle), 1),
+        })
+
+    #Deduplicate edge strings via a compact String Pool + Step Deduplication
+    str_pool = []
+    str_to_idx = {}
+
+    def intern_str(s):
+        if s not in str_to_idx:
+            str_to_idx[s] = len(str_pool)
+            str_pool.append(s)
+        return str_to_idx[s]
+
+    compact_steps = []
+    prev_edges_signature = None
+    prev_step_idx = -1
+
+    for step_idx, snap in enumerate(snapshots):
+        encoded_edges = []
+        for e in snap["edges"]:
+            # Compact tuple: [from, to, label_idx, title_idx, is_groomed_int, dashes_int]
+            is_grm = 1 if str(e.get("color", "")).lower() == "#00bb00" else 0
+            is_dash = 1 if e.get("dashes", False) else 0
+            encoded_edges.append([
+                e["from"],
+                e["to"],
+                intern_str(e["label"]),
+                intern_str(e["title"]),
+                is_grm,
+                is_dash,
+            ])
+
+        sig = tuple(tuple(row) for row in encoded_edges)
+        if sig == prev_edges_signature and prev_step_idx >= 0:
+            # No change in visible edges from previous step -> store integer pointer
+            compact_steps.append({
+                "l": snap["step_label"],
+                "same": prev_step_idx,
+            })
+        else:
+            compact_steps.append({
+                "l": snap["step_label"],
+                "e": encoded_edges,
+            })
+            prev_edges_signature = sig
+            prev_step_idx = step_idx
+
+    nodes_json = json.dumps(base_nodes, separators=(",", ":"), ensure_ascii=False)
+    pool_json = json.dumps(str_pool, separators=(",", ":"), ensure_ascii=False)
+    steps_json = json.dumps(compact_steps, separators=(",", ":"), ensure_ascii=False)
+    default_physics = "true" if num_nodes <= 8 else "false"
+
+    html_content = f"""<!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                        <meta charset="utf-8">
+                        <title>Virtual Topology — High-Scale Step Viewer</title>
+                        <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js"></script>
+                        <link href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" rel="stylesheet" type="text/css" />
+                        <style>
+                            * {{ box-sizing: border-box; }}
+                            body {{
+                                margin: 0; padding: 0;
+                                font-family: monospace, Arial, sans-serif;
+                                background: #f8fafc; color: #0f172a;
+                                display: flex; flex-direction: column;
+                                height: 100vh; overflow: hidden;
+                            }}
+                            .toolbar {{
+                                background: #ffffff;
+                                border-bottom: 2px solid #000099;
+                                padding: 8px 14px;
+                                display: flex; flex-wrap: wrap;
+                                align-items: center; gap: 10px; z-index: 10;
+                            }}
+                            .toolbar-group {{ display: flex; align-items: center; gap: 6px; }}
+                            button, select, input[type="text"] {{
+                                font-family: inherit; font-size: 0.82rem;
+                                padding: 4px 9px; border: 1px solid #cbd5e1;
+                                border-radius: 5px; background: #ffffff;
+                            }}
+                            button, select {{ cursor: pointer; }}
+                            button:hover:not(:disabled) {{ background: #e2e8f0; }}
+                            button:disabled {{ opacity: 0.45; cursor: not-allowed; }}
+                            #stepSlider {{ flex: 1; min-width: 160px; cursor: pointer; }}
+                            .badge {{
+                                padding: 3px 8px; border-radius: 4px;
+                                font-size: 0.78rem; font-weight: bold;
+                            }}
+                            .badge-step {{ background: #dbeafe; color: #1e40af; }}
+                            .badge-new {{ background: #e2e8f0; color: #0f172a; }}
+                            .badge-grm {{ background: #dcfce7; color: #166534; border: 1px solid #00bb00; }}
+                            .main-area {{ flex: 1; display: flex; position: relative; overflow: hidden; }}
+                            #mynetwork {{ flex: 1; height: 100%; background: #ffffff; }}
+                            .side-panel {{
+                                width: 360px; background: #ffffff;
+                                border-left: 1px solid #cbd5e1;
+                                display: flex; flex-direction: column; font-size: 0.78rem;
+                            }}
+                            .side-header {{
+                                padding: 8px 12px; background: #f1f5f9;
+                                border-bottom: 1px solid #cbd5e1;
+                                display: flex; flex-direction: column; gap: 6px;
+                            }}
+                            .edge-list {{ flex: 1; overflow-y: auto; padding: 8px 12px; }}
+                            .edge-item {{
+                                padding: 5px 8px; border: 1px solid #e2e8f0;
+                                border-left: 4px solid #000000; border-radius: 4px;
+                                margin-bottom: 5px; background: #f8fafc; word-break: break-all;
+                            }}
+                            .edge-item.groomed {{ border-left-color: #00bb00; background: #f0fdf4; }}
+                        </style>
+                        </head>
+                        <body>
+
+                        <div class="toolbar">
+                            <div class="toolbar-group">
+                                <button id="btnFirst" onclick="scheduleStep(0)" title="First Step">&#9198;</button>
+                                <button id="btnPrev" onclick="stepBy(-1)" title="Previous Step">&blacktriangleleft;&blacktriangleleft;</button>
+                                <button id="btnPlay" onclick="togglePlay()" title="Play/Pause steps">&#9658;</button>
+                                <button id="btnNext" onclick="stepBy(1)" title="Next Step">&blacktriangleright;&blacktriangleright;</button>
+                                <button id="btnLast" onclick="scheduleStep(ACTIVE_INDICES.length - 1)" title="Last Step">&#9197;</button>
+                                <!-- source: https://dev.w3.org/html5/spec-LC/named-character-references.html -->
+                            </div>
+                            
+                            <input type="range" id="stepSlider" min="0" max="0" value="0" oninput="onSliderInput(this.value)">
+
+                            <div class="toolbar-group">
+                                <select id="stepSelect" onchange="scheduleStep(parseInt(this.value, 10))"></select>
+                                <span class="badge badge-step" id="stepCounter">1 / 1</span>
+                                <span class="badge badge-new" id="statNodes">Nodes: 0</span>
+                                <span class="badge badge-new" id="statEdges">VLs: 0</span>
+                                <span class="badge badge-grm" id="statGroomed">Groomed: 0</span>
+                            </div>
+
+                            <div class="toolbar-group">
+                                <label style="font-size:0.78rem;cursor:pointer;" title="Show only steps where a request was groomed onto an existing virtual link">
+                                    <input type="checkbox" id="chkChangesOnly" onchange="rebuildActiveIndices()"> Grooming Steps Only
+                                </label>
+                                <label style="font-size:0.78rem;cursor:pointer;" title="Hide edge text labels on canvas for faster rendering on dense graphs">
+                                    <input type="checkbox" id="chkShowLabels" checked onchange="renderCurrentStep(true)"> Labels
+                                </label>
+                                <label style="font-size:0.78rem;cursor:pointer;" title="Toggle force-directed repulsion physics">
+                                    <input type="checkbox" id="chkPhysics" {"checked" if default_physics == "true" else ""} onchange="togglePhysics(this.checked)"> Physics
+                                </label>
+                                <button onclick="resetCircleLayout()" title="Arrange nodes in a clean circle">Circle Layout</button>
+                            </div>
+                        </div>
+
+                        <div class="main-area">
+                            <div id="mynetwork"></div>
+                            <div class="side-panel">
+                                <div class="side-header">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                                        <b>Active Virtual Links in Step</b>
+                                        <span id="inspectorCount" style="color:#64748b;"></span>
+                                    </div>
+                                    <input type="text" id="edgeFilter" placeholder="Filter links (e.g. n4, Grm, que0)..." oninput="renderInspector()" style="width:100%;">
+                                </div>
+                                <div class="edge-list" id="edgeInspector"></div>
+                            </div>
+                        </div>
+
+                        <script>
+                        const BASE_NODES = {nodes_json};
+                        const STR_POOL = {pool_json};
+                        const STEPS = {steps_json};
+                        const NODE_LABELS = Object.fromEntries(BASE_NODES.map(n => [String(n.id), n.label]));
+
+                        let ACTIVE_INDICES = [];
+                        let currentPos = 0;
+                        let lastRenderedEdgeSourceIdx = -1;
+                        let currentDecodedEdges = [];
+                        let inspectorLimit = 100;
+                        let playInterval = null;
+                        let rafPending = false;
+
+                        const nodesDS = new vis.DataSet(BASE_NODES);
+                        const edgesDS = new vis.DataSet([]);
+
+                        const container = document.getElementById("mynetwork");
+                        const options = {{
+                            nodes: {{
+                                borderWidth: 2,              // Normal node border thickness (in pixels)
+                                borderWidthSelected: 4,      // Border thickness when a node is clicked/selected
+                                font: {{
+                                    color: "#000000",
+                                    size: 14,
+                                    face: "monospace",
+                                    strokeWidth: 4,
+                                    strokeColor: "#ffffff"
+                                }},
+                                chosen: {{
+                                    node: function(values, id, selected, hovering) {{
+                                        if (selected) {{
+                                            values.shadow = true;
+                                            values.shadowColor = "rgba(220, 38, 38, 0.45)";
+                                            values.shadowSize = 12;
+                                            values.shadowX = 0;
+                                            values.shadowY = 0;
+                                        }}
+                                    }}
+                                }}
+                            }},
+                            edges: {{
+                                arrows: {{ to: {{ enabled: true, scaleFactor: 0.85 }} }},
+                                arrowStrikethrough: false,
+                                font: {{
+                                    color: "#000000",
+                                    align: "top",
+                                    size: 11,
+                                    strokeWidth: 3,
+                                    strokeColor: "#ffffff"
+                                }},
+                                smooth: {{ enabled: true, type: "continuous", roundness: 0.2 }}
+                            }},
+                            physics: {{
+                                enabled: {default_physics},
+                                solver: "repulsion",
+                                repulsion: {{
+                                    nodeDistance: 200,
+                                    centralGravity: 0.1,
+                                    springLength: 350,
+                                    springConstant: 0.08,
+                                    damping: 0.15
+                                }},
+                                stabilization: {{ enabled: false }}
+                            }},
+                            interaction: {{
+                                hover: true,
+                                hideEdgesOnDrag: true,
+                                tooltipDelay: 120,
+                                navigationButtons: true
+                            }}
+                        }};
+
+                        const network = new vis.Network(container, {{ nodes: nodesDS, edges: edgesDS }}, options);
+                        document.getElementById("statNodes").textContent = `Nodes: ${{BASE_NODES.length}}`;
+
+                        const slider = document.getElementById("stepSlider");
+                        const select = document.getElementById("stepSelect");
+
+                        function escapeHtml(s) {{
+                            return String(s)
+                                .replace(/&/g, "&amp;")
+                                .replace(/</g, "&lt;")
+                                .replace(/>/g, "&gt;")
+                                .replace(/"/g, "&quot;");
+                        }}
+
+                        function resolveStepEdges(stepIdx) {{
+                            let s = STEPS[stepIdx];
+                            let srcIdx = stepIdx;
+                            while (s && s.same !== undefined) {{
+                                srcIdx = s.same;
+                                s = STEPS[srcIdx];
+                            }}
+                            return {{ sourceIdx: srcIdx, rawEdges: (s && s.e) ? s.e : [] }};
+                        }}
+
+                        function stepHasNewGrooming(stepIdx) {{
+                            if (stepIdx === 0) return false;
+                            const curr = resolveStepEdges(stepIdx).rawEdges;
+                            const prev = resolveStepEdges(stepIdx - 1).rawEdges;
+                            const prevGrmSigs = new Set(prev.filter(r => r[4] === 1).map(r => `${{r[0]}}_${{r[1]}}_${{r[2]}}_${{r[3]}}`));
+                            return curr.some(r => r[4] === 1 && !prevGrmSigs.has(`${{r[0]}}_${{r[1]}}_${{r[2]}}_${{r[3]}}`));
+                        }}
+
+                        function rebuildActiveIndices() {{
+                            const grmOnly = document.getElementById("chkChangesOnly").checked;
+                            const prevStepIdx = ACTIVE_INDICES[currentPos] || 0;
+
+                            ACTIVE_INDICES = [];
+                            STEPS.forEach((s, idx) => {{
+                                if (!grmOnly || stepHasNewGrooming(idx) || idx === STEPS.length - 1) {{
+                                    ACTIVE_INDICES.push(idx);
+                                }}
+                            }});
+                            if (ACTIVE_INDICES.length === 0 && STEPS.length > 0) ACTIVE_INDICES.push(0);
+
+                            slider.max = Math.max(0, ACTIVE_INDICES.length - 1);
+                            select.innerHTML = ACTIVE_INDICES.map((sIdx, pos) =>
+                                `<option value="${{pos}}">${{pos + 1}}. ${{STEPS[sIdx].l}}</option>`
+                            ).join("");
+
+                            const newPos = ACTIVE_INDICES.findIndex(i => i >= prevStepIdx);
+                            currentPos = newPos >= 0 ? newPos : ACTIVE_INDICES.length - 1;
+                            slider.value = currentPos;
+                            select.value = currentPos;
+                            renderCurrentStep(true);
+                        }}
+
+                        function onSliderInput(val) {{
+                            currentPos = parseInt(val, 10) || 0;
+                            select.value = currentPos;
+                            document.getElementById("stepCounter").textContent = `${{currentPos + 1}} / ${{ACTIVE_INDICES.length}}`;
+                            if (!rafPending) {{
+                                rafPending = true;
+                                requestAnimationFrame(() => {{
+                                    rafPending = false;
+                                    renderCurrentStep(false);
+                                }});
+                            }}
+                        }}
+
+                        function scheduleStep(pos) {{
+                            if (ACTIVE_INDICES.length === 0) return;
+                            currentPos = Math.max(0, Math.min(pos, ACTIVE_INDICES.length - 1));
+                            slider.value = currentPos;
+                            select.value = currentPos;
+                            renderCurrentStep(false);
+                        }}
+
+                        function renderCurrentStep(forceCanvasUpdate) {{
+                            if (ACTIVE_INDICES.length === 0) return;
+                            const stepIdx = ACTIVE_INDICES[currentPos];
+                            document.getElementById("stepCounter").textContent = `${{currentPos + 1}} / ${{ACTIVE_INDICES.length}}`;
+
+                            document.getElementById("btnFirst").disabled = (currentPos === 0);
+                            document.getElementById("btnPrev").disabled = (currentPos === 0);
+                            document.getElementById("btnNext").disabled = (currentPos === ACTIVE_INDICES.length - 1);
+                            document.getElementById("btnLast").disabled = (currentPos === ACTIVE_INDICES.length - 1);
+
+                            const {{ sourceIdx, rawEdges }} = resolveStepEdges(stepIdx);
+                            if (!forceCanvasUpdate && sourceIdx === lastRenderedEdgeSourceIdx) {{
+                                return; // Exact same edges as already drawn on canvas
+                            }}
+                            lastRenderedEdgeSourceIdx = sourceIdx;
+
+                            const showLabels = document.getElementById("chkShowLabels").checked;
+                            let groomedCount = 0;
+
+                            // Group parallel edges between same node pair so multi-lightpaths curve cleanly without dynamic physics
+                            const pairCounts = {{}};
+                            currentDecodedEdges = rawEdges.map((r, idx) => {{
+                                const fromId = r[0], toId = r[1];
+                                const lbl = STR_POOL[r[2]] || "";
+                                const ttl = STR_POOL[r[3]] || "";
+                                const isGrm = (r[4] === 1);
+                                const isDash = (r[5] === 1);
+                                if (isGrm) groomedCount++;
+
+                                const clr = isGrm ? "#00bb00" : "#000000";
+                                const pairKey = `${{fromId}}_${{toId}}`;
+                                const pIdx = (pairCounts[pairKey] = (pairCounts[pairKey] || 0) + 1);
+                                const roundness = pIdx === 1 ? 0.12 : Math.min(0.65, 0.12 + (pIdx - 1) * 0.12);
+
+                                return {{
+                                    id: `e_${{idx}}`,
+                                    from: fromId,
+                                    to: toId,
+                                    label: showLabels ? lbl : "",
+                                    rawLabel: lbl,
+                                    title: ttl,
+                                    isGrm: isGrm,
+                                    color: {{ color: clr, highlight: clr, hover: clr }},
+                                    dashes: isDash,
+                                    smooth: {{ enabled: true, type: "curvedCW", roundness: roundness }}
+                                }};
+                            }});
+
+                            // Diff update against edgesDS to avoid full clear() + redraw stall
+                            const prevCount = edgesDS.length;
+                            edgesDS.update(currentDecodedEdges);
+                            if (prevCount > currentDecodedEdges.length) {{
+                                const toRemove = [];
+                                for (let i = currentDecodedEdges.length; i < prevCount; i++) {{
+                                    toRemove.push(`e_${{i}}`);
+                                }}
+                                edgesDS.remove(toRemove);
+                            }}
+
+                            document.getElementById("statEdges").textContent = `VLs: ${{currentDecodedEdges.length}}`;
+                            document.getElementById("statGroomed").textContent = `Groomed: ${{groomedCount}}`;
+
+                            inspectorLimit = 100;
+                            renderInspector();
+                        }}
+
+                        function renderInspector() {{
+                            const inspector = document.getElementById("edgeInspector");
+                            const q = (document.getElementById("edgeFilter").value || "").trim().toLowerCase();
+
+                            const filtered = !q ? currentDecodedEdges : currentDecodedEdges.filter(e => {{
+                                const fLbl = NODE_LABELS[String(e.from)] || "";
+                                const tLbl = NODE_LABELS[String(e.to)] || "";
+                                return fLbl.toLowerCase().includes(q) ||
+                                    tLbl.toLowerCase().includes(q) ||
+                                    e.rawLabel.toLowerCase().includes(q) ||
+                                    e.title.toLowerCase().includes(q);
+                            }});
+
+                            document.getElementById("inspectorCount").textContent = `${{filtered.length}} shown`;
+
+                            if (filtered.length === 0) {{
+                                inspector.innerHTML = "<div style='color:#64748b;'>No matching virtual links in this step.</div>";
+                                return;
+                            }}
+
+                            const slice = filtered.slice(0, inspectorLimit);
+                            let htmlParts = slice.map(e => {{
+                                const fromLbl = NODE_LABELS[String(e.from)] || `Node ${{e.from}}`;
+                                const toLbl = NODE_LABELS[String(e.to)] || `Node ${{e.to}}`;
+                                const clr = e.isGrm ? "#00bb00" : "#000000";
+                                return `<div class="edge-item ${{e.isGrm ? 'groomed' : ''}}">
+                                    <div><b>${{escapeHtml(fromLbl)}} (${{escapeHtml(e.from)}}) &rarr; ${{escapeHtml(toLbl)}} (${{escapeHtml(e.to)}})</b> <span style="float:right;font-weight:bold;color:${{clr}}">${{escapeHtml(e.rawLabel)}}</span></div>
+                                    <div style="color:#475569;margin-top:2px;">${{escapeHtml(e.title)}}</div>
+                                </div>`;
+                            }});
+
+                            if (filtered.length > inspectorLimit) {{
+                                htmlParts.push(`<button style="width:100%;margin-top:4px;" onclick="loadMoreInspector()">Show More (${{filtered.length - inspectorLimit}} remaining)</button>`);
+                            }}
+                            inspector.innerHTML = htmlParts.join("");
+                        }}
+
+                        function loadMoreInspector() {{
+                            inspectorLimit += 150;
+                            renderInspector();
+                        }}
+
+                        function stepBy(delta) {{
+                            scheduleStep(currentPos + delta);
+                        }}
+
+                        function togglePlay() {{
+                            const btn = document.getElementById("btnPlay");
+                            if (playInterval) {{
+                                clearInterval(playInterval);
+                                playInterval = null;
+                                btn.innerHTML = "&#9658;";
+                            }} else {{
+                                if (currentPos >= ACTIVE_INDICES.length - 1) scheduleStep(0);
+                                btn.innerHTML = "&#9208;";
+                                playInterval = setInterval(() => {{
+                                    if (currentPos < ACTIVE_INDICES.length - 1) {{
+                                        stepBy(1);
+                                    }} else {{
+                                        togglePlay();
+                                    }}
+                                }}, 450);
+                            }}
+                        }}
+
+                        function togglePhysics(enabled) {{
+                            network.setOptions({{ physics: {{ enabled: enabled }} }});
+                        }}
+
+                        function resetCircleLayout() {{
+                            document.getElementById("chkPhysics").checked = false;
+                            togglePhysics(false);
+                            nodesDS.update(BASE_NODES.map(n => ({{ id: n.id, x: n.x, y: n.y }})));
+                            network.fit({{ animation: true }});
+                        }}
+
+                        window.addEventListener("keydown", (e) => {{
+                            if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+                            if (e.key === "ArrowLeft") stepBy(-1);
+                            if (e.key === "ArrowRight") stepBy(1);
+                        }});
+
+                        rebuildActiveIndices();
+                        network.fit();
+                        </script>
+                        </body>
+                        </html>
+                    """
+
+    out_path = os.path.join(path, filename)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(html_content)
+    return out_path
+
+#15-11-2026
+def export_vt_snapshots_to_gexf(path, filename="VirtualTopology_AllSteps.gexf"):
+    #Exports all recorded VT snapshots onto ONE shared set of nodes with fixed circular coordinates so phases stack as temporal layers instead of separate tiles.
+
+    snapshots = GlobalVTSnapshots.get(path, [])
+    if not snapshots:
+        return None
+
+    G = nx.MultiDiGraph()
+    total_steps = len(snapshots)
+
+    # 1. Register each node ONCE across all steps and record when it first appears
+    node_registry = {}
+    node_first_step = {}
+    for step_idx, snap in enumerate(snapshots):
+        for n in snap["nodes"]:
+            nid = str(n["id"])
+            if nid not in node_registry:
+                node_registry[nid] = n
+                node_first_step[nid] = step_idx
+
+    sorted_nids = sorted(node_registry.keys(), key=lambda x: (not x.isdigit(), int(x) if x.isdigit() else x))
+    num_nodes = max(1, len(sorted_nids))
+    radius = max(180.0, num_nodes * 28.0)
+
+    # Single shared circular layout (no row/column tile offsets)
+    for idx, nid in enumerate(sorted_nids):
+        angle = (2.0 * math.pi * idx) / num_nodes - (math.pi / 2.0)
+        x_pos = round(radius * math.cos(angle), 2)
+        y_pos = round(radius * math.sin(angle), 2)
+
+        ninfo = node_registry[nid]
+        r, g, b = _hex_to_rgb(ninfo["color"])
+        # Strip any accidental "[S...]" suffix if present
+        clean_label = str(ninfo["label"]).split(" [S")[0]
+
+        G.add_node(
+            nid,
+            label=clean_label,
+            title=str(ninfo.get("title", clean_label)),
+            viz={
+                "color": {"r": r, "g": g, "b": b, "a": 1.0},
+                "position": {"x": x_pos, "y": y_pos, "z": 0.0},
+                "size": 18.0,
+            },
+            start=float(node_first_step[nid]),
+            end=float(total_steps),
+        )
+
+    # 2. Add each step's edges onto the shared nodes with interval [step_idx, step_idx + 1]
+    for step_idx, snap in enumerate(snapshots):
+        step_num = step_idx + 1
+        # Zero-pad step_name so layer filters sort numerically (Step_001, Step_002, ...)
+        layered_step_name = f"Step_{step_num:03d}_{snap['step_label']}"
+
+        for edge_idx, einfo in enumerate(snap["edges"]):
+            er, eg, eb = _hex_to_rgb(einfo["color"])
+            G.add_edge(
+                str(einfo["from"]),
+                str(einfo["to"]),
+                key=f"s{step_idx}_e{edge_idx}",
+                label=str(einfo["label"]),
+                title=str(einfo["title"]),
+                step=int(step_num),
+                step_name=layered_step_name,
+                dashes=bool(einfo.get("dashes", False)),
+                viz={
+                    "color": {"r": er, "g": eg, "b": eb, "a": 1.0},
+                    "thickness": 2.0,
+                },
+                start=float(step_idx),
+                end=float(step_idx + 1),
+            )
+
+    out_path = os.path.join(path, filename)
+    nx.write_gexf(G, out_path)
+    return out_path
+
+#15-11-2026
+def export_vt_snapshots_to_graphml(path, filename="VirtualTopology_AllSteps.graphml"):
+    #Exports all recorded VT snapshots in GlobalVTSnapshots[path] into a single multilayer GraphML file 
+    #with native yEd (yFiles) graphics AND standard flat attributes for Gephi and Cytoscape. Uses attr.type="int" instead of "long"
+    
+    snapshots = GlobalVTSnapshots.get(path, [])
+    if not snapshots:
+        return None
+
+    total_steps = len(snapshots)
+
+    # 1. Register each node ONCE across all steps so all phases share one node layout
+    node_registry = {}
+    node_first_step = {}
+    for step_idx, snap in enumerate(snapshots):
+        for n in snap["nodes"]:
+            nid = str(n["id"])
+            if nid not in node_registry:
+                node_registry[nid] = n
+                node_first_step[nid] = step_idx
+
+    sorted_nids = sorted(
+        node_registry.keys(),
+        key=lambda x: (not x.isdigit(), int(x) if x.isdigit() else x)
+    )
+    num_nodes = max(1, len(sorted_nids))
+    radius = max(180.0, num_nodes * 32.0)
+
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
+        '<graphml xmlns="http://graphml.graphdrawing.org/xmlns"',
+        '         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+        '         xmlns:y="http://www.yworks.com/xml/graphml"',
+        '         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns '
+        'http://www.yworks.com/xml/schema/graphml/1.1/ygraphml.xsd">',
+        '  <!-- yEd native graphics keys -->',
+        '  <key for="node" id="d_nodegraphics" yfiles.type="nodegraphics"/>',
+        '  <key for="edge" id="d_edgegraphics" yfiles.type="edgegraphics"/>',
+        '  <!-- Standard Node attributes (using int/double/string, never long) -->',
+        '  <key id="n_label" for="node" attr.name="label" attr.type="string"/>',
+        '  <key id="n_title" for="node" attr.name="title" attr.type="string"/>',
+        '  <key id="n_color" for="node" attr.name="color" attr.type="string"/>',
+        '  <key id="n_r" for="node" attr.name="r" attr.type="int"/>',
+        '  <key id="n_g" for="node" attr.name="g" attr.type="int"/>',
+        '  <key id="n_b" for="node" attr.name="b" attr.type="int"/>',
+        '  <key id="n_x" for="node" attr.name="x" attr.type="double"/>',
+        '  <key id="n_y" for="node" attr.name="y" attr.type="double"/>',
+        '  <key id="n_size" for="node" attr.name="size" attr.type="double"/>',
+        '  <key id="n_start" for="node" attr.name="start" attr.type="double"/>',
+        '  <key id="n_end" for="node" attr.name="end" attr.type="double"/>',
+        '  <!-- Standard Edge attributes (using int/double/boolean/string, never long) -->',
+        '  <key id="e_label" for="edge" attr.name="label" attr.type="string"/>',
+        '  <key id="e_title" for="edge" attr.name="title" attr.type="string"/>',
+        '  <key id="e_step" for="edge" attr.name="step" attr.type="int"/>',
+        '  <key id="e_step_name" for="edge" attr.name="step_name" attr.type="string"/>',
+        '  <key id="e_color" for="edge" attr.name="color" attr.type="string"/>',
+        '  <key id="e_r" for="edge" attr.name="r" attr.type="int"/>',
+        '  <key id="e_g" for="edge" attr.name="g" attr.type="int"/>',
+        '  <key id="e_b" for="edge" attr.name="b" attr.type="int"/>',
+        '  <key id="e_weight" for="edge" attr.name="weight" attr.type="double"/>',
+        '  <key id="e_is_groomed" for="edge" attr.name="is_groomed" attr.type="boolean"/>',
+        '  <key id="e_dashes" for="edge" attr.name="dashes" attr.type="boolean"/>',
+        '  <key id="e_start" for="edge" attr.name="start" attr.type="double"/>',
+        '  <key id="e_end" for="edge" attr.name="end" attr.type="double"/>',
+        '  <graph edgedefault="directed" id="VirtualTopology_AllSteps">',
+    ]
+
+    # 2. Write shared nodes with both standard attributes and yEd <y:ShapeNode>
+    node_size = 42.0
+    for idx, nid in enumerate(sorted_nids):
+        angle = (2.0 * math.pi * idx) / num_nodes - (math.pi / 2.0)
+        x_pos = round(radius * math.cos(angle), 2)
+        y_pos = round(radius * math.sin(angle), 2)
+
+        ninfo = node_registry[nid]
+        hex_color = str(ninfo.get("color", "#4682B4"))
+        if not hex_color.startswith("#"):
+            hex_color = "#" + hex_color
+        r, g, b = _hex_to_rgb(hex_color)
+        clean_label = _xml_escape(str(ninfo["label"]).split(" [S")[0])
+        clean_title = _xml_escape(str(ninfo.get("title", clean_label)))
+        esc_nid = _xml_escape(nid)
+
+        lines.extend([
+            f'    <node id="{esc_nid}">',
+            f'      <data key="n_label">{clean_label}</data>',
+            f'      <data key="n_title">{clean_title}</data>',
+            f'      <data key="n_color">{_xml_escape(hex_color)}</data>',
+            f'      <data key="n_r">{int(r)}</data>',
+            f'      <data key="n_g">{int(g)}</data>',
+            f'      <data key="n_b">{int(b)}</data>',
+            f'      <data key="n_x">{x_pos}</data>',
+            f'      <data key="n_y">{y_pos}</data>',
+            f'      <data key="n_size">{node_size}</data>',
+            f'      <data key="n_start">{float(node_first_step[nid])}</data>',
+            f'      <data key="n_end">{float(total_steps)}</data>',
+            '      <data key="d_nodegraphics">',
+            '        <y:ShapeNode>',
+            f'          <y:Geometry height="{node_size}" width="{node_size}" x="{x_pos - node_size / 2.0}" y="{y_pos - node_size / 2.0}"/>',
+            f'          <y:Fill color="{_xml_escape(hex_color)}" transparent="false"/>',
+            '          <y:BorderStyle color="#1E293B" type="line" width="2.0"/>',
+            f'          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Monospaced" fontSize="13" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" modelName="internal" modelPosition="c" textColor="#000000" visible="true">{clean_label}</y:NodeLabel>',
+            '          <y:Shape type="ellipse"/>',
+            '        </y:ShapeNode>',
+            '      </data>',
+            '    </node>',
+        ])
+
+    # 3. Write per-step edges with yEd <y:ArcEdge> graphics
+    # Show edge text labels only on the final step by default so 62 steps do not overlap in yEd
+    for step_idx, snap in enumerate(snapshots):
+        step_num = step_idx + 1
+        layered_step_name = _xml_escape(f"Step_{step_num:03d}_{snap['step_label']}")
+        is_final_step = (step_idx == total_steps - 1)
+        pair_counts = {}
+
+        for edge_idx, einfo in enumerate(snap["edges"]):
+            src_id = _xml_escape(str(einfo["from"]))
+            dst_id = _xml_escape(str(einfo["to"]))
+            edge_id = f"s{step_idx}_e{edge_idx}"
+
+            edge_hex = str(einfo.get("color", "#000000"))
+            if not edge_hex.startswith("#"):
+                edge_hex = "#" + edge_hex
+            er, eg, eb = _hex_to_rgb(edge_hex)
+            is_groomed = (edge_hex.lower() == "#00bb00")
+            is_dashed = bool(einfo.get("dashes", False))
+            line_type = "dashed" if is_dashed else "line"
+            weight = float(einfo.get("weight", 0.90))
+
+            raw_label = _xml_escape(str(einfo.get("label", "")))
+            raw_title = _xml_escape(str(einfo.get("title", "")))
+            label_visible = "true" if is_final_step else "false"
+
+            pair_key = (src_id, dst_id)
+            p_idx = pair_counts.get(pair_key, 0) + 1
+            pair_counts[pair_key] = p_idx
+            arc_height = round(18.0 + (p_idx - 1) * 14.0, 2)
+
+            lines.extend([
+                f'    <edge id="{edge_id}" source="{src_id}" target="{dst_id}">',
+                f'      <data key="e_label">{raw_label}</data>',
+                f'      <data key="e_title">{raw_title}</data>',
+                f'      <data key="e_step">{step_num}</data>',
+                f'      <data key="e_step_name">{layered_step_name}</data>',
+                f'      <data key="e_color">{_xml_escape(edge_hex)}</data>',
+                f'      <data key="e_r">{int(er)}</data>',
+                f'      <data key="e_g">{int(eg)}</data>',
+                f'      <data key="e_b">{int(eb)}</data>',
+                f'      <data key="e_weight">{weight}</data>',
+                f'      <data key="e_is_groomed">{"true" if is_groomed else "false"}</data>',
+                f'      <data key="e_dashes">{"true" if is_dashed else "false"}</data>',
+                f'      <data key="e_start">{float(step_idx)}</data>',
+                f'      <data key="e_end">{float(step_idx + 1)}</data>',
+                '      <data key="d_edgegraphics">',
+                '        <y:ArcEdge>',
+                '          <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>',
+                f'          <y:LineStyle color="{_xml_escape(edge_hex)}" type="{line_type}" width="2.0"/>',
+                '          <y:Arrows source="none" target="standard"/>',
+                f'          <y:EdgeLabel alignment="center" backgroundColor="#FFFFFF" configuration="AutoFlippingLabel" distance="2.0" fontFamily="Monospaced" fontSize="11" fontStyle="plain" hasLineColor="false" modelName="centered" modelPosition="center" preferredPlacement="anywhere" ratio="0.5" textColor="{_xml_escape(edge_hex)}" visible="{label_visible}">{raw_label}</y:EdgeLabel>',
+                f'          <y:Arc height="{arc_height}" ratio="1.0" type="fixedRatio"/>',
+                '        </y:ArcEdge>',
+                '      </data>',
+                '    </edge>',
+            ])
+
+    lines.extend([
+        '  </graph>',
+        '</graphml>',
+    ])
+
+    out_path = os.path.join(path, filename)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    return out_path
+
+#14-11-2026 end of new block for all graph export modes (per request VT HTML file, GEFX, single HTML file with interactive slider) <end>
 def graph_export_to_graphml(gr, path, name):
     print ("<h1>the source of the graph=",gr,"</h1>")
     pyvis_to_graphml(gr, filename="graph.graphml")
-
 
 def pyvis_to_graphml(pyvis_net, filename="graph.graphml"):
     import networkx as nx
@@ -215,57 +1203,46 @@ def pyvis_to_graphml(pyvis_net, filename="graph.graphml"):
     nx.write_graphml(G, filename)
     print(f"GraphML file saved as: {filename}")
 
-
-def graph_update_edge(gr,que,req,s,d,free,max,reqcap): #Done updated edge after grooming with correct que and req numbers
+#14-11-2026 new version updating free capacity for VirtualTopology_AllSteps.html
+def graph_update_edge(gr, que, req, s, d, free, max, reqcap):
+    #Updates the PyVis graph edge for virtual link (s -> d) after traffic grooming.
+    #   Note: > 'free' passed from caller ('getVLfreecapacity') is ALREADY the new free capacity after grooming.
+    #         > 'reqcap' passed from caller is '-1 * requiredcap' (negative).
+    
     edges = gr.get_edges()
-    #print ("List of graph edges")
+
+    # Reconstruct the pre-grooming capacity values currently stored on the graph edge
+    old_free = roundatdecimals(free - reqcap, 3)   # since reqcap is negative, free - reqcap = free + requiredcap
+    old_cap = roundatdecimals(max - old_free, 3)
+    old_token = f"cp:{old_cap},fr:{old_free}"
+
+    # Post-grooming capacity values to write onto the graph edge
+    new_free = roundatdecimals(free, 3)
+    new_cap = roundatdecimals(max - new_free, 3)
+
     for edg in edges:
-        #print(edg)
-        #token = str(s)+"&rarr;"+str(d)+",cp:"+str(roundatdecimals(max-free,3))+",fr:"+str(roundatdecimals(free,3))+","
-        cap = max-free
-        if (edg['from'] == s) and (edg['to'] == d):
-            token = "cp:"+str(roundatdecimals(cap,3))+",fr:"+str(roundatdecimals(free,3))
-            #print(token)
-            #"title": "rq:6,Node0-\u003eNode5,cp:11.497,fr:28.503",
-            if (token in edg['title']): #search for the 'title' key to change the edge labels
-                #print ("found!!!")
-                substr=edg['title']
-                for i in range(len(substr)): #search for the "rq:6,"
-                    if (substr[i] == ","):
-                        break
-                #print ("position of first comma is",i)
-                #$$$
-                for j in range(i+1, len(substr)): #search for the "Node0-\u003eNode5,"
-                    if (substr[j] == ","):
-                        break
-                #$$$ print ("position of first comma is",j)
-                fpart = substr[0:i]
-                linkname = substr[i+1:j]
-                #print ("first part is",fpart)
-                #fpart = "Grm:"+fpart + "+" + str(rq) + ","
-                #fpart = "+Grm("+fpart + "que:" + str(que)+"req:"+str(req) + "," + linkname + ","
-                fpart = "Grm:"+fpart + "+" +"que:"+str(que)+"req:"+str(req) + "," + linkname + ","
-                free = free + reqcap
-                cap = cap - reqcap
-                token = fpart +"cp:"+str(roundatdecimals(cap,3))+",fr:"+str(roundatdecimals(free,3))
-                d = {'title':token}
-                edg.update(d)
-                token = "Grm,fr:"+str(roundatdecimals(free,3))
-                d = {'label':token}
-                edg.update(d)
-            #$$$
-            #"label": "fr:25.446",
-            #"color": "#000000",
-            token = "fr:0.0"
-            if (token not in edg['label']): #search for the 'label' key that is not free 0.0, so it has some free capacity    
-                token = "#000000"
-                if (token in edg['color']): #search for the 'color' key to change the edge color
-                    #print ("found!!!")
-                    substr=edg['color']
-                    #print ("substr",substr)
-                    substr="#00bb00"                
-                    d = {'color':substr}
-                    edg.update(d)
+        if (edg["from"] == s) and (edg["to"] == d):
+            title_str = str(edg.get("title", ""))
+            if old_token in title_str:
+                # Extract request history and linkname ("NodeA→NodeB") cleanly before ",cp:"
+                prefix = title_str.split(",cp:")[0]
+                if "," in prefix:
+                    req_history, linkname = prefix.rsplit(",", 1)
+                else:
+                    req_history, linkname = prefix, f"{s}→{d}"
+
+                if not req_history.startswith("Grm:"):
+                    req_history = "Grm:" + req_history
+
+                new_title = f"{req_history}+que:{que}req:{req},{linkname},cp:{new_cap},fr:{new_free}"
+                new_label = f"Grm,fr:{new_free}"
+
+                edg.update({
+                    "title": new_title,
+                    "label": new_label,
+                    "color": "#00bb00",
+                })
+                break  # Stop after updating the specific virtual link edge
 
 def visualiseRoutingOfVirtualLinksOverPhysicalTopology(pL, N, grpath, colours, IncludeNetworkGraphInHTML):
     # Visualise network graph 
@@ -293,10 +1270,8 @@ def visualiseRoutingOfVirtualLinksOverPhysicalTopology(pL, N, grpath, colours, I
         
         print("<div style='margin-left:auto;margin-right:auto;'>")
         print("<h3>Routing of Virtual Links over the Physical Topology</h3>")
-        #print("<h4><a href='"+protocol+newfilename+"' target='_blank'>"+newfilename+"</a></h4>")
         print("<h4><a href='"+graph_filename+"' target='_blank'>"+graph_filename+"</a></h4>")
         print("<br><iframe src='"+graph_filename+"' style='border:2px solid red;width:500px;height:500px;' title='"+newfilename+"'></iframe></div>")
-
 
 def visualiseRoutingOfVirtualLinksOverPhysicalTopologyAndWavenengthConverters(pL, N, grpath, colours, IncludeNetworkGraphInHTML, WavConv):
     # Visualise network graph 
@@ -331,9 +1306,10 @@ def visualiseRoutingOfVirtualLinksOverPhysicalTopologyAndWavenengthConverters(pL
         print("<h4><a href='"+graph_filename+"' target='_blank'>"+graph_filename+"</a></h4>")
         print("<br><iframe src='"+graph_filename+"' style='border:2px solid red;width:500px;height:500px;' title='"+newfilename+"'></iframe></div>")
 
-
 def visualisePhysicalTopology(N,L,grpath,colours,costs, IncludeNetworkGraphInHTML):
     net = graph_new("Physical Topology", False)
+
+    #various configurations
     #net = Network()
     #net.set_edge_smooth('dynamic')
     #net.repulsion(node_distance=100, central_gravity=0.2, spring_length=200, spring_strength=0.01, damping=0.09)
@@ -341,6 +1317,7 @@ def visualisePhysicalTopology(N,L,grpath,colours,costs, IncludeNetworkGraphInHTM
     #net.repulsion(node_distance=200, spring_length=400)
     #net.toggle_physics(True) # true elastic network graph - false static
     #net.repulsion(node_distance=300, central_gravity=0.01, spring_length=100, spring_strength=0.01)
+    
     for i in range(len(N)):
         net.add_node(i,title=N[i],label=N[i]+" node:"+str(i),color=colours[i]) #for graphical representation
         
@@ -369,6 +1346,8 @@ def visualisePhysicalTopology(N,L,grpath,colours,costs, IncludeNetworkGraphInHTM
 
 def visualisePhysicalTopologyAndWavenengthConverters(N,L,grpath,colours,costs, IncludeNetworkGraphInHTML, WavConv):
     net = graph_new("Physical Topology", False)
+    
+    #various configurations
     #net = Network()
     #net.set_edge_smooth('dynamic')
     #net.repulsion(node_distance=100, central_gravity=0.2, spring_length=200, spring_strength=0.01, damping=0.09)
@@ -376,6 +1355,7 @@ def visualisePhysicalTopologyAndWavenengthConverters(N,L,grpath,colours,costs, I
     #net.repulsion(node_distance=200, spring_length=400)
     #net.toggle_physics(True) # true elastic network graph - false static
     #net.repulsion(node_distance=300, central_gravity=0.01, spring_length=100, spring_strength=0.01)
+
     for i in range(len(N)):
         #14-4-2026 # ↻ wavelength conversion, ⇾ no wavelength conversion   # alternative symbols ↭⇎⇴⇸⇿⇶⇀⇼⇹⇸⇿⇾▨▩▮ ↭↜↝↺↻↹⇌⇜⇝⇼⇹⇷⇵⇆
         nodeLabel=N[i]+" node:"+str(i)+(" ↻" if WavConv[i]==1 else " ⇾") # ↻ wavelength conversion, ⇾ no wavelength conversion   # alternative symbols ↭⇎⇴⇸⇿⇶⇀⇼⇹⇸⇿⇾▨▩▮ ↭↜↝↺↻↹⇌⇜⇝⇼⇹⇷⇵⇆
@@ -404,7 +1384,6 @@ def visualisePhysicalTopologyAndWavenengthConverters(N,L,grpath,colours,costs, I
         #print("<br><iframe src='"+protocol+newfilename+"' style='border:2px solid red;width:500px;height:500px;' title='"+newfilename+"'></iframe></div>")
         print("<br><iframe src='"+filename+"' style='border:2px solid red;width:500px;height:500px;' title='"+filename+"'></iframe></div>")
 
-
 def visualiseVirtualTopology_Build_VT_from_scratch(VT, nodes, graph_path, Ncolours, maxGbpsPerWave, IncludeNetworkGraphInHTML) :
     #αυτη η function διαβαζει την εικονικη τοπολογια και δημιουργει από την αρχή ένα γράφο
     #καλύτερο αποτέλεσμα βγάζει το τελευταίο βήμα της σταδιακής δημιουργίας γράφων για την εικονική τοπολογία οπότε χρησιμοποιώ αυτό
@@ -428,17 +1407,15 @@ def visualiseVirtualTopology_Build_VT_from_scratch(VT, nodes, graph_path, Ncolou
 
     if IncludeNetworkGraphInHTML == True:
         newfilename = os.path.join(graph_path, graph_filename)
-        #shutil.copyfile(graph_filename, newfilename)
-        #os.remove(graph_filename)
-        #os. rename(filename, newfilename)
-        #print("<div style='margin-left:auto;margin-right:auto;'><iframe src='"+newfilename+"' style='border:2px solid red;width:500px;height:500px;' title='"+newfilename+"'></iframe>")
-        #print("<br><br><a href='"+newfilename+"'>"+newfilename+"</a></div>")
-        print("<div style='margin-left:auto;margin-right:auto;'>")
-        print("<h3>The Virtual Topology</h3>")
-        #print("<h4><a href='"+protocol+newfilename+"' target='_blank'>"+newfilename+"</a></h4>")
-        print("<h4><a href='"+graph_filename+"' target='_blank'>"+graph_filename+"</a></h4>")
-        print("<br><iframe src='"+graph_filename+"' style='border:2px solid red;width:500px;height:500px;' title='"+newfilename+"'></iframe></div>")
-        #os.remove('graph_Virtual topology graph.html')
+
+        #14-11-2026
+        VTgraphExportMode = getVTGraphExportMode()
+        if VTgraphExportMode=="all" or VTgraphExportMode=="per_step_html":
+            print("<div style='margin-left:auto;margin-right:auto;'>")
+            print("<h3>The Virtual Topology After Routing The Vector of Traffic Requests</h3>")
+            print("<h4><a href='"+graph_filename+"' target='_blank'>"+graph_filename+"</a></h4>")
+            print("<br><iframe src='"+graph_filename+"' style='border:2px solid red;width:500px;height:500px;' title='"+newfilename+"'></iframe>")
+            print("</div>")
 
 def visualiseVirtualTopology(graph_filename,IncludeNetworkGraphInHTML):
     #αυτη η function διαβαζει την εικονικη τοπολογια και δημιουργει από την αρχή ένα γράφο
@@ -446,22 +1423,15 @@ def visualiseVirtualTopology(graph_filename,IncludeNetworkGraphInHTML):
     #δηλαδή απλά κάνω ένα αντίγραφο του "VT_after_StepΧ_QueΥ_ReqΖ.html" και το ονομάζω "VirtualTopology.html"
     
     if IncludeNetworkGraphInHTML == True:
-        #newfilename = os.path.join(graph_path, graph_filename)
-        #shutil.copyfile(graph_filename, newfilename)
-        #os.remove(graph_filename)
-        #os. rename(filename, newfilename)
-        #print("<div style='margin-left:auto;margin-right:auto;'><iframe src='"+newfilename+"' style='border:2px solid red;width:500px;height:500px;' title='"+newfilename+"'></iframe>")
-        #print("<br><br><a href='"+newfilename+"'>"+newfilename+"</a></div>")
-        print("<div style='margin-left:auto;margin-right:auto;'>")
-        print("<h3>The Virtual Topology</h3>")
-        #print("<h4><a href='"+protocol+newfilename+"' target='_blank'>"+newfilename+"</a></h4>")
-        #print("<p><a href='"+graph_filename+"' target='_blank'>"+graph_filename+"</a></p></td>")
 
-        print("<h4><a href='"+graph_filename+"' target='_blank'>"+"The final Virtual Topology"+"</a></h4>")
-        print("<br><iframe src='"+graph_filename+"' style='border:2px solid red;width:500px;height:500px;' title='"+graph_filename+"'></iframe></div>")
-        #os.remove('graph_Virtual topology graph.html')
-
-
+        #14-11-2026
+        VTgraphExportMode = getVTGraphExportMode()
+        if VTgraphExportMode=="all" or VTgraphExportMode=="per_step_html":
+            print("<div style='margin-left:auto;margin-right:auto;'>")
+            print("<h3>The Virtual Topology After Routing The Vector of Traffic Requests</h3>")
+            print("<h4><a href='"+graph_filename+"' target='_blank'>"+graph_filename+"</a></h4>")
+            print("<br><iframe src='"+graph_filename+"' style='border:2px solid red;width:500px;height:500px;' title='"+graph_filename+"'></iframe>")
+            print("</div>")
 
 def sortTrafficRequestsAscending(data):
     # Sort according to the 3rd item of each triplet which corresponds to the requested Gbps [m,n,req]
@@ -1030,7 +2000,6 @@ def createSQLiteDB_withoutBlocking(path):
     
     return sqliteConnection
 
-
 def createSQLiteDB(path, dbName):
     #source: https://www.sqlite.org/docs.html
     #        https://www.geeksforgeeks.org/python-sqlite-connecting-to-database/?ref=next_article 
@@ -1537,8 +2506,6 @@ def createSQLiteDB(path, dbName):
     
     return sqliteConnection
 
-
-
 def insertRoutingVirtualLinksOverPhysicalTopology2sqlite(sqliteConnection, vlsrc, vldst, vlnum, plsrc, pldst, fiberid, waveid, type, hopseqnum, numHops, shPathAsInt, shPathAsStr, plDirection, plCurrentSource, plCurrentDestination, LatIP, LatTransp):
     plFound = False
     try:
@@ -1614,9 +2581,7 @@ def getRevisitsFromSQLite(sqliteConnection):
     #print(f"<li style='list-style-type: circle;'>PhysicalLinks having source={plsrc:d} and destination={pldst:d}: {len(dataset):d}.")
     #return len(dataset)
 
-
 # get totals from DB
-
 def getDiPerQueueFromSQLite(sqliteConnection, quenum, B):
 
     sql  =  "select src, sum(cap) "
@@ -1733,7 +2698,6 @@ def getWmnPerQueueFromSQLite(sqliteConnection, quenum, L):
 
     return dict
 
-
 def getfmnPerQueueFromSQLite(sqliteConnection, quenum, L, WavelengthsPerFiber): 
     #get the number of wavelengths; the number of fibers is the ceiling of the fraction of the number of wavelengths to the wavelengths per fiber  
     
@@ -1800,7 +2764,6 @@ def getLatFibLenPerQueueFromSQLite(sqliteConnection, quenum):
 
     return dict
 
-
 def updateVirtualLink2sqlite(sqliteConnection, vl, utilcap, freecap):
     
     try:
@@ -1814,7 +2777,6 @@ def updateVirtualLink2sqlite(sqliteConnection, vl, utilcap, freecap):
     except sqlite3.Error as err:
         #print('<div class="error">Error occurred during INSERT INTO VirtualLinks - ', err,"</div>")
         error("Error occurred during UPDATE VirtualLinks. "+err.sqlite_errorname,err.sqlite_errorcode)
-
 
 #5-10-2025
 def updateVirtualLink2sqliteForHeaviestHottestFirstAndComparison(sqliteConnection, vl, utilcap, freecap, tag):
@@ -1831,8 +2793,6 @@ def updateVirtualLink2sqliteForHeaviestHottestFirstAndComparison(sqliteConnectio
         #print('<div class="error">Error occurred during INSERT INTO VirtualLinks - ', err,"</div>")
         error("Error occurred during UPDATE VirtualLinks. "+err.sqlite_errorname,err.sqlite_errorcode)
 
-
-
 # 5-10-2025
 def insertVirtualLinkLightPaths2sqliteForHeaviestHottestAndComparison(sqliteConnection, src, dst, num, caputil, capfree, tag):
     #insertVirtualLinkLightPaths2sqlite(dbConnection, newVL[0], newVL[1], newVL[2], cap, roundatdecimals((maxGbpsPerWavelength - cap),3))
@@ -1847,7 +2807,6 @@ def insertVirtualLinkLightPaths2sqliteForHeaviestHottestAndComparison(sqliteConn
     except sqlite3.Error as err:
         #print('<div class="error">Error occurred during INSERT INTO VirtualLinks - ', err,"</div>")
         error("Error occurred during INSERT INTO VirtualLinks. "+err.sqlite_errorname,err.sqlite_errorcode)
-
 
 def insertVirtualLinkLightPaths2sqlite(sqliteConnection, src, dst, num, caputil, capfree):
     #insertVirtualLinkLightPaths2sqlite(dbConnection, newVL[0], newVL[1], newVL[2], cap, roundatdecimals((maxGbpsPerWavelength - cap),3))
@@ -1865,67 +2824,6 @@ def insertVirtualLinkLightPaths2sqlite(sqliteConnection, src, dst, num, caputil,
     except sqlite3.Error as err:
         #print('<div class="error">Error occurred during INSERT INTO VirtualLinks - ', err,"</div>")
         error("Error occurred during INSERT INTO VirtualLinks. "+err.sqlite_errorname,err.sqlite_errorcode)
-
-"""
-# 5-10-2025
-def insertRoutingOfTrafficRequests2sqliteForHeaviestHottestAndComparison(sqliteConnection, que, request, vlsrc, vldst, vlnum, utilcap, freecap, type, routingReqTrfStep, routReqTrfStpVLseqNum, tag):
-
-    #insertRoutingOfTrafficRequests2sqlite(dbConnection, queID, requestID, vl[0],vl[1],vl[2], requiredcap, freecap, "Grm")   # insert routing to sqlite table.
-    try:
-        sql =  "INSERT INTO RoutingTrafficRequestsOverVirtualTopology "
-        sql += "(reqquenum, reqnum, vlsrc, vldst, vlnum, utilcap, freecap, type, routingStep, routStepVLseqnum, result) "
-        sql += "VALUES (%d, %d, %d, %d, %d, %.3f, %.3f, '%s', %d, %d, '%s');" % (que, request, vlsrc, vldst, vlnum, utilcap, freecap, type, routingReqTrfStep, routReqTrfStpVLseqNum, tag)
-        
-        ###17-9-2024 
-        #print("<li style='list-style-type: square;'>SQL query = ",sql,"</li>")
-
-        sqliteConnection.execute(sql)
-
-        sqliteConnection.commit()
-
-        ###17-9-2024 
-        #fsqlInsert = open("SQL_INSERTINTO_RoutingTrafficRequestsOverVirtualTopology.txt","a")
-        #fsqlInsert.write(sql+'\n')
-        #fsqlInsert.close()
-
-    except sqlite3.Error as err:
-        '''
-        #fsqlRTROVT = open("SQL_SELECT_RoutingTrafficRequestsOverVirtualTopology.txt","a")
-        sql = "SELECT * FROM RoutingTrafficRequestsOverVirtualTopology"
-        cursor = sqliteConnection.execute(sql)
-        print("<li style='list-style-type: circle;'>RoutingTrafficRequestsOverVirtualTopology")
-        dataset = cursor.fetchall() 
-        for row in dataset: 
-            print("<li>",row)
-            #fsqlRTROVT.write(row+'\n')
-        sqliteConnection.commit()
-        #fsqlRTROVT.close()
-
-        #fsqlTR = open("SQL_SELECT_TrafficRequests.txt","a")
-        sql = "SELECT * FROM TrafficRequests"
-        cursor = sqliteConnection.execute(sql)
-        print("<li style='list-style-type: circle;'>TrafficRequests")
-        dataset = cursor.fetchall() 
-        for row in dataset: 
-            print("<li>",row+'\n')
-            #fsqlTR.write(row)
-        sqliteConnection.commit()
-        #fsqlTR.close()
-
-        #fsqlVL = open("SQL_SELECT_VirtualLinks.txt","a")
-        sql = "SELECT * FROM VirtualLinks"
-        cursor = sqliteConnection.execute(sql)
-        print("<li style='list-style-type: circle;'>VirtualLinks")
-        dataset = cursor.fetchall() 
-        for row in dataset: 
-            print("<li>",row) 
-            #fsqlVL.write(row+'\n')
-        sqliteConnection.commit()
-        #fsqlVL.close()
-        '''
-        #print('<div class="error">Error occurred during INSERT INTO RoutingTrafficRequestsOverVirtualTopology. ', err,"</div>")
-        error("Error occurred during INSERT INTO RoutingTrafficRequestsOverVirtualTopology. " + err.sqlite_errorname,err.sqlite_errorcode)
-"""
 
 #26-10-2026 latest version
 def insertRoutingOfTrafficRequests2sqlite(
@@ -1945,7 +2843,7 @@ def insertRoutingOfTrafficRequests2sqlite(
         sqliteConnection.execute(
             """INSERT OR IGNORE INTO VirtualLinks (src, dst, num, caputil, capfree, result)
                 VALUES (?, ?, ?, ?, ?, 'Pass');""",
-            (vlsrc, vldst, vlnum, utilcap, freecap)
+            (int(vlsrc), int(vldst), int(vlnum), float(utilcap), float(freecap))   #14-11-2026 wrap the parameters in int(...) or float(...) so sqlite3 never stores a numpy.float64 or numpy.int64 as a binary blob
         )
         
 
@@ -1971,67 +2869,6 @@ def insertRoutingOfTrafficRequests2sqlite(
             + err.sqlite_errorname,
             err.sqlite_errorcode
         )
-
-""" #previous version
-def insertRoutingOfTrafficRequests2sqlite(sqliteConnection, que, request, vlsrc, vldst, vlnum, utilcap, freecap, type, routingReqTrfStep, routReqTrfStpVLseqNum):
-    #insertRoutingOfTrafficRequests2sqlite(dbConnection, queID, requestID, vl[0],vl[1],vl[2], requiredcap, freecap, "Grm")   # insert routing to sqlite table.
-    try:
-        sql =  "INSERT INTO RoutingTrafficRequestsOverVirtualTopology "
-        sql += "(reqquenum, reqnum, vlsrc, vldst, vlnum, utilcap, freecap, type, routingStep, routStepVLseqnum, result) "
-        sql += "VALUES (%d, %d, %d, %d, %d, %.3f, %.3f, '%s', %d, %d, '%s');" % (que, request, vlsrc, vldst, vlnum, utilcap, freecap, type, routingReqTrfStep, routReqTrfStpVLseqNum, 'ok')
-        
-        ###17-9-2024 
-        #print("<li style='list-style-type: square;'>SQL query = ",sql,"</li>")
-
-        sqliteConnection.execute(sql)
-
-        sqliteConnection.commit()
-
-        ###17-9-2024 
-        #fsqlInsert = open("SQL_INSERTINTO_RoutingTrafficRequestsOverVirtualTopology.txt","a")
-        #fsqlInsert.write(sql+'\n')
-        #fsqlInsert.close()
-
-    except sqlite3.Error as err:
-        '''
-        #fsqlRTROVT = open("SQL_SELECT_RoutingTrafficRequestsOverVirtualTopology.txt","a")
-        sql = "SELECT * FROM RoutingTrafficRequestsOverVirtualTopology"
-        cursor = sqliteConnection.execute(sql)
-        print("<li style='list-style-type: circle;'>RoutingTrafficRequestsOverVirtualTopology")
-        dataset = cursor.fetchall() 
-        for row in dataset: 
-            print("<li>",row)
-            #fsqlRTROVT.write(row+'\n')
-        sqliteConnection.commit()
-        #fsqlRTROVT.close()
-
-        #fsqlTR = open("SQL_SELECT_TrafficRequests.txt","a")
-        sql = "SELECT * FROM TrafficRequests"
-        cursor = sqliteConnection.execute(sql)
-        print("<li style='list-style-type: circle;'>TrafficRequests")
-        dataset = cursor.fetchall() 
-        for row in dataset: 
-            print("<li>",row+'\n')
-            #fsqlTR.write(row)
-        sqliteConnection.commit()
-        #fsqlTR.close()
-
-        #fsqlVL = open("SQL_SELECT_VirtualLinks.txt","a")
-        sql = "SELECT * FROM VirtualLinks"
-        cursor = sqliteConnection.execute(sql)
-        print("<li style='list-style-type: circle;'>VirtualLinks")
-        dataset = cursor.fetchall() 
-        for row in dataset: 
-            print("<li>",row) 
-            #fsqlVL.write(row+'\n')
-        sqliteConnection.commit()
-        #fsqlVL.close()
-        '''
-        #print('<div class="error">Error occurred during INSERT INTO RoutingTrafficRequestsOverVirtualTopology. ', err,"</div>")
-        error("Error occurred during INSERT INTO RoutingTrafficRequestsOverVirtualTopology. " + err.sqlite_errorname,err.sqlite_errorcode)
-"""
-
-
 
 #5-10-2025
 def insertRoutingOfTrafficRequests2sqliteForHeaviestHottestAndComparison(sqliteConnection, que, request, vlsrc, vldst, vlnum, utilcap, freecap, type, routingReqTrfStep, routReqTrfStpVLseqNum, tag):
@@ -2090,8 +2927,6 @@ def insertRoutingOfTrafficRequests2sqliteForHeaviestHottestAndComparison(sqliteC
         '''
         #print('<div class="error">Error occurred during INSERT INTO RoutingTrafficRequestsOverVirtualTopology. ', err,"</div>")
         error("Error occurred during INSERT INTO RoutingTrafficRequestsOverVirtualTopology. " + err.sqlite_errorname,err.sqlite_errorcode)
-
-
 
 def saveRunIDandRunConfig2sqlite(sqliteConnection, uuid, sysArgv):
 
@@ -2178,7 +3013,6 @@ def saveRunIDandRunConfig2sqlite(sqliteConnection, uuid, sysArgv):
     except sqlite3.Error as err:
         #print('<div class="error">Error occurred - ', error,"</div>")
         error("Error during instertion to RunConfiguration table. "+err.sqlite_errorname, err.sqlite_errorcode)
-
 
 def saveQueues2sqlite(sqliteConnection, Q):
     try:
@@ -2418,7 +3252,6 @@ def EvaluateLatencyAggregated(LatRouterPort,LatencyTimeUnit,LatTransponder,LatED
 
     return LatencyTotal
 
-
 def printLatenciesPerTrafficRequest(sqliteConnection, Q, Type):
 
     #global GlobalPrintOutEnabled
@@ -2487,7 +3320,6 @@ def printLatenciesPerTrafficRequest(sqliteConnection, Q, Type):
     #EOP
     print("</table>")
 
-
 #27-10-2026 new version
 def getLatencyForAllTrafficRequests():
     return """
@@ -2526,46 +3358,6 @@ def getLatencyForAllTrafficRequests():
     GROUP BY TReqQueNum, TReqReqNum
     ORDER BY TReqQueNum, TReqReqNum;
     """
-
-'''#27-10-2026 old version
-def getLatencyForAllTrafficRequests():
-# 19-9-2025 >>> this calculates the average per concurrent virtual link (lightpath) of a traffic request and shows the average latency of all the concurrent virtual links (routing steps) of a traffic request
-    """
-    SELECT 
-    TReqQueNum, 
-    TReqReqNum,
-    MIN(TReqSrc)       AS TReqSrc,     -- or MAX(), depends on logic
-    MIN(TReqDst)       AS TReqDst,
-    SUM(routeTReqOverVTutilCap) AS SumUtilCap,
-    AVG(TotalLatency)  AS AvgLatency
-FROM (
-    SELECT 
-        TReqQueNum, 
-        TReqReqNum,
-        TReqSrc,
-        TReqDst,
-        routeTReqOverVTutilCap,
-        routeTReqOverVTroutingStep,	
-        routeTReqOverVTtype,
-        SUM(routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) AS TotalLatency
-    FROM route_traffic_requests_over_virtual_and_physical_topology
-    GROUP BY
-        TReqQueNum, 
-        TReqReqNum,	
-        TReqSrc,
-        TReqDst,
-        routeTReqOverVTutilCap,
-        routeTReqOverVTroutingStep,
-        routeTReqOverVTtype
-) AS innerq
-GROUP BY 
-    TReqQueNum, 
-    TReqReqNum
-ORDER BY 
-    TReqQueNum, 
-    TReqReqNum;
-    """
-'''
 
 #27-10-2026 new version (old version deleted completely)
 def saveLatencyPerTrafficRequestToDatabase_according_to_the_old_latency_formula(sqliteConnection):
@@ -2606,7 +3398,6 @@ def saveLatencyPerTrafficRequestToDatabase_according_to_the_old_latency_formula(
     sqliteConnection.execute(sql3)
     sqliteConnection.commit()
 
-
 #13-10-2025 for latency cap calculation
 #the following uses the old latency formula for published measurements
 def calculateLatencyPerTrafficRequestTempDatabase_according_to_the_old_latency_formula(sqliteConnection):
@@ -2638,9 +3429,7 @@ def calculateLatencyPerTrafficRequestTempDatabase_according_to_the_old_latency_f
     cursor = sqliteConnection.execute(sql3)
     sqliteConnection.commit()
 
-
 #27-10-2026 latest version
-#27-10-2026 new version
 def calculateLatencyPerTrafficRequestTempDatabase(sqliteConnection):
     sqliteConnection.execute("DELETE FROM LatencyOfThreadOfTrafficRequestTemp;")
     sqliteConnection.execute("DELETE FROM LatencyOfTrafficRequestTemp;")
@@ -2770,242 +3559,6 @@ def calculateLatencyPerTrafficRequestTempDatabase(sqliteConnection):
             TReqReqNum ASC;
     """)
     sqliteConnection.commit()
-
-'''#27-10-2026 new version
-def calculateLatencyPerTrafficRequestTempDatabase(sqliteConnection):
-    sqliteConnection.execute("DELETE FROM LatencyOfThreadOfTrafficRequestTemp;")
-    sqliteConnection.execute("DELETE FROM LatencyOfTrafficRequestTemp;")
-    sqliteConnection.commit()
-
-    sql = """
-        SELECT 
-            TReqQueNum,
-            TReqReqNum,
-            routeTReqOverVTroutingStep AS ConcurrentRouteID,
-            COUNT(DISTINCT routeTReqOverVTroutStepVLseqnum) AS numberOfLightpathHops_H_sd_mn
-        FROM route_traffic_requests_over_virtual_and_physical_topology
-        WHERE TReqResult = 'Pass'
-          AND (TReqQueNum, TReqReqNum) NOT IN (
-              SELECT DISTINCT reqquenum, reqnum
-              FROM RoutingTrafficRequestsOverVirtualTopology
-              WHERE result LIKE 'Blocked%' OR result <> 'Pass'
-          )
-        GROUP BY 
-            TReqQueNum,
-            TReqReqNum,
-            routeTReqOverVTroutingStep
-        ORDER BY 
-            TReqQueNum ASC, 
-            TReqReqNum ASC;
-    """
-    cursor = sqliteConnection.execute(sql)
-    dataset1 = cursor.fetchall()
-
-    for row in dataset1:
-        Q = row[0]
-        R = row[1]
-        C = row[2]
-        H = row[3]
-
-        sql_hops = f"""
-            SELECT                                                                                  
-                TReqQueNum,
-                TReqReqNum,
-                routeTReqOverVTroutingStep,
-                routeTReqOverVTroutStepVLseqnum,
-                routeVLoverPT_NumOfHops,
-                routeVLoverPT_LatIP,
-                routeVLoverPT_LatTransp,
-                PLlatEDFA,
-                PLlatFibLen
-            FROM route_traffic_requests_over_virtual_and_physical_topology
-            WHERE TReqQueNum = {Q:d}
-              AND TReqReqNum = {R:d}
-              AND routeTReqOverVTroutingStep = {C:d}
-              AND TReqResult = 'Pass'
-            ORDER BY                                                                                       
-                TReqQueNum ASC, TReqReqNum ASC,
-                routeTReqOverVTroutingStep ASC, routeTReqOverVTroutStepVLseqnum ASC;
-        """
-        cursor_hops = sqliteConnection.execute(sql_hops)
-        dataset2 = cursor_hops.fetchall()
-
-        if not dataset2 or H <= 0:
-            continue
-
-        LatEDFA = 0.0
-        LatFibLen = 0.0
-        L_r = 0.0
-        L_t = 0.0
-
-        for hop_row in dataset2:
-            L_r = float(hop_row[5])
-            L_t = float(hop_row[6])
-            L_e = float(hop_row[7])
-            L_f = float(hop_row[8])
-
-            LatEDFA += L_e
-            LatFibLen += L_f
-
-        LatIP = 2.0 * (H + 1) * L_r
-        LatTransp = 2.0 * H * L_t
-        LatWDM = LatTransp + LatEDFA + LatFibLen
-        LatThread = LatIP + LatWDM
-
-        sqliteConnection.execute(
-            """INSERT INTO LatencyOfThreadOfTrafficRequestTemp
-               (TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep, NumberOfLightpathHops,
-                LatIP, LatTransp, LatEDFA, LatFibLen, ThreadLatency)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);""",
-            (
-                Q, R, C, H,
-                roundatdecimals(LatIP, 3),
-                roundatdecimals(LatTransp, 3),
-                roundatdecimals(LatEDFA, 3),
-                roundatdecimals(LatFibLen, 3),
-                roundatdecimals(LatThread, 3)
-            )
-        )
-
-    sqliteConnection.commit()
-
-    sqliteConnection.execute("""
-        INSERT INTO LatencyOfTrafficRequestTemp (
-            TReqQueNum,
-            TReqReqNum,
-            TrafficRequestLatency
-        ) 
-        SELECT 
-            TReqQueNum,
-            TReqReqNum,
-            AVG(ThreadLatency) AS avg_latency
-        FROM LatencyOfThreadOfTrafficRequestTemp
-        GROUP BY 
-            TReqQueNum,
-            TReqReqNum
-        ORDER BY 
-            TReqQueNum ASC,
-            TReqReqNum ASC;
-    """)
-    sqliteConnection.commit()
-'''
-
-'''
-#27-10-2026 old version
-#13-10-2025 for latency cap
-#the following uses the updated latency formula for future measurements
-def calculateLatencyPerTrafficRequestTempDatabase(sqliteConnection):
-    # 20-9-2025 >>> 
-    
-   
-
-    sql="""
-        SELECT 
-            TReqQueNum,
-            TReqReqNum,
-            routeTReqOverVTroutingStep as ConcurrentRouteID,
-            MAX(routeTReqOverVTroutStepVLseqnum)+1 AS numberOfLightpathHops_H_sd_mn
-        FROM route_traffic_requests_over_virtual_and_physical_topology AS WaveLengthAssignments
-        GROUP BY 
-            TReqQueNum,
-            TReqReqNum,
-            routeTReqOverVTroutingStep
-        ORDER BY 
-            TReqQueNum ASC, 
-            TReqReqNum ASC;
-        """
-
-    cursor = sqliteConnection.execute(sql)
-    sqliteConnection.commit()
-    
-    dataset1 = cursor.fetchall() 
-    for row in dataset1: 
-        Q = row[0]
-        R = row[1]
-        C = row[2]
-        H = row[3]
-        #print (f"<li>queue:{Q:0d}, request:{R:0d}, concurrentRouteID:{C:0d}, numberOfLightpathHops:{H:0d}")
-        sql = f"""
-                SELECT                                                                                  
-                        TReqQueNum,
-                        TReqReqNum,
-                        routeTReqOverVTroutingStep,
-                        routeTReqOverVTroutStepVLseqnum,
-                        routeVLoverPT_NumOfHops,
-                        routeVLoverPT_LatIP,
-                        routeVLoverPT_LatTransp,
-                        PLlatEDFA,
-                        PLlatFibLen
-                FROM route_traffic_requests_over_virtual_and_physical_topology
-                where
-                            TReqQueNum = {Q:d}
-                        and TReqReqNum = {R:d}
-                        and routeTReqOverVTroutingStep = {C:d}
-                order by                                                                                       
-                TReqQueNum ASC,	TReqReqNum ASC, routeTReqOverVTroutingStep ASC, routeTReqOverVTroutStepVLseqnum ASC
-              """
-        cursor = sqliteConnection.execute(sql)
-        sqliteConnection.commit()
-
-        LatIP = 0.0
-        LatTransp = 0.0
-        LatWDM = 0.0
-        LatEDFA = 0.0
-        LatFibLen = 0.0
-
-        dataset2 = cursor.fetchall() 
-        for row in dataset2: 
-            Que = row[0]
-            Req = row[1]
-            Rou = row[2]
-            Seq = row[3]
-            phH = row[4]
-            L_r = row[5]
-            L_t = row[6]
-            L_e = row[7]
-            L_f = row[8]
-            #print (f"<li>queue:{Que:0d}, request:{Req:0d}, concurrentRouteID:{Rou:0d}, lightpathID:{Seq:0d}, numberOfPhysicalLinkHops:{phH:0d}, LatencyRouterPort:{L_r:0.3f}, LatencyTransponder:{L_t:0.3f}, LatencyEDFAs:{L_e:0.3f}, LatencyPropagation:{L_f:0.3f}")
-
-            LatEDFA += L_e
-            LatFibLen += L_f
-
-        #end_for
-
-        LatIP = 2*(H+1)*L_r
-        LatTransp = 2*H*L_t
-                
-        LatWDM = LatTransp+LatEDFA+LatFibLen
-        LatThread = LatIP + LatWDM
-
-        sqliteConnection.execute(f"""INSERT INTO LatencyOfThreadOfTrafficRequestTemp (TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep, NumberOfLightpathHops, LatIP, LatTransp, LatEDFA, LatFibLen, ThreadLatency)
-                                     VALUES ({Q:d}, {R:d}, {C:d}, {H:d}, {LatIP:0.3f}, {LatTransp:0.3f}, {LatEDFA:0.3f}, {LatFibLen:0.3f}, {LatThread:0.3f});""")
-        sqliteConnection.commit()
-
-    #end_for
-    
-    # save latency per traffic request for all requests to the database
-    
-    sqliteConnection.execute("""
-        INSERT INTO LatencyOfTrafficRequestTemp (
-            TReqQueNum,
-            TReqReqNum,
-            TrafficRequestLatency
-        ) 
-        SELECT 
-            TReqQueNum,
-            TReqReqNum,
-            AVG(ThreadLatency) AS avg_latency
-        FROM LatencyOfThreadOfTrafficRequestTemp
-        GROUP BY 
-            TReqQueNum,
-            TReqReqNum
-        ORDER BY 
-            TReqQueNum,
-            TReqReqNum,
-            routeTReqOverVTroutingStep;
-    """)
-    sqliteConnection.commit()
-'''
 
 #27-10-2026 latest version
 def saveLatencyPerTrafficRequestToDatabase(sqliteConnection):
@@ -3154,290 +3707,6 @@ def saveLatencyPerTrafficRequestToDatabase(sqliteConnection):
     """)
     sqliteConnection.commit()
 
-'''
-#27-10-2026 new version
-def saveLatencyPerTrafficRequestToDatabase(sqliteConnection):
-    # Clear previous entries so no stale/unfiltered rows remain
-    sqliteConnection.execute("DELETE FROM LatencyOfThreadOfTrafficRequest;")
-    sqliteConnection.execute("DELETE FROM LatencyOfTrafficRequest;")
-    sqliteConnection.commit()
-
-    # Select only threads belonging to PASSED TrafficRequests where ALL virtual links in the request passed
-    sql = """
-        SELECT 
-            TReqQueNum,
-            TReqReqNum,
-            routeTReqOverVTroutingStep AS ConcurrentRouteID,
-            COUNT(DISTINCT routeTReqOverVTroutStepVLseqnum) AS numberOfLightpathHops_H_sd_mn
-        FROM route_traffic_requests_over_virtual_and_physical_topology
-        WHERE TReqResult = 'Pass'
-          AND (TReqQueNum, TReqReqNum) NOT IN (
-              SELECT DISTINCT reqquenum, reqnum
-              FROM RoutingTrafficRequestsOverVirtualTopology
-              WHERE result LIKE 'Blocked%' OR result <> 'Pass'
-          )
-        GROUP BY 
-            TReqQueNum,
-            TReqReqNum,
-            routeTReqOverVTroutingStep
-        ORDER BY 
-            TReqQueNum ASC, 
-            TReqReqNum ASC;
-    """
-    cursor = sqliteConnection.execute(sql)
-    dataset1 = cursor.fetchall()
-
-    for row in dataset1:
-        Q = row[0]
-        R = row[1]
-        C = row[2]
-        H = row[3]
-
-        sql_hops = f"""
-            SELECT                                                                                  
-                TReqQueNum,
-                TReqReqNum,
-                routeTReqOverVTroutingStep,
-                routeTReqOverVTroutStepVLseqnum,
-                routeVLoverPT_NumOfHops,
-                routeVLoverPT_LatIP,
-                routeVLoverPT_LatTransp,
-                PLlatEDFA,
-                PLlatFibLen
-            FROM route_traffic_requests_over_virtual_and_physical_topology
-            WHERE TReqQueNum = {Q:d}
-              AND TReqReqNum = {R:d}
-              AND routeTReqOverVTroutingStep = {C:d}
-              AND TReqResult = 'Pass'
-            ORDER BY                                                                                       
-                TReqQueNum ASC, TReqReqNum ASC,
-                routeTReqOverVTroutingStep ASC, routeTReqOverVTroutStepVLseqnum ASC;
-        """
-        cursor_hops = sqliteConnection.execute(sql_hops)
-        dataset2 = cursor_hops.fetchall()
-
-        if not dataset2 or H <= 0:
-            continue
-
-        LatEDFA = 0.0
-        LatFibLen = 0.0
-        L_r = 0.0
-        L_t = 0.0
-
-        for hop_row in dataset2:
-            L_r = float(hop_row[5])
-            L_t = float(hop_row[6])
-            L_e = float(hop_row[7])
-            L_f = float(hop_row[8])
-
-            LatEDFA += L_e
-            LatFibLen += L_f
-
-        # Handwritten Equation (1):
-        # L_dem = 2 * L_r * (H + 1) + 2 * L_t * H + sum(L_e * A_mn + L_p * S_mn)
-        LatIP = 2.0 * (H + 1) * L_r
-        LatTransp = 2.0 * H * L_t
-        LatWDM = LatTransp + LatEDFA + LatFibLen
-        LatThread = LatIP + LatWDM
-
-        sqliteConnection.execute(
-            """INSERT INTO LatencyOfThreadOfTrafficRequest
-               (TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep, NumberOfLightpathHops,
-                LatIP, LatTransp, LatEDFA, LatFibLen, ThreadLatency)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);""",
-            (
-                Q, R, C, H,
-                roundatdecimals(LatIP, 3),
-                roundatdecimals(LatTransp, 3),
-                roundatdecimals(LatEDFA, 3),
-                roundatdecimals(LatFibLen, 3),
-                roundatdecimals(LatThread, 3)
-            )
-        )
-
-    sqliteConnection.commit()
-
-    # Save mean latency per successfully provisioned traffic request
-    sqliteConnection.execute("""
-        INSERT INTO LatencyOfTrafficRequest (
-            TReqQueNum,
-            TReqReqNum,
-            TrafficRequestLatency
-        )
-        SELECT 
-            TReqQueNum,
-            TReqReqNum,
-            AVG(ThreadLatency) AS avg_latency
-        FROM LatencyOfThreadOfTrafficRequest
-        GROUP BY 
-            TReqQueNum,
-            TReqReqNum
-        ORDER BY 
-            TReqQueNum ASC,
-            TReqReqNum ASC;
-    """)
-    sqliteConnection.commit()
-'''
-'''
-#27-10-2026 old version
-#the following uses the updated latency formula for future measurements
-def saveLatencyPerTrafficRequestToDatabase(sqliteConnection):
-    # 20-9-2025 >>> 
-    
-   
-
-    sql="""
-        SELECT 
-            TReqQueNum,
-            TReqReqNum,
-            routeTReqOverVTroutingStep as ConcurrentRouteID,
-            MAX(routeTReqOverVTroutStepVLseqnum)+1 AS numberOfLightpathHops_H_sd_mn
-        FROM route_traffic_requests_over_virtual_and_physical_topology AS WaveLengthAssignments
-        GROUP BY 
-            TReqQueNum,
-            TReqReqNum,
-            routeTReqOverVTroutingStep
-        ORDER BY 
-            TReqQueNum ASC, 
-            TReqReqNum ASC;
-        """
-
-    cursor = sqliteConnection.execute(sql)
-    sqliteConnection.commit()
-    
-    dataset1 = cursor.fetchall() 
-    for row in dataset1: 
-        Q = row[0]
-        R = row[1]
-        C = row[2]
-        H = row[3]
-        #print (f"<li>queue:{Q:0d}, request:{R:0d}, concurrentRouteID:{C:0d}, numberOfLightpathHops:{H:0d}")
-        sql = f"""
-                SELECT                                                                                  
-                        TReqQueNum,
-                        TReqReqNum,
-                        routeTReqOverVTroutingStep,
-                        routeTReqOverVTroutStepVLseqnum,
-                        routeVLoverPT_NumOfHops,
-                        routeVLoverPT_LatIP,
-                        routeVLoverPT_LatTransp,
-                        PLlatEDFA,
-                        PLlatFibLen
-                FROM route_traffic_requests_over_virtual_and_physical_topology
-                where
-                            TReqQueNum = {Q:d}
-                        and TReqReqNum = {R:d}
-                        and routeTReqOverVTroutingStep = {C:d}
-                order by                                                                                       
-                TReqQueNum ASC,	TReqReqNum ASC, routeTReqOverVTroutingStep ASC, routeTReqOverVTroutStepVLseqnum ASC
-              """
-        cursor = sqliteConnection.execute(sql)
-        sqliteConnection.commit()
-
-        LatIP = 0.0
-        LatTransp = 0.0
-        LatWDM = 0.0
-        LatEDFA = 0.0
-        LatFibLen = 0.0
-
-        dataset2 = cursor.fetchall() 
-        for row in dataset2: 
-            Que = row[0]
-            Req = row[1]
-            Rou = row[2]
-            Seq = row[3]
-            phH = row[4]
-            L_r = row[5]
-            L_t = row[6]
-            L_e = row[7]
-            L_f = row[8]
-            #print (f"<li>queue:{Que:0d}, request:{Req:0d}, concurrentRouteID:{Rou:0d}, lightpathID:{Seq:0d}, numberOfPhysicalLinkHops:{phH:0d}, LatencyRouterPort:{L_r:0.3f}, LatencyTransponder:{L_t:0.3f}, LatencyEDFAs:{L_e:0.3f}, LatencyPropagation:{L_f:0.3f}")
-
-            LatEDFA += L_e
-            LatFibLen += L_f
-
-        #end_for
-
-        LatIP = 2*(H+1)*L_r
-        LatTransp = 2*H*L_t
-                
-        LatWDM = LatTransp+LatEDFA+LatFibLen
-        LatThread = LatIP + LatWDM
-
-        sqliteConnection.execute(f"""INSERT INTO LatencyOfThreadOfTrafficRequest (TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep, NumberOfLightpathHops, LatIP, LatTransp, LatEDFA, LatFibLen, ThreadLatency)
-                                     VALUES ({Q:d}, {R:d}, {C:d}, {H:d}, {LatIP:0.3f}, {LatTransp:0.3f}, {LatEDFA:0.3f}, {LatFibLen:0.3f}, {LatThread:0.3f});""")
-        sqliteConnection.commit()
-
-    #end_for
-    
-    # save latency per traffic request for all requests to the database
-    
-    sqliteConnection.execute("""
-        INSERT INTO LatencyOfTrafficRequest (
-            TReqQueNum,
-            TReqReqNum,
-            TrafficRequestLatency
-        ) 
-        SELECT 
-            TReqQueNum,
-            TReqReqNum,
-            AVG(ThreadLatency) AS avg_latency
-        FROM LatencyOfThreadOfTrafficRequest
-        GROUP BY 
-            TReqQueNum,
-            TReqReqNum
-        ORDER BY 
-            TReqQueNum,
-            TReqReqNum,
-            routeTReqOverVTroutingStep;
-    """)
-    sqliteConnection.commit()
-'''
-
-
-
-''' #27-10-2026 old version
-def getLatencyStatsPerTrafficRequest(sqliteConnection, Q, Type):
-
-    # 19-9-2025 >>> this falsely calculates one Lt and 2 Lr for each physical link even if there is no virtual link (lightpath) hop.
-    # resulting to either more or less latency
-    
-    #global GlobalPrintOutEnabled
-        
-    #print("<li># Q", Q)
-    #print("<li># Type", Type)
-           
-    sql  = " SELECT avg(TotalLatency) as avgLat, min(TotalLatency) as minLat, max(TotalLatency) as maxLat   "
-    sql += " FROM (	SELECT                                                                                  "
-    sql += " TReqQueNum, TReqReqNum, routeTReqOverVTroutingStep,	routeTReqOverVTtype,                    "
-    sql += " sum (routeVLoverPT_LatIP + routeVLoverPT_LatTransp + PLlatEDFA + PLlatFibLen) as TotalLatency  "
-    sql += " FROM (select * from route_traffic_requests_over_virtual_and_physical_topology                  "
-    sql += " order by TReqQueNum,                                                                           "
-    sql += " TReqReqNum)                                                                                    "
-    sql += " WHERE                                                                                          "
-    sql += f" TReqQueNum like '{Q:s}'                                                                            "
-    sql += f" AND routeTReqOverVTtype like '{Type:s}'                                                             "
-    sql += " group by                                                                                       "
-    sql += " TReqQueNum, TReqReqNum,	routeTReqOverVTroutingStep                                          "
-    sql += " order by                                                                                       "
-    sql += " TReqQueNum ASC,	TReqReqNum ASC)                                                             "
-    
-
-    #print ("<li>SQL=",sql)
-    
-    cursor = sqliteConnection.execute(sql)
-    
-    sqliteConnection.commit()
-    
-    stats = []
-
-    dataset = cursor.fetchall() 
-    for row in dataset: 
-        stats = [row[0], row[1], row[2]]
-    #EOP
-    
-    return stats
-'''
 #27-10-2026 new version
 def getLatencyStatsPerTrafficRequest(sqliteConnection, Q, Type):
     sql = f"""
@@ -3617,37 +3886,7 @@ def EvaluateLatencyPerQueue(QueueIDNum,LatRouterPort,LatencyTimeUnit,LatTranspon
 
     return LatencyTotal
 
-
-
-
-
-'''
-def saveTrafficRequests2mysql(data, nodes):
-    #source: https://realpython.com/python-mysql/
-    #source: https://www.w3schools.com/python/python_mysql_getstarted.asp
-    
-    import mysql.connector # type: ignore
-    now = datetime.now()
-    timestamp = "y"+str(now.year)+"_m"+str(now.month)+"_d"+str(now.day)+"_h"+str(now.hour)+"_m"+str(now.minute)+"_s"+str(now.second)+"_u"+str(now.microsecond)
-    mydb = mysql.connector.connect(
-        host="localhost",
-        user="lightuser",
-        password="Success2024!",
-        database="lightbase"
-    )
-    mycursor = mydb.cursor()
-    n = len(data)
-    count=0
-    # Traverse through all array elements
-    for i in range(n):
-        count+=1
-        sql = "INSERT INTO trafficrequest (reqid, src, dst, reqcap) VALUES (%d, %d, %d, %.3f)" % (count, data[i][0], data[i][1], data[i][2])
-        mycursor.execute(sql)
-    mydb.commit()
-'''
-
 #Distributions
-
 def there_is_a_value_out_of_range(data_list, min_val, max_val):
     for value in data_list:
         if (value < min_val) or (value > max_val):
@@ -3655,15 +3894,10 @@ def there_is_a_value_out_of_range(data_list, min_val, max_val):
     return False;
 
 #Poisson
-
-import numpy as np
-import scipy.stats as stats
-
 def validatePoissonDistribution(data, mu, alpha_level=0.05):
-    """
-    Validates if 'data' follows a Poisson distribution (or Truncated Poisson) with mean 'mu'.
-    Uses the Chi-Square goodness-of-fit test with dynamic binning.
-    """
+    #Validates if data follows a Poisson distribution (or Truncated Poisson) with mean μ (mu).
+    #Uses the Chi-Square goodness-of-fit test with dynamic binning.
+    
     # Get observed frequencies of each discrete value generated
     val, counts = np.unique(data, return_counts=True)
     
@@ -3702,85 +3936,6 @@ def validatePoissonDistribution(data, mu, alpha_level=0.05):
     is_valid = p_value >= alpha_level
     return is_valid, p_value
 
-
-'''
-def validatePoissonDistribution(data, mu, alpha_level=0.05):
-    """
-    Validates if 'data' follows a Poisson distribution with mean 'mu'.
-    Uses the Chi-Square goodness-of-fit test with binning for small expected counts.
-    """
-    # Get observed frequencies of each discrete value generated
-    val, counts = np.unique(data, return_counts=True)
-    
-    # Calculate expected probabilities from theoretical Poisson PMF
-    expected_probs = stats.poisson.pmf(val, mu)
-    
-    # Normalize expected probabilities so they sum to 1 (accounts for missing tails)
-    expected_probs /= expected_probs.sum()
-    expected_counts = expected_probs * len(data)
-    
-    # Chi-Square tests require expected counts in every bin to be at least 5.
-    # We dynamically group smaller bins to satisfy this strict mathematical assumption.
-    obs_binned, exp_binned = [], []
-    curr_obs, curr_exp = 0, 0
-    
-    for o, e in zip(counts, expected_counts):
-        curr_obs += o
-        curr_exp += e
-        if curr_exp >= 5:
-            obs_binned.append(curr_obs)
-            exp_binned.append(curr_exp)
-            curr_obs, curr_exp = 0, 0
-            
-    # Add any remaining tail fragments to the final bin
-    if curr_exp > 0 and len(exp_binned) > 0:
-        obs_binned[-1] += curr_obs
-        exp_binned[-1] += curr_exp
-    elif curr_exp > 0:
-        obs_binned.append(curr_obs)
-        exp_binned.append(curr_exp)
-        
-    stat, p_value = stats.chisquare(obs_binned, exp_binned)
-    
-    is_valid = p_value >= alpha_level
-    return is_valid, p_value
-'''
-'''
-def poisson_range(mu, low, high, size=1):
-
-    if low > high:
-        raise ValueError("low must be less than or equal to high")
-
-    if low < 0:
-        raise ValueError("low must be non-negative")
-
-    if not isinstance(size, int) or size <= 0:
-        raise ValueError("size must be a positive integer")
-
-    results = []
-    while len(results) < size:
-        samples = poisson.rvs(mu, size=size * 2) #Generate more than needed, to account for discards
-        valid_samples = samples[(samples >= low) & (samples <= high)]
-        results.extend(valid_samples)
-
-    return np.array(results[:size])
-'''
-'''
-def generateDistributedTrafficRequestValuesThatFollowThePoissonProcess(apo, mexri, X, megethos):
-
-    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.poisson.html#scipy.stats.poisson
-    # https://www.statology.org/poisson-distribution-python/
-        
-    #gen_data = poisson.rvs(mu=X, size=megethos*2) #generate double size to keep valid
-    
-    data = poisson_range(X, apo, mexri, megethos)
-
-    while there_is_a_value_out_of_range(data, apo, mexri):
-        data = poisson.rvs(mu=X, size=megethos)
-
-    return data
-'''
-
 #19-8-2026 new function to create Poisson based traffic amounts
 def generatePoissonDistributedTrafficRequestValues(X_mean, megethos):
     import scipy.stats as stats
@@ -3795,17 +3950,10 @@ def generatePoissonDistributedTrafficRequestValues(X_mean, megethos):
 
     return roundata
 
-
-
 #Uniform
-
-import scipy.stats as stats
-
 def validateUniformDistribution(data, apo, mexri, alpha_level=0.05):
-    """
-    Validates if 'data' follows a Uniform distribution bounded by [apo, mexri].
-    Uses the Kolmogorov-Smirnov test.
-    """
+    #Validates if 'data' follows a Uniform distribution bounded by [apo, mexri]. Uses the Kolmogorov-Smirnov test.
+    
     # For scipy's uniform distribution, 'loc' is the minimum, 
     # and 'scale' is the total range (maximum - minimum)
     klimaka = mexri - apo
@@ -3820,7 +3968,6 @@ def validateUniformDistribution(data, apo, mexri, alpha_level=0.05):
     return is_valid, p_value
 
 def generateUniformlyDistributedTrafficRequestValues(apo, mexri, X, megethos):
-    import scipy.stats as stats
 
     # https://numpy.org/doc/stable/reference/random/index.html#random-quick-start
     # https://mathworld.wolfram.com/UniformDistribution.html
@@ -3855,310 +4002,69 @@ def generateUniformlyDistributedTrafficRequestValues(apo, mexri, X, megethos):
     #noprintout#print (rnd,"random traffic amount",data,end=" for ")
     return roundata
 
-'''
-import numpy as np
-import scipy.stats as stats
-
-def validateUniformDistribution(data, apo, mexri, alpha_level=0.05):
-    """
-    Validates if 'data' follows a Uniform distribution bounded by [apo, mexri].
-    Uses the Kolmogorov-Smirnov test.
-    """
-    # For scipy's uniform, loc is the minimum, and scale is the range (max - min)
-    klimaka = mexri - apo
-    
-    # Perform Kolmogorov-Smirnov test
-    stat, p_value = stats.kstest(data, 'uniform', args=(apo, klimaka))
-    
-    # Null hypothesis: data comes from the theoretical distribution. 
-    # If p_value >= alpha_level (0.05), we fail to reject the null hypothesis.
-    is_valid = p_value >= alpha_level
-    
-    return is_valid, p_value
-'''
-
-
 #Pareto
-
 #18-8-2026
-'''
-def calculate_pareto_parameters(X_mean, alpha=1.5):
-    # Calculate the minimum 'apo' required to achieve the mean X
-    # Formula: apo = X * (alpha - 1) / alpha
-    apo = X_mean * ((alpha - 1.0) / alpha)
-    
-    return apo, alpha
-'''
-
-'''
-older version of Pareto
-def generateParetoDistributedTrafficRequestValues(apo, alpha, megethos):
-    import scipy.stats as stats
-
-    # 'b' is the shape parameter (alpha). 'scale' defines the minimum possible value (apo).
-    # Generate data directly without upper bound rejection sampling.
-    data = stats.pareto.rvs(b=alpha, scale=apo, size=megethos)
-    
-    # Round to 3 decimal places
-    roundata = [round(val, 3) for val in data]
-
-    return roundata
-'''
-
 def generateParetoDistributedTrafficRequestValues(X_mean, megethos, alpha=1.5):
     import scipy.stats as stats
 
-    # 1. Calculate the minimum 'apo' required to achieve the target mean X_mean
+    # Calculate the minimum 'apo' required to achieve the target mean X_mean
     # Formula: apo = X * (alpha - 1) / alpha
     apo = X_mean * ((alpha - 1.0) / alpha)
 
-    # 2. Generate the Pareto distributed data
+    # Generate the Pareto distributed data
     # 'b' is the shape parameter (alpha). 'scale' defines the minimum possible value (apo).
     # This naturally generates the heavy-tailed distribution without arbitrary upper bounds.
     data = stats.pareto.rvs(b=alpha, scale=apo, size=megethos)
     
-    # 3. Round to 3 decimal places to match your network simulation's precision
+    # Round to 3 decimal places to match your network simulation's precision
     roundata = [round(float(val), 3) for val in data]
 
     return roundata
 
-import scipy.stats as stats
-
 def validateParetoDistribution(data, alpha, apo, alpha_level=0.05):
-    """
-    Validates if 'data' follows a Pareto distribution with shape 'alpha' and minimum 'apo'.
-    Uses the Kolmogorov-Smirnov test.
-    """
+    #Validates if 'data' follows a Pareto distribution with shape 'alpha' and minimum 'apo'. Uses the Kolmogorov-Smirnov test.
+    
     # In scipy's pareto: shape 'b' maps to 'alpha', 'loc' is 0, 'scale' maps to 'apo'
     stat, p_value = stats.kstest(data, 'pareto', args=(alpha, 0.0, apo))
     
     is_valid = p_value >= alpha_level
     return is_valid, p_value
-
-
-'''
-def validateParetoDistribution(data, alpha, apo, alpha_level=0.05):
-    """
-    Validates if 'data' follows a Pareto distribution with shape 'alpha' and minimum 'apo'.
-    Uses the Kolmogorov-Smirnov test.
-    """
-    # In scipy's pareto: shape 'b' maps to 'alpha', 'loc' is 0, 'scale' maps to 'apo'
-    stat, p_value = stats.kstest(data, 'pareto', args=(alpha, 0.0, apo))
-    
-    is_valid = p_value >= alpha_level
-    return is_valid, p_value
-'''
-
-
 
 #Weibull
+def validateWeibullDistribution(data, X_mean, c_shape=0.8, alpha_level=0.05):
+    #Validates if 'data' follows a Weibull distribution centered around 'X_mean'. Uses the Kolmogorov-Smirnov test.
+    
+    # Recalculate the exact same parameters used in the generator
+    apo = min(10.0, X_mean * 0.5)
+    gamma_val = special.gamma(1.0 + (1.0 / c_shape))
+    scale_lambda = (X_mean - apo) / gamma_val
+    
+    #Perform the Kolmogorov-Smirnov test
+    stat, p_value = stats.kstest(data, 'weibull_min', args=(c_shape, apo, scale_lambda))
+    
+    #Null hypothesis: data comes from the theoretical distribution. 
+    is_valid = p_value >= alpha_level
+    
+    return is_valid, p_value
 
-'''
-def calculate_weibull_parameters(X_mean, c_shape=0.8):
-    # Dynamic apo ensures the minimum is never larger than the target mean X.
+def generateWeibullDistributedTrafficRequestValues(X_mean, megethos, c_shape=0.8):
+    #Dynamic apo ensures the minimum is never larger than the target mean X.
     # For X >= 20, it safely caps at 10.0. For X < 20, it scales down (e.g., X=2 -> apo=1.0)
     apo = min(10.0, X_mean * 0.5)
     
     # Calculate the scale (lambda) required to achieve the mean X
     gamma_val = special.gamma(1.0 + (1.0 / c_shape))
     scale_lambda = (X_mean - apo) / gamma_val
-    
-    return apo, c_shape, scale_lambda
 
-
-def generateWeibullDistributedTrafficRequestValues(apo, shape_c, scale_lambda, megethos):
-    import scipy.stats as stats
-
-    # 'c' is the shape parameter. 'loc' shifts the minimum to apo. 'scale' is lambda.
-    # Generate data directly without upper bound rejection sampling.
-    data = stats.weibull_min.rvs(c=shape_c, loc=apo, scale=scale_lambda, size=megethos)
-    
-    # Round to 3 decimal places
-    roundata = [round(val, 3) for val in data]
-
-    return roundata
-'''
-
-
-import scipy.stats as stats
-import scipy.special as special
-
-def validateWeibullDistribution(data, X_mean, c_shape=0.8, alpha_level=0.05):
-    """
-    Validates if 'data' follows a Weibull distribution centered around 'X_mean'.
-    Uses the Kolmogorov-Smirnov test.
-    """
-    # 1. Recalculate the exact same parameters used in the generator
-    apo = min(10.0, X_mean * 0.5)
-    gamma_val = special.gamma(1.0 + (1.0 / c_shape))
-    scale_lambda = (X_mean - apo) / gamma_val
-    
-    # 2. Perform the Kolmogorov-Smirnov test
-    stat, p_value = stats.kstest(data, 'weibull_min', args=(c_shape, apo, scale_lambda))
-    
-    # Null hypothesis: data comes from the theoretical distribution. 
-    is_valid = p_value >= alpha_level
-    
-    return is_valid, p_value
-
-
-def generateWeibullDistributedTrafficRequestValues(X_mean, megethos, c_shape=0.8):
-    import scipy.stats as stats
-    import scipy.special as special
-
-    # 1. Dynamic apo ensures the minimum is never larger than the target mean X.
-    # For X >= 20, it safely caps at 10.0. For X < 20, it scales down (e.g., X=2 -> apo=1.0)
-    apo = min(10.0, X_mean * 0.5)
-    
-    # 2. Calculate the scale (lambda) required to achieve the mean X
-    gamma_val = special.gamma(1.0 + (1.0 / c_shape))
-    scale_lambda = (X_mean - apo) / gamma_val
-
-    # 3. Generate the Weibull distributed data
+    #  Generate the Weibull distributed data
     # 'c' is the shape parameter. 'loc' shifts the minimum to apo. 'scale' is lambda.
     # This naturally generates the distribution without arbitrary upper bounds.
     data = stats.weibull_min.rvs(c=c_shape, loc=apo, scale=scale_lambda, size=megethos)
     
-    # 4. Round to 3 decimal places to match your network simulation's precision
+    # Round to 3 decimal places to match your network simulation's precision
     roundata = [round(float(val), 3) for val in data]
 
     return roundata
-
-
-import scipy.stats as stats
-'''
-def validateWeibullDistribution(data, shape_c, apo, scale_lambda, alpha_level=0.05):
-    """
-    Validates if 'data' follows a Weibull distribution with shape 'shape_c', 
-    minimum 'apo', and scale 'scale_lambda'.
-    Uses the Kolmogorov-Smirnov test.
-    """
-    # In scipy's weibull_min: shape 'c' is shape_c, loc is apo, scale is scale_lambda
-    stat, p_value = stats.kstest(data, 'weibull_min', args=(shape_c, apo, scale_lambda))
-    
-    # Null hypothesis: data comes from the theoretical distribution. 
-    # If p_value >= alpha_level (typically 0.05), we fail to reject the null hypothesis.
-    is_valid = p_value >= alpha_level
-    
-    return is_valid, p_value
-'''
-
-
-'''
-def validateWeibullDistribution(data, shape_c, apo, scale_lambda, alpha_level=0.05):
-    """
-    Validates if 'data' follows a Weibull distribution with shape 'shape_c', 
-    minimum 'apo', and scale 'scale_lambda'.
-    Uses the Kolmogorov-Smirnov test.
-    """
-    # In scipy's weibull_min: shape 'c' is shape_c, loc is apo, scale is scale_lambda
-    stat, p_value = stats.kstest(data, 'weibull_min', args=(shape_c, apo, scale_lambda))
-    
-    is_valid = p_value >= alpha_level
-    return is_valid, p_value
-'''
-
-
-'''
-#31-7-2026 new types of distributions for random traffic loads
-
-def calculate_pareto_parameters(X_mean, alpha=1.5):
-    # Calculate the minimum 'apo' required to achieve the mean X
-    # Formula: apo = X * (alpha - 1) / alpha
-    apo = X_mean * ((alpha - 1.0) / alpha)
-    
-    # The max should be a hardware/network limitation
-    mexri = 1000.0 # e.g., 1 Tbps max request
-    
-    return apo, mexri, alpha
-
-def calculate_weibull_parameters(X_mean, c_shape=0.8, apo=10.0):
-    # Calculate the scale (lambda) required to achieve the mean X
-    # Gamma function is found in scipy.special.gamma
-    gamma_val = special.gamma(1.0 + (1.0 / c_shape))
-    scale_lambda = (X_mean - apo) / gamma_val
-    
-    mexri = 1000.0 # e.g., 1 Tbps max request
-    
-    return apo, mexri, c_shape, scale_lambda
-'''
-
-
-'''
-#deigma = generateParetoDistributedTrafficRequestValues(traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, megethosdeigmatos) 
-#def generateParetoDistributedTrafficRequestValues(apo, mexri, alpha, megethos):
-
-def generateParetoDistributedTrafficRequestValues(apo, mexri, alpha, megethos):
-    import scipy.stats as stats
-    import numpy as np
-
-    # For Pareto, the 'scale' parameter defines the minimum possible value (xm), 
-    # which corresponds to our 'apo'.
-    # 'b' is the shape parameter (alpha). Lower values = more bursty/extreme outliers.
-    
-    # Generate initial data
-    data = stats.pareto.rvs(b=alpha, scale=apo, size=megethos)
-    
-    # Pareto naturally extends to infinity. To strictly enforce the 'mexri' (max) bound,
-    # we use rejection sampling. Because of the heavy tail, we only resample the 
-    # specific elements that are out of bounds to avoid infinite loops.
-    
-    out_of_bounds = (data < apo) | (data > mexri)
-    while out_of_bounds.any():
-        # Count how many need to be replaced
-        num_to_replace = out_of_bounds.sum()
-        
-        # Generate new values just for those specific indices
-        data[out_of_bounds] = stats.pareto.rvs(b=alpha, scale=apo, size=num_to_replace)
-        
-        # Re-evaluate which ones are still out of bounds
-        out_of_bounds = (data < apo) | (data > mexri)
-
-    roundata = []
-    for val in data:
-        # Assuming roundatdecimals is functionally equivalent to Python's round()
-        roundata.append(round(val, 3)) 
-
-    return roundata
-
-
-#Weibull ditribution
-#deigma = generateWeibullDistributedTrafficRequestValues(traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, megethosdeigmatos) 
-
-def generateWeibullDistributedTrafficRequestValues(apo, mexri, shape_c, scale_lambda, megethos):
-    import scipy.stats as stats
-    import numpy as np
-
-    # For Weibull (weibull_min in Scipy):
-    # 'c' is the shape parameter.
-    # 'loc' shifts the distribution to start at our minimum (apo).
-    # 'scale' (lambda) determines the spread of the data.
-    
-    # Generate initial data
-    data = stats.weibull_min.rvs(c=shape_c, loc=apo, scale=scale_lambda, size=megethos)
-    
-    # Enforce bounds using efficient rejection sampling.
-    # Since loc=apo naturally enforces the minimum, we primarily need to catch 
-    # values that exceed the upper 'mexri' bound.
-    out_of_bounds = (data < apo) | (data > mexri)
-    
-    while out_of_bounds.any():
-        # Count how many need to be replaced
-        num_to_replace = out_of_bounds.sum()
-        
-        # Generate new values just for those specific indices
-        data[out_of_bounds] = stats.weibull_min.rvs(c=shape_c, loc=apo, scale=scale_lambda, size=num_to_replace)
-        
-        # Re-evaluate out-of-bounds condition
-        out_of_bounds = (data < apo) | (data > mexri)
-
-    roundata = []
-    for val in data:
-        roundata.append(round(val, 3)) 
-
-    return roundata
-'''
-
 
 def graphDistribution(N, a, b, lambda_param, data, distrib, filepath):
     import matplotlib.pyplot as plt
@@ -4202,9 +4108,6 @@ def graphDistribution(N, a, b, lambda_param, data, distrib, filepath):
     #plt.show(block=False)
     #plt.pause(1)
     plt.close()
-    
-
-
 
 def find_path(graph, start, end, path=[]):
     # source https://www.python.org/doc/essays/graphs/
@@ -4219,24 +4122,6 @@ def find_path(graph, start, end, path=[]):
             newpath = find_path(graph, node, end, path)
             if newpath: return newpath
     return None
-
-"""
-def find_all_paths(graph, start, end, path=[]):
-    #source https://www.python.org/doc/essays/graphs/
-
-    path = path + [start]
-    if start == end:
-        return [path]
-    if start not in graph:
-        return []
-    paths = []
-    for node in graph[start]:
-        if node not in path:
-            newpaths = find_all_paths(graph, node, end, path)
-            for newpath in newpaths:
-                paths.append(newpath)
-    return paths
-"""
 
 def find_shortest_path_using_bfs(graph, src, dst):
     # def bfs_shortest_path(graph, start, goal):
@@ -4284,57 +4169,15 @@ def find_shortest_path_using_bfs(graph, src, dst):
     # If no path is found, return an empty list
     return []
 
-'''
-def find_all_paths_using_bfs(graph, src, dst):
-    """
-    Finds all paths from source to destination using breadth-first search.
-
-    Args:
-        graph: A dictionary representing the graph, where keys are vertices and
-               values are lists of their neighbors.
-        src: The source vertex.
-        dst: The destination vertex.
-
-    Returns:
-        A list of lists, where each inner list represents a path from src to dst.
-    """
-    from collections import deque
-    queue = deque([(src, [src])])
-    all_paths = []
-    visited = set()  # Track visited nodes to prevent cycles in already explored paths.
-
-    while queue:
-        vertex, path = queue.popleft()
-
-        if vertex == dst:
-            all_paths.append(path)
-            # Do NOT return here. Continue to find other paths.
-        if vertex not in visited or vertex == src: #allow the source to be visited multiple times
-            if vertex != src:
-                visited.add(vertex)
-
-            for neighbor in graph.get(vertex, []):
-                queue.append((neighbor, path + [neighbor]))
-
-    return all_paths
-'''
-
-
 def find_all_simple_paths_bfs(graph, src, dst):
     from collections import deque
-
-    """
-    Finds all SIMPLE paths from source to destination using breadth-first search.
-
-    Args:
-        graph: A dictionary representing the graph, where keys are vertices and
-               values are lists of their neighbors.
-        src: The source vertex.
-        dst: The destination vertex.
-
-    Returns:
-        A list of lists, where each inner list represents a simple path from src to dst.
-    """
+    
+    #Finds all SIMPLE paths from source to destination using breadth-first search.
+    #graph: A dictionary representing the graph, where keys are vertices and values are lists of their neighbors.
+    #src: The source vertex.
+    #dst: The destination vertex.
+    #Return a list of lists, where each inner list represents a simple path from src to dst.
+    
     queue = deque([(src, [src])])
     all_simple_paths = []
 
@@ -4351,7 +4194,6 @@ def find_all_simple_paths_bfs(graph, src, dst):
 
     #return all_simple_paths
     return sorted(all_simple_paths, key=len)
-
 
 def getPhysicalPathCost(L,C,p):
     #print(p)
@@ -4373,20 +4215,6 @@ def getPhysicalPathCost(L,C,p):
         #print ("cost",val)
         Cost += val
     return Cost
-
-"""
-def getPhysicalPathWithMinCost(Nm,L,C,s,d):
-    allpaths = find_all_paths(Nm,s,d)
-    min = numpy.inf #numpy infinite value
-    path = []
-    for i in range(len(allpaths)):
-        cost = getPhysicalPathCost(L,C,allpaths[i])
-        #print('path ',allpaths[i],'from',s,'to',d,'cost',cost)
-        if cost < min:
-            min = cost
-            path = allpaths[i]
-    return path
-"""
 
 def nodes2tuple(L):
     T=tuple(L)
@@ -4449,22 +4277,9 @@ def updateVitualLinkFreeCapacity(vtfrcap, linktuple, value):
 
     return cap
 
-
 def roundatdecimals(val, dec):
-    return numpy.round(val, decimals=dec, out=None)
-
-
-"""
-def roundatdecimals(val, dec):
-    if numpy.isnan(val):
-        error("The value is not a number",555)
-        return -1
-    if isinstance(val, str):
-        val = float(val)
-    return numpy.round(val, decimals=dec, out=None)
-"""
-
-
+    # return numpy.round(val, decimals=dec, out=None)
+    return float(numpy.round(val, decimals=dec, out=None))   #14-11-2026 wrap the parameter in float(...) so never stores a numpy.float64 or numpy.int64 as a binary blob
 
 def microsecond(t):
     return numpy.double(t*0.000001)
@@ -4594,11 +4409,7 @@ def appendPerRequestLinks(data,que,req,newVL,type,cpcty,step,stepseqnum):
     GlobalStringOutcomes += "]</td></tr>"
     GlobalStringOutcomes += "</table>"
 
-def appendFinalVT(data,n,src,dst,cpcty, type):
-#def appendFinalVTwhenNewVirtualLink(data,n,src,dst,cpcty):
-    #             data=VTfinal
-    # function that appends the list R of links and their free capacity
-    #type="New"
+def appendFinalVT(data,n,src,dst,cpcty, type):    
     t = cpcty
     link=tuple([src,dst])
     links=data.get(link)
@@ -4618,8 +4429,6 @@ def appendFinalVT(data,n,src,dst,cpcty, type):
     data.update({link:links})   #append the dictionary that holds the links used for each request
 
 def updateFinalVTwhenGroomingOnVirtualLink(data,n,src,dst,cpcty):
-    #             data=VTfinal
-    # function that appends the list R of links and their free capacity
     type="Grm"
     t = cpcty
     link=tuple([src,dst])
@@ -5073,7 +4882,6 @@ def mathLatencyPerDemandFormula():
         """
     return s
 
-
 def mathPowerFormulaPerQueue():
     # https://fred-wang.github.io/MathFonts/mozilla_mathml_test/
     s = """
@@ -5216,8 +5024,6 @@ def mathPowerFormulaPerQueue():
         </math>
         """
     return s
-
-
 
 def mathPowerFormula():
     # https://fred-wang.github.io/MathFonts/mozilla_mathml_test/
@@ -5593,130 +5399,6 @@ def updateTotals(struct, key, val): #function that updates totals in a dictionar
     roundatdecimals(tmp,3)
     struct.update({key: tmp})
 
-'''
-def routeAllTrafficRequestsOverVirtualTopologyMultihopBypass(nodes, data, vt, vtl, vtfreecaps, maxGbpsPerWavelength, VTfinal, R, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection):
-    #this function's parameter "data" refers to the traffic requests
-    #this version is not using Queues!
-    global GlobalPrintOutEnabled
-    global GlobalVirtLinkID
-    
-    s="Virtual topology graph after processing request "
-    gr = graph_new(s, True)
-    
-    n = len(data)
-    count=0
-
-    GlobalVirtLinkID = 0
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        print("<table class='data'>")
-        print("<tr><th colspan='7'>Routing traffic requests over the Virtual Topology <br>(a.k.a. Adding requests to the Virtual Topology)</th></tr>")
-        #print ("<tr><th style='width: 50px; inline-size: 50px;'>Request</th><th style='width: 50px; inline-size: 50px;'>From</th><th style='width: 50px; inline-size: 50px;'>To</th><th>Required/Remain</th><th class='actions'>Actions</th><th>Outcomes update</th><th>Current Virtual Topology</th></tr>")
-        print ("<tr><th>Request</th><th>From</th><th>To</th><th>Required/Remain</th><th class='actions'>Actions</th><th>Free capacities</th><th>Current Virtual Topology</th></tr>")
-    #EOP
-
-    # Traverse through all array elements
-    for i in range(n):   #for each request
-        
-        remain = data[i][2]
-    
-        apo = nodes[data[i][0]]
-        pros = nodes[data[i][1]]
-        req=i+1
-
-        graph_filename="VTpostReq"+str(req)+".html"
-
-        while (remain>0): #while there are remaining Gb of the request to be routed
-            #SOP
-            if (GlobalPrintOutEnabled==True) :
-                print ("<td style='width: 50px; inline-size: 50px;'>Processing request ", req, "</td><td style='width: 50px; inline-size: 50px;'>from", apo, "("+str(data[i][0])+")", "</td><td style='width: 50px; inline-size: 50px;'>to", pros,"("+str(data[i][1])+")", "</td>")
-                print ("<td>Remain",remain, "Gbps to be routed.</td>")
-            #EOP
-
-            graph_add_node(gr,data[i][0],apo,Ncolours)
-            graph_add_node(gr,data[i][1],pros,Ncolours)
-            
-            #SOP
-            if (GlobalPrintOutEnabled==True) :
-                print ("<td class='actions' style='font-size:0.5em'>")
-            #EOP
-            
-            if (remain >= maxGbpsPerWavelength):  #if the request is >=40Gbps
-                #SOP
-                if (GlobalPrintOutEnabled==True) :
-                    print("<li>A new virtual link will be created since the requirement is >= 40 Gbps.")
-                #EOP
-                
-                CapForTheLogicalLink=maxGbpsPerWavelength
-                
-                if (addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, req, data[i][0], data[i][1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTfinal, R, gr, VLIDs, dbConnection) == 0):
-                    #added new link to route 40G successfully
-                    remain = remain - CapForTheLogicalLink
-                    #remain=numpy.round(remain, decimals=3, out=None)
-                    remain = roundatdecimals(remain, 3)
-
-                    # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
-                    TotalLightpaths[0] +=1
-
-                    # do not add a edge on the graph for 40 Gbps virtual (logical) links; we don't want the graph overcrowded
-                    # if you want to add, just uncomment next line
-                    # graph_add_edge(gr,data[i][0],data[i][1],str(CapForTheLogicalLink),"free:0")
-
-            else:   #if the request is <40Gbps attempt grooming
-                #SOP
-                if (GlobalPrintOutEnabled==True) :
-                    print("<li>Since the requirement is < 40 Gbps then an attempt to route traffic over existing virtual links will be made")
-                #EOP
-
-                CapForTheLogicalLink=remain
-                if (routeOneVirtualLinkOverTheVirtualTopologyMultihopBypass(nodes, req, data[i][0], data[i][1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTfinal, R, gr, ReUsedLightpaths, LightpathReuses, VLIDs, dbConnection) == 0):   #try to route it over existing paths of the virtual topology
-                
-                    #routed the required capacity successfully
-                    remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
-                    #remain=numpy.round(remain, decimals=3, out=None)
-
-                    #graph_add_edge(gr,data[i][0],data[i][1],str(CapForTheLogicalLink),"free:0")
-
-                else:   #if it cannot be routed over existing paths of the virtual topology, then add a new virtual link for it
-                    if (addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, req, data[i][0], data[i][1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTfinal, R, gr, VLIDs, dbConnection) == 0):
-                        #added new link to route required capacity successfully
-                        remain = remain - CapForTheLogicalLink
-                        remain=numpy.round(remain, decimals=3, out=None)
-
-                        # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
-                        TotalLightpaths[0] +=1
-            
-            #SOP
-            if (GlobalPrintOutEnabled==True) :
-                print ("</td>")
-                print("<td>Free capacities list vTfreeCapacities vtFrCap=",vtfreecaps,"</td>")
-                print("<td>Virtual Topology vT =",vt)
-                #print("<!--<iframe src='"+graph_filename+"' style='border:2px solid red;width:200px;height:200px;' title='"+graph_filename+"'></iframe>-->")   # not including graphs in the report, but only links to graphs
-                print("<p><a href='"+graph_filename+"' target='_blank'>"+graph_filename+"</a></p>")
-                print("</td></tr>")
-                #print("<li>Links list vTL =",vtl)
-                #print("<li>Links used for each request (s,d,type,capacity) R =",R)
-            #EOP
-
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            #after each request routing over virtual topology save graph phase
-            graph_save(gr, graph_path, graph_filename)
-            #print("<iframe src='"+"VTpostReq"+str(r)+".html"+"'></iframe></td></tr>")
-        #EOP
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        #after all requests show total graph
-        print("</table>")
-        #grFile = os.path.join(graph_path, graph_filename)
-        #print("<div style='margin-left:auto;margin-right:auto;'>")
-        #print("<br><br><a href='"+protocol+grFile+"' target='_blank'>"+graph_filename+"</a></div>")
-        #print("<iframe src='"+protocol+grFile+"' style='border:2px solid red;width:500px;height:500px;' title='"+graph_filename+"'></iframe>")
-    #EOP
-'''
-
 def nsec2msec(t):
     return roundatdecimals( (t * 1e-6), 3 )
 
@@ -5726,7 +5408,6 @@ def copyDictionary(dict):
         cpdict[key] = value
     return cpdict
 
-
 def compare_lists(listA, listB):
 
     lAsort = sorted(listA)
@@ -5734,7 +5415,6 @@ def compare_lists(listA, listB):
     
     # Compare sorted lists
     return lAsort == lBsort
-
 
 def printDifferencesOfDictionary2comparedtoDictionary1(dict1, dict2):
     print("<li>Dict1",dict1)
@@ -5761,12 +5441,8 @@ def printDifferencesOfDictionary2comparedtoDictionary1(dict1, dict2):
 
     print ("</table>")
 
-
-
 def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypassWithForceGrooming(startingStep, gr, nodes, Queue, QueueID, vt,vtl,vtfreecaps, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals):
-
     # 6-4-2025
-    
 
     page =  f"""
                 <table class='data' style='border-collapse: collapse; width: 100%; background-color: lightcoral;'>
@@ -6112,14 +5788,7 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypassWithForceG
 
     return startingStep+step
 
-
-
-
-
-
-
 def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass(startingStep, gr, nodes, Queue, QueueID, vt,vtl,vtfreecaps, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals):
-    
     #6-9-2025 this is the original version of the subroutine, used in multihop bypass
 
     startingStep = startingStep -1
@@ -6339,11 +6008,8 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass(startingS
                         RoutingOfRequestedTrafficStep += 1
                         RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
 
-                        #defaddNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
                         #added new link to route required capacity successfully
                         remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
-                        #remain = remain - CapForTheLogicalLink
-                        #remain=numpy.round(remain, decimals=3, out=None)
 
                         # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
                         TotalLightpaths[0] += 1
@@ -6457,13 +6123,9 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass(startingS
 
     return startingStep+step
 
-
-
-
 def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyHeaviestFirstAndComparison(startingStep, gr, nodes, Queue, QueueID, vt,vtl,vtfreecaps, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals):
     #traffic requests einai to Queue
     #30-9-2025
-
 
     #6-9-2025 this is the original version of the subroutine, used in multihop bypass
 
@@ -6598,7 +6260,6 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyHeaviestFirstAndComparis
                 CapForTheLogicalLink = maxGbpsPerWavelength
                   
                 if (addNewVirtualLinkToTheVirtualTopology(nodes, que, req,  treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):
-                #def addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
                     
                     #if adding succeded
                     RoutingOfRequestedTrafficStep += 1
@@ -6644,11 +6305,8 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyHeaviestFirstAndComparis
                         RoutingOfRequestedTrafficStep += 1
                         RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
 
-                        #defaddNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
                         #added new link to route required capacity successfully
                         remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
-                        #remain = remain - CapForTheLogicalLink
-                        #remain=numpy.round(remain, decimals=3, out=None)
 
                         # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
                         TotalLightpaths[0] += 1
@@ -6762,12 +6420,7 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyHeaviestFirstAndComparis
 
     return startingStep+step
 
-
-
-
-
-
-#>>>>>>>>>>>>>>>>>>>>>>> 1-7-2026
+#1-7-2026
 def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass_checkingForRevisits_usedbyHybridBypass(startingStep, gr, nodes, Queue, QueueID, vt,vtl,vtfreecaps, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, N, Nt, NmC):
     
     #6-9-2025 this is the new version of the subroutine for Hybrid Bypass, where I check for revisits
@@ -6949,7 +6602,6 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass_checkingF
                 CapForTheLogicalLink = maxGbpsPerWavelength
                   
                 if (addNewVirtualLinkToTheVirtualTopology(nodes, que, req,  treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):
-                #def addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
                     
                     #if adding succeded
                     RoutingOfRequestedTrafficStep += 1
@@ -7006,11 +6658,8 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass_checkingF
                         RoutingOfRequestedTrafficStep += 1
                         RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
 
-                        #defaddNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
                         #added new link to route required capacity successfully
                         remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
-                        #remain = remain - CapForTheLogicalLink
-                        #remain=numpy.round(remain, decimals=3, out=None)
 
                         # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
                         TotalLightpaths[0] += 1
@@ -7123,8 +6772,6 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass_checkingF
     #EOP
 
     return startingStep+step, numberOfPathsWithRevisitWhichRoutedDirectly
-
-
 
 #7-4-2026
 def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass_checkingForRevisits_utilizeVirtualWavelengthCapacity_usedbyHybridBypass(startingStep, gr, nodes, Queue, QueueID, vt,vtl,vtfreecaps, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, N, Nt, NmC, virtWavCap):
@@ -7312,7 +6959,6 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass_checkingF
                 CapForTheLogicalLink = virtWavCap #used to be: maxGbpsPerWavelength
                   
                 if (addNewVirtualLinkToTheVirtualTopology(nodes, que, req,  treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, virtWavCap, VTFinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):
-                #def addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
                     
                     #if adding succeded
                     RoutingOfRequestedTrafficStep += 1
@@ -7369,11 +7015,8 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass_checkingF
                         RoutingOfRequestedTrafficStep += 1
                         RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
 
-                        #defaddNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
                         #added new link to route required capacity successfully
                         remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
-                        #remain = remain - CapForTheLogicalLink
-                        #remain=numpy.round(remain, decimals=3, out=None)
 
                         # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
                         TotalLightpaths[0] += 1
@@ -7486,10 +7129,6 @@ def routeAllTrafficRequestsOfOneQueueOverVirtualTopologyMultihopBypass_checkingF
     #EOP
 
     return startingStep+step, numberOfPathsWithRevisitWhichRoutedDirectly
-
-
-
-
 
 def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q0_75_Q1_25(nodes, q0, q1, vt,vtl,vtfreecaps, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals):
     #this version uses Queues!
@@ -7657,7 +7296,6 @@ def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q0_75_Q1
                 CapForTheLogicalLink = maxGbpsPerWavelength
                   
                 if (addNewVirtualLinkToTheVirtualTopology(nodes, que, req,  treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):
-                #def addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
                     
                     #if adding succeded
                     RoutingOfRequestedTrafficStep += 1
@@ -7702,11 +7340,8 @@ def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q0_75_Q1
                         RoutingOfRequestedTrafficStep += 1
                         RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
 
-                        #defaddNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
                         #added new link to route required capacity successfully
                         remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
-                        #remain = remain - CapForTheLogicalLink
-                        #remain=numpy.round(remain, decimals=3, out=None)
 
                         # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
                         TotalLightpaths[0] += 1
@@ -7835,8 +7470,6 @@ def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q0_75_Q1
         visualiseVirtualTopology(graph_filename,(sys.argv[7]!="pdfout")) #if not output to pdf then draw graph in the report
 
     #EOP
-
-
 
 def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q1nextQ0(nodes, q0, q1, vt,vtl,vtfreecaps, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals):
     #this version uses Queues!
@@ -7991,7 +7624,6 @@ def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q1nextQ0
                 CapForTheLogicalLink = maxGbpsPerWavelength
                   
                 if (addNewVirtualLinkToTheVirtualTopology(nodes, que, req,  treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):
-                #def addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
                     
                     #if adding succeded
                     RoutingOfRequestedTrafficStep += 1
@@ -8036,11 +7668,8 @@ def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q1nextQ0
                         RoutingOfRequestedTrafficStep += 1
                         RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
 
-                        #defaddNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
                         #added new link to route required capacity successfully
                         remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
-                        #remain = remain - CapForTheLogicalLink
-                        #remain=numpy.round(remain, decimals=3, out=None)
 
                         # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
                         TotalLightpaths[0] += 1
@@ -8169,11 +7798,6 @@ def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q1nextQ0
         visualiseVirtualTopology(graph_filename,(sys.argv[7]!="pdfout")) #if not output to pdf then draw graph in the report
 
     #EOP
-
-
-
-
-
 
 def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q0nextQ1(nodes, q0, q1, vt,vtl,vtfreecaps, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, graph_path, Ncolours, ReUsedLightpaths, LightpathReuses, TotalLightpaths, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals):
     #this version uses Queues!
@@ -8328,7 +7952,6 @@ def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q0nextQ1
                 CapForTheLogicalLink = maxGbpsPerWavelength
                   
                 if (addNewVirtualLinkToTheVirtualTopology(nodes, que, req,  treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep, RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber) == 0):
-                #def addNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
                     
                     #if adding succeded
                     RoutingOfRequestedTrafficStep += 1
@@ -8373,11 +7996,8 @@ def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q0nextQ1
                         RoutingOfRequestedTrafficStep += 1
                         RoutingOfRequestedTrafficStepVirtualLinkSequenceNumber = 0
 
-                        #defaddNewVirtualLinkToTheVirtualTopologyMultihopBypass(nodes, que, req, Ni,      Nj,      vt, vtl, vtfrcap,    cap,                  maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, addEdgeWhenFreeCapacityOnly = True):
                         #added new link to route required capacity successfully
                         remain = roundatdecimals( (remain - CapForTheLogicalLink), 3)
-                        #remain = remain - CapForTheLogicalLink
-                        #remain=numpy.round(remain, decimals=3, out=None)
 
                         # prostithetai neo virtual link (lightpath) gia na dromologisi tin kinisi pou den mporese na ginei grooming
                         TotalLightpaths[0] += 1
@@ -8507,37 +8127,17 @@ def routeAllTrafficRequestsOfTwoQueuesOverVirtualTopologyMultihopBypass_Q0nextQ1
 
     #EOP
 
-
-
-
-
-
-
-
-#6-4-2025 
-
-#Boithitikes functions
-
+#6-4-2025 Boithitikes functions
 def get_virtual_link_ids(virtual_link_ids_dict, source_dest_tuple):
-    """
-    Retrieves the array of virtual link IDs for a given (source, destination) tuple.
+    #Retrieves the array of virtual link IDs for a given (source, destination) tuple.
+    #virtual_link_ids_dict: A dictionary where keys are (source, destination) tuples and values are lists of virtual link IDs.
+    #source_dest_tuple: The (source, destination) tuple for which to retrieve the IDs.
+    #Returns the list of virtual link IDs associated with the tuple, or None if the tuple is not found in the dictionary.
 
-    Args:
-    virtual_link_ids_dict: A dictionary where keys are (source, destination) tuples
-                            and values are lists of virtual link IDs.
-    source_dest_tuple: The (source, destination) tuple for which to retrieve the IDs.
-
-    Returns:
-    The list of virtual link IDs associated with the tuple, or None if the tuple
-    is not found in the dictionary.
-    """
     if source_dest_tuple in virtual_link_ids_dict:
         return virtual_link_ids_dict[source_dest_tuple]
     else:
         return None
-
-
-
 
 #πρεπει να βρω πρωτα όλες τις διαδρομές από την πηγή στον προορισμό
 #ταξινομώ ως προς τη συντομότερη με τη μεγαλύτερη διαθέσιμο χωρητικότητα
@@ -8763,8 +8363,6 @@ def routeOneVirtualLinkOverTheVirtualTopologyMultihopBypassForceGrooming(nodes, 
 
     remaincap = roundatdecimals(remaincap,3) # remaincap=numpy.round(remaincap, decimals=3, out=None)
     return remaincap
-
-
 
 # 30-9-2025 Used for Lee & Rhee Heaviest / Hottest first and comparison implementation
 #def routeOneVirtualLinkOverTheVirtualTopologyWithTrafficGroomingForHeaviestHottestAndComparison(nodes, queID, requestID, Ni, Nj, vt, vtl, vtfrcap, requiredcap, maxGbpsPerWavelength, VTfinal, ReqRouteInfo, ReUsedLightpaths, LightpathReuses, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, routingOfReqTrafficStep):
@@ -9039,10 +8637,6 @@ def routeOneVirtualLinkOverTheVirtualTopologyWithTrafficGroomingForHeaviestHotte
     remaincap = roundatdecimals(remaincap,3) # remaincap=numpy.round(remaincap, decimals=3, out=None)
     return remaincap
 
-
-
-
-
 def routeOneVirtualLinkOverTheVirtualTopologyMultihopBypass(nodes, queID, requestID, Ni,      Nj,      vt, vtl, vtfrcap,    requiredcap,          maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, ReUsedLightpaths, LightpathReuses, VLIDs, dbConnection,VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, routingOfReqTrafficStep): #, costs):
    #routeOneVirtualLinkOverTheVirtualTopologyMultihopBypass(nodes, que,   req,       treq[0], treq[1], vt, vtl, vtfreecaps, CapForTheLogicalLink, maxGbpsPerWavelength, VTFinal, ReqRouteInfo, gr, ReUsedLightpaths, LightpathReuses, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, RoutingOfRequestedTrafficStep) == 0):   #try to route it over existing paths of the virtual topology
     # this version uses queues
@@ -9298,8 +8892,6 @@ def routeOneVirtualLinkOverTheVirtualTopologyMultihopBypass(nodes, queID, reques
 
     remaincap = roundatdecimals(remaincap,3) # remaincap=numpy.round(remaincap, decimals=3, out=None)
     return remaincap
-
-
 
 #6-9-2025
 def routeOneVirtualLinkOverTheVirtualTopologyMultihopBypass_checkforRevisits(nodes, queID, requestID, Ni, Nj, vt, vtl, vtfrcap, requiredcap, maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, ReUsedLightpaths, LightpathReuses, VLIDs, dbConnection,VirtualLinkIDs, VirtualLinkTReqs, VirtualLinkTotals, routingOfReqTrafficStep, N, Nt, NmC):
@@ -9598,10 +9190,6 @@ def routeOneVirtualLinkOverTheVirtualTopologyMultihopBypass_checkforRevisits(nod
     # 12-10-2025 not only return the remaining capacity as a indication of successful routing (if it is 0) but also return the number of paths that could not use traffic grooming due to revisits
     return remaincap, numberOfPathsWithRevisitWhichRoutedDirectly
 
-
-
-
-
 def getVLfreecapacity(VirtualLinkTotals,vl):
     free=-1
     if vl in VirtualLinkTotals:
@@ -9609,9 +9197,8 @@ def getVLfreecapacity(VirtualLinkTotals,vl):
     return free                    
 
 def CountLightpathsReusedReusesFromDB(dbConnection):
-    """
-    Computes (reused, reuses, countPassLPs) directly from SQLite, considering ONLY passed virtual links and passed traffic requests.
-    """
+    #Computes (reused, reuses, countPassLPs) directly from SQLite, considering ONLY passed virtual links and passed traffic requests.
+
     '''
     sql = """
         SELECT 
@@ -9630,6 +9217,7 @@ def CountLightpathsReusedReusesFromDB(dbConnection):
         GROUP BY rtrovt.vlsrc, rtrovt.vldst, rtrovt.vlnum;
     """
     '''
+
     sql="""
         select vlsrc, vldst, vlnum, count(vlsrc) as reuses
         from RoutingTrafficRequestsOverVirtualTopology
@@ -9652,23 +9240,6 @@ def CountLightpathsReusedReusesFromDB(dbConnection):
 
     return reused, reuses
 
-'''
-#31-10-2026 count reused lightpaths and their reuses from DB, hence not using the old subprogram
-def CountLightpathsReusedReuses(VirtualLinkTotals):
-    #Virtual Links Dictionary structure
-    #Key                                    Value
-    #source (s)	destination (d)	number (n)	cap utilised, cap free, num of traffic requests
-    #e.g.
-    #3	        1	            0	        40.0	      0.0	    1
-    reused = 0 # how many virtual links were reused
-    reuses = 0 # how many reuses of the virtual links
-    for value in VirtualLinkTotals.values():
-        if value[2]>1:
-            reused +=1
-            reuses +=value[2]-1
-    return reused, reuses
-'''
-
 def uniqueSD(VLofUniqueAdequateFreeCapacities):
     result = True
     dict = {}
@@ -9685,7 +9256,6 @@ def uniqueSD(VLofUniqueAdequateFreeCapacities):
                 dict.update({(s,d):VLofUniqueAdequateFreeCapacities[key]})
     return result
         
-
 def demonstrate_how_to_access_the_items_of_a_dictionary():
     D = {}
     print("<p>D = ",D,"</p>")
@@ -9704,10 +9274,11 @@ def create_a_VT_with_virtual_links_that_only_have_sufficient_free_capacity(Virtu
     
     global GlobalPrintOutEnabled
 
+    #14-11-2026 disable print to minimize output of data and execution delay since the feature works well
     #SOP
-    if (GlobalPrintOutEnabled==True) :
-        print ('<li>Current list of virtual links to create a virtual topology of adequate capacity.')
-        printVLdictionaryAsTable(VirtualLinks)
+    #if (GlobalPrintOutEnabled==True) :
+    #    print ('<li>Current list of virtual links to create a virtual topology of adequate capacity.')
+    #    printVLdictionaryAsTable(VirtualLinks)
     #EOP
 
     # Virtual Link Totals = {(s,d,i):[caputil, capfree, num_of_TReqs],...} = {(3, 2, 0): [40.0, 0.0, 1], ...}
@@ -9767,63 +9338,36 @@ def create_a_VT_with_virtual_links_that_only_have_sufficient_free_capacity(Virtu
     #vtnew = appenddictionaryvalueslist(newVTfreeCap)
     vtnew = convertVirtualLinksList2VirtualTopology(newVLfreeCap)
 
+    #14-11-2026 disable print to minimize output of data and execution delay since the feature works well
     #SOP
-    if (GlobalPrintOutEnabled==True) :
-        #print ('<li>New list of virtual links with adequate Free Capacities only = ',newVLfreeCap)
-        # New list of virtual links with adequate Free Capacities only = {(1, 0): [14.0], ...}
-        print("<li>New VT only having VL with adequate free capacity required by the traffic request for possible grooming.")
-        printVTdictionaryAsTable(vtnew)
-        print("<li>New list of VL with adequate free capacity required by the traffic request for possible grooming.")
-        printVLdictionaryAsTable(newVLfreeCap)
-        #print ('<li>New VT with links of adequate free Capacity = ',vtnew)
+    #if (GlobalPrintOutEnabled==True) :
+    #    #print ('<li>New list of virtual links with adequate Free Capacities only = ',newVLfreeCap)
+    #    # New list of virtual links with adequate Free Capacities only = {(1, 0): [14.0], ...}
+    #    print("<li>New VT only having VL with adequate free capacity required by the traffic request for possible grooming.")
+    #    printVTdictionaryAsTable(vtnew)
+    #    print("<li>New list of VL with adequate free capacity required by the traffic request for possible grooming.")
+    #    printVLdictionaryAsTable(newVLfreeCap)
+    #    #print ('<li>New VT with links of adequate free Capacity = ',vtnew)
     #EOP
 
     return vtnew, newVLfreeCap
 
-def getkeyofmaxfreecapacity(newVLfreeCap,commonSD):
-    global GlobalPrintOutEnabled
+#14-11-2026
+def getkeyofmaxfreecapacity(newVLfreeCap, commonSD):
+    # Extract float whether the stored value is a 1-element list [cap] or a float
+    first_val = newVLfreeCap[commonSD[0]]
+    max_val = first_val[0] if isinstance(first_val, list) else first_val
+    key = commonSD[0]
 
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        print("<li>Getting VL with max free capacity among VLs with common source destination",newVLfreeCap)
-        print("<li>List of VL ids with common source destination",commonSD)
-    #EOP
-    max = -1 * numpy.inf
-    maxkey = None
+    for i in range(1, len(commonSD)):
+        curr_val = newVLfreeCap[commonSD[i]]
+        curr_cap = curr_val[0] if isinstance(curr_val, list) else curr_val
+        if curr_cap > max_val:
+            max_val = curr_cap
+            key = commonSD[i]
 
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-    #temp
-        print("<table class='dictionary'>")
-        print("<tr><td>s</td><td>d</td><td>i</td><td>freecap</td><td>equal free capacities</td></tr>")
-    #EOP
+    return key
 
-    prevfreecap = 0
-
-    for i in range(len(commonSD)):
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            #temp
-            print("<tr>","<td>",commonSD[i][0],"</td>","<td>",commonSD[i][1],"</td>","<td>",commonSD[i][2],"</td>","<td>",newVLfreeCap[commonSD[i]][0],"</td>")
-        
-            if prevfreecap == newVLfreeCap[commonSD[i]][0]:
-                print("<td>YES</td>")
-            print("</tr>")
-        #EOP
-
-        prevfreecap = newVLfreeCap[commonSD[i]][0]
-        if newVLfreeCap[commonSD[i]][0] > max:
-            max = newVLfreeCap[commonSD[i]]
-            maxkey = commonSD[i]
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        #temp
-        print("</table>")
-    #EOP
-    
-    return maxkey
-        
 def removeVL(dict,key):
     newdict = {}
     for k in dict:
@@ -9853,7 +9397,6 @@ def keepVirtualLinksWithCommonSourceDestinationWithLowerFreeCapacity(newVLfreeCa
         #for item in keys:
         #    if s == item[0] and d == item[1]:
         #        if newVLfreeCap[key][1] < 
-
 
 def printVLids(dict):
     if len(dict)>0:
@@ -9939,7 +9482,6 @@ def printVLTotals(dict):
     else:
         print("<table class='dictionary'><tr><th>&emptyset;</th></tr></table>")
 
-
 def printRoutingOfVirtualLinksOverWavelengthsWithLimitResultsAsTable_Copy(dict1, dict2):
 
     if len(dict1)>0 and len(dict2)>0:
@@ -9976,7 +9518,6 @@ def printRoutingOfVirtualLinksOverWavelengthsWithLimitResultsAsTable_Copy(dict1,
         print("</table>")
     else:
         print("<table class='dictionary'><tr><th>&emptyset;</th></tr></table>")
-
 
 def printRoutingOfVirtualLinksOverWavelengthsWithLimitResultsAsTable(dict1, dict2):
 
@@ -10017,9 +9558,6 @@ def printRoutingOfVirtualLinksOverWavelengthsWithLimitResultsAsTable(dict1, dict
     else:
         print("<table class='dictionary'><tr><th>&emptyset;</th></tr></table>")
 
-
-
-
 def printRoutingOfVirtualLinksOverWavelengthsWithLimitResultsAsTableForHeaviestHottestFirstAndComparison(dict1, dict2):
 
     dict1 = normalize_dict(dict1)
@@ -10059,9 +9597,6 @@ def printRoutingOfVirtualLinksOverWavelengthsWithLimitResultsAsTableForHeaviestH
     else:
         print("<table class='dictionary'><tr><th>&emptyset;</th></tr></table>")
 
-
-
-
 def printRoutingOfVirtualLinksOverWavelengthsAsTable(dict):
 
     if len(dict)>0:
@@ -10100,7 +9635,6 @@ def printRoutingOfVirtualLinksOverWavelengthsAsTable(dict):
     else:
         print("<table class='dictionary'><tr><th>&emptyset;</th></tr></table>")
 
-
 def printRequestRoutingInfoAsTable(dict):
     if len(dict)>0:
         
@@ -10132,45 +9666,6 @@ def printRequestRoutingInfoAsTable(dict):
         print("</table>")
     else:
         print("<table class='dictionary'><tr><th>&emptyset;</th></tr></table>")
-
-
-#2-7-2026
-
-
-
-'''
-def FreeCapacitiesAsTable(dict):
-    if len(dict)>0:
-        
-        print("<table class='dictionary'>")
-        #print("<tr><th colspan='2'>virtual link s,d</th>")
-        #print("</tr>")
-
-        print("<tr>")
-        print("<th rowspan='1'>queue</th>")
-        print("<th rowspan='1'>request</th>")
-        print("<th rowspan='1'>virtual link (s,d,i), type, capacity utilsed</th>")
-        print("</tr>")
-        
-        for key in dict:
-            valuelen = len(dict[key])
-            print("<tr>")
-            print(f"<td rowspan='{valuelen:d}'>{key[0]:d}</td>")
-            print(f"<td rowspan='{valuelen:d}'>{key[1]:d}</td>")
-            first = True
-            for value in dict[key]:
-                if not first:
-                    print("<tr>")
-                print("<td>",value,"</td>")
-                if first:
-                    print("</tr>")
-                    first = False
-                if not first:
-                    print("</tr>")
-        print("</table>")
-    else:
-        print("<table class='dictionary'><tr><th>&emptyset;</th></tr></table>")
-'''
 
 def printVLdictionaryAsTable(dict):
     if len(dict)>0:
@@ -10233,8 +9728,6 @@ def printVTdictionaryAsTable(dict):
     else:
         print("<table class='dictionary'><tr><th>&emptyset;</th></tr></table>") # https://dev.w3.org/html5/spec-LC/named-character-references.html
 
-
-
 def convertVirtualLinksList2VirtualTopology(listVLs):
     # gets keys (s,d,i) and converts to {s: [d,...],...}
     #print ('<ol><li>In appenddictionaryvalueslist',newVTfreeCap)
@@ -10262,9 +9755,12 @@ def convertVirtualLinksList2VirtualTopology(listVLs):
     
     return vtc
 
-
-# 30-9-2025 Used for Lee & Rhee Heaviest first and comparison implementation
+#30-9-2025 Used for Lee & Rhee Heaviest first and comparison implementation
 #5-10-2025 tag marks temporary update and insertion to keep final virtual topology data later after selection of G1 or G2
+
+#14-11-2026 changing addEdgeWhenFreeCapacityOnly = True to addEdgeWhenFreeCapacityOnly = False to add every edge, not only those with free capacity
+#def addNewVirtualLinkToTheVirtualTopologyWithoutGroomingDirectBypassRoutingForHeaviestHottestAndComparison(nodes, que, req, Ni, Nj, vt, vtl, vtfrcap, cap, maxGbpsPerWavelength, VTfinal, ReqRouteInfo, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, VirtualLinkTotals, RoutReqTrfStp, RoutReqTrafficStpVLSeqNum, tag, addEdgeWhenFreeCapacityOnly = False):
+
 def addNewVirtualLinkToTheVirtualTopologyWithoutGroomingDirectBypassRoutingForHeaviestHottestAndComparison(nodes, que, req, Ni, Nj, vt, vtl, vtfrcap, cap, maxGbpsPerWavelength, VTfinal, ReqRouteInfo, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, VirtualLinkTotals, RoutReqTrfStp, RoutReqTrafficStpVLSeqNum, tag, addEdgeWhenFreeCapacityOnly = True):
     global GlobalPrintOutEnabled
     global GlobalVirtLinkID
@@ -10343,8 +9839,6 @@ def addNewVirtualLinkToTheVirtualTopologyWithoutGroomingDirectBypassRoutingForHe
 
     return remaincap
 
-
-
 # 30-9-2025 Used for Lee & Rhee Heaviest first and comparison implementation
 def addNewVirtualLinkToTheVirtualTopologyNoGraphs(nodes, que, req, Ni, Nj, vt, vtl, vtfrcap, cap, maxGbpsPerWavelength, VTfinal, ReqRouteInfo, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, VirtualLinkTotals, RoutReqTrfStp, RoutReqTrafficStpVLSeqNum, addEdgeWhenFreeCapacityOnly = True):
     global GlobalPrintOutEnabled
@@ -10419,11 +9913,6 @@ def addNewVirtualLinkToTheVirtualTopologyNoGraphs(nodes, que, req, Ni, Nj, vt, v
     #print("<li>Remaining capacity to be routed:",remaincap)
 
     return remaincap
-
-
-
-
-
 
 def addNewVirtualLinkToTheVirtualTopology(nodes, que, req, Ni, Nj, vt, vtl, vtfrcap, cap, maxGbpsPerWavelength, VTfinal, ReqRouteInfo, gr, VLIDs, dbConnection, VirtualLinkIDs, VirtualLinkTReq, VirtualLinkTotals, RoutReqTrfStp, RoutReqTrafficStpVLSeqNum, addEdgeWhenFreeCapacityOnly = True):
     global GlobalPrintOutEnabled
@@ -10506,8 +9995,6 @@ def addNewVirtualLinkToTheVirtualTopology(nodes, que, req, Ni, Nj, vt, vtl, vtfr
 
     return remaincap
 
-
-
 def addVirtualLink(VLIDs, s, d):
     global GlobalStringOutcomes
 
@@ -10545,24 +10032,6 @@ def addVirtualLink(VLIDs, s, d):
     GlobalStringOutcomes += "</table>"
     
     return (s,d,id)
-
-'''
-def updateVirtualLinkCapacity(VLCaps, vlidkey, utilcap, freecap):
-    # virtual link capacities dictionary, virtual link id tuple (s, d, id), array of utilised capacity, free capacity
-    if vlidkey in VLCaps:
-        arrayCaps = VLCaps[vlidkey]
-        c=arrayCaps[0]
-        c = c + utilcap
-        
-        f=arrayCaps[1]
-        f = f + freecap
-        arrayCaps[1]=f
-        
-        VLCaps.update({vlidkey:arrayCaps})
-    else:
-        arrayCaps = [utilcap, freecap]
-        VLCaps.update({vlidkey:arrayCaps})    
-'''
 
 def updateVirtualLinkTReq(VLTReqs, vlidkey, que, req, cap, type):
     
@@ -10609,13 +10078,9 @@ def updateVirtualLinkTReq(VLTReqs, vlidkey, que, req, cap, type):
     GlobalStringOutcomes += "]</td></tr>"
     GlobalStringOutcomes += "</table>"
     
-
-
 def list2string(datalist, separator):
     output = separator.join(map(str, datalist))
     return output
-
-
 
 def error(description,code):
     global GlobalPrintOutEnabled
@@ -10680,11 +10145,6 @@ def updateVirtualLinkTotals(VLTReqs, VLTotals, vlidkey):
     
     GlobalStringOutcomes += f"<td>({vlidkey[0]:d},{vlidkey[1]:d},{vlidkey[2]:d})</td><td>[{totalcap:.3f},{totalfree:.3f},{numtreqs:d}]</td></tr>"
     GlobalStringOutcomes += "</table>"
-
-
-
-
-
 
 
 # 22-9-2025 new route Virtual Links Over Physical Topology Common for Hybrid Direct Multi-hop With Limited Fibers WaveLength Continuity
@@ -10957,212 +10417,6 @@ def routeVirtualLinksOverPhysicalTopologyNewCommonforHybridDirectMultiHopWithLim
     print ("<li>Routing Of Virtual Links Over Wavelengths", RoutingOfVirtualLinksOverWavelengths)
 
     return physicalLinks, RoutingOfVirtualLinksOverWavelengths
-
-
-#<24-9-2025 replace def routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass() with older version - this might be corrupted>
-"""
-def routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass(VLs, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, dist, distEDFA,Cost, wavelengthIDs, LatRouterPort, LatTransponder, dbConnection):
-    global GlobalPrintOutEnabled
-    
-    physicalLinks = [] # list to keep all physical links used to route virtual links on the physical topology
-    RoutingOfVirtualLinksOverWavelengths = {}
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        print ("<table class='data'>")
-        print ("<tr><th colspan=14>Routing virtual (lightpath) links over the Physical Topology in the optical layer</th></tr>")
-        print("<tr><th>Step</th><th>Virtual Link</th><th>Utilised capacity</th><th>Free capacity</th><th>Shortest path</th><th class='actions'>Physical Link(s)</th><th>Distance (km)</th><th>Wavelengths</th><th>Wavelength ID<br>(source,destination,fiber,wavelength)</th><th>Type</th><th>Node</th></tr>") # <th>Power for router port</th><th>Power for transponder</th></tr>") #<th>Power for EDFA(s)</th></tr>")
-    #EOP
-
-    virtlinkstep = 1 #count=1
-    
-    for vlink in VLs:   #for each virtual link
-        start_vertex_str = vlink[0]
-        end_vertex_str = vlink[1]
-        sp = find_shortest_path_using_Dijkstra_and_transition_costs(N,Nt,NmC,start_vertex_str,end_vertex_str)
-
-        SPnodes=len(sp)   
-        rowspan = str(SPnodes)
-        cap = vlink[3]
-
-        vlSrc = nodenumber(N,vlink[0])
-        vlDst = nodenumber(N,vlink[1])
-        vlNum = vlink[2]
-        virtlinkid=(vlSrc, vlDst, vlNum)
-
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print("<tr>")
-            print("<td rowspan='"+rowspan+"'>",virtlinkstep,"</td>")   #<th>Virtual Link step number</th>
-            print("<td rowspan='"+rowspan+"'>",vlink[0]+"&rarr;"+vlink[1]+"<br>("+str(nodenumber(N,vlink[0]))+","+str(nodenumber(N,vlink[1]))+","+str(vlink[2])+")</td>")   #<th>Virtual Link</th>
-            print("<td rowspan='"+rowspan+"'>",vlink[3],"</td>")   #<th>Utilised capacity</th>
-            print("<td rowspan='"+rowspan+"'>",roundatdecimals(maxGbpsPerWavelength-cap,3),"</td>")   #<th>Free capacity</th>
-            print("<td rowspan='"+rowspan+"'>Shortest path: "+path2str(sp,N)) #print shortest path with nodes as 3 character tokens #<th>Shortest path</th>
-            print ("<br><br>Shortest path: ",sp) #print shortest path with nodes as 3 character tokens
-            print("</td>")
-        #EOP
-
-        wvl = 1
-        physlinkid = linknumber(L, sp[0],sp[1])
-
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print("<td class='actions'>Link",physlinkid,": "+N[sp[0]]+"&rarr;"+N[sp[1]]+"</td>")   #<th class='actions'>Physical Link(s)</th>
-            print("<td>",dist[physlinkid],"</td>") #<th>Distance (km)</th>
-            print("<td>",wvl,"</td>")   #<th>Wavelengths</th>
-        #EOP
-
-        fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
-        plSrc = sp[0]
-        plDst = sp[1]
-
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print("<td>")
-        #EOP
-
-            #print(f"<td>({src:d},{dst:d},{fiberid:d},{waveid:d})")   #<th>Wavelength ID</th>
-            #physicallinkid = (src, dst, fiberid, waveid)
-            #addRoutingOfVirtualLinksOverPhysicalLinks(RoutingOfVirtualLinksOverPhysicalLinks, virtlinkid, physicallinkid)
-            #print("<li>Virtual links' routing over the physical topology",RoutingOfVirtualLinksOverPhysicalLinks)
-        physicallinkid = (plSrc, plDst, fiberid, waveid)
-        addRoutingOfVirtualLinksOverPhysicalLinks(RoutingOfVirtualLinksOverWavelengths, virtlinkid, physicallinkid)
-        
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print("</td>")
-            print("<td>Source</td>")   #<th>Type</th>
-            print("<td>",N[sp[0]],"</td></tr>")   #<th>Node</th>
-        #EOP
-
-        if (SPnodes>2):         #if the physical path has more than one links
-            PLtype = "First"
-        else:                   #if the physical path has only one link
-            PLtype = "Single"
-
-        #5-9-2025 Physical hop sequence number aka PhyHopSeqNum is the sequence number of the hop the transmission for a Virtual Link follows
-        PhyHopSeqNum = 0
-        
-        #fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
-
-        if (fiberid!=-1) and (waveid!=-1):
-            PhysicalLinkSource = L[physlinkid][0]
-            PhysicalLinkCurrentSource = sp[0]
-            PhysicalLinkCurrentDestination = sp[1]
-            if (PhysicalLinkCurrentSource == PhysicalLinkSource):
-                PhysicalLinkDirection = "fwd" # forward #forward transmission direction on the physical link for the current transmission of traffic 
-            else:
-                PhysicalLinkDirection = "rev" # reverse #reverse transmission direction on the physical link for the current transmission of traffic 
-
-            #2DO use virtual link id (s,d,n) instead virtuallink step to save in DB
-            #Done
-            #2DO insertFiberWavelengthAssignments2sqlite(dbConnection, physlinkid,fiberid,waveid,virtlinkid, PLtype, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
-            #Done and renamed function to insertRoutingVirtualLinksOverPhysicalTopology2sqlite()
-
-            ### 20-9-2025 will not insert 2*router port latency because the way the latency is calculated has changed insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
-            insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, LatRouterPort, LatTransponder)
-            
-        updateTotals(Wmn, physlinkid, wvl)
-        updateTotals(CUmn, physlinkid, roundatdecimals(cap,3))
-
-        physicalLinks.append([sp[0],sp[1],vlink[2],roundatdecimals(maxGbpsPerWavelength-cap,3)])
-
-        if (SPnodes>2): #if the path has more than one links
-            z = 1
-            while (z < SPnodes-1):   #for each physical link that serves the virtual link --> print the actions
-                physlinkid = linknumber(L, sp[z],sp[z+1])
-                noEr = 0.0
-                noEe = 0.0
-                doubleEt = 2*Et
-                
-                #SOP
-                if (GlobalPrintOutEnabled==True) :
-                    print("<tr><td class='actions'>Link",physlinkid,": "+N[sp[z]]+"&rarr;"+N[sp[z+1]]+"</td>")
-                    print("<td>",dist[physlinkid],"</td><td>",wvl,"</td>")
-                #EOP
-                                    
-                fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
-                    
-                plSrc = sp[z]
-                plDst = sp[z+1]
-
-                #SOP
-                if (GlobalPrintOutEnabled==True) :
-                    print("<td>")
-                    #print(f"<td>({src:d},{dst:d},{fiberid:d},{waveid:d})")   #<th>Wavelength ID</th>
-                #EOP
-
-                physicallinkid = (plSrc, plDst, fiberid, waveid)
-                    
-                addRoutingOfVirtualLinksOverPhysicalLinks(RoutingOfVirtualLinksOverWavelengths, virtlinkid, physicallinkid)
-                    
-                #SOP
-                if (GlobalPrintOutEnabled==True) :
-                    #print("<li>Virtual links' routing over the physical topology",RoutingOfVirtualLinksOverPhysicalLinks)
-                    
-                    print("</td>")
-
-                    print("<td>Middle</td><td>",N[sp[z]],"</td></tr>")
-                #EOP
-                    
-                if (z==SPnodes-2):      #if this is the last link of the physical path 
-                    PLtype = "Last"
-                else:                   #if the physical path has more links
-                    PLtype = "Middle"
-                
-                #fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
-
-                if (fiberid!=-1) and (waveid!=-1):
-                    PhysicalLinkSource = L[physlinkid][0]
-                    PhysicalLinkCurrentSource = sp[z]
-                    PhysicalLinkCurrentDestination = sp[z+1]
-                    if (PhysicalLinkCurrentSource == PhysicalLinkSource):
-                        PhysicalLinkDirection = "fwd" # forward
-                    else:
-                        PhysicalLinkDirection = "rev" # reverse
-
-                    #insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, physlinkid,fiberid,waveid,virtlinkstep, PLtype, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
-                    #2DO use virtual link id (s,d,n) instead virtuallink step to save in DB
-                    #Done
-                    
-                    PhyHopSeqNum += 1 # increment the physical hop sequence number
-
-                    #insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
-                    #20-9-2025 not 2*router port latency any more insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
-                    insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, LatRouterPort, LatTransponder)
-                
-                updateTotals(Wmn, physlinkid, wvl)
-                updateTotals(CUmn, physlinkid, cap)
-               
-                physicalLinks.append([sp[z],sp[z+1],vlink[2],roundatdecimals(maxGbpsPerWavelength-cap,3)])
-
-                z = z + 1
-
-        noWvl = 0
-        noCap = 0.0
-
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print("<tr><td class='actions'>-</td><td>-</td><td>",noWvl,"</td>")
-            print("<td>no wavelength id</td>")
-            print("<td>Destination</td><td>",N[sp[SPnodes-1]],"</td></tr>")
-        #EOP
-
-        updateTotals(Wmn, physlinkid, noWvl)
-        updateTotals(CUmn, physlinkid, noCap)
-    
-        virtlinkstep += 1   #count = count + 1   # virtual links counter
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        print ("</table>")
-    #EOP
-
-    #RoutingOfVirtualLinksOverPhysicalLinks
-
-    return physicalLinks, RoutingOfVirtualLinksOverWavelengths
-"""
-#</24-9-2025 replace def routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass() with older version - this might be corrupted>
 
 #<24-9-2025 routeVirtualLinksOverPhysicalTopologyCommonforMultiAndDirectBypass() restored from previous date
 # the old way, first WA, then consider limits
@@ -11687,556 +10941,6 @@ def WavelengthsAssignmentWithLimitsConsideration(
         NetworkWavelengthsMap,
         blockedVLsInfo
     )
-
-'''
-def WavelengthsAssignmentWithLimitsConsideration(
-    VLs, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, maxFibersPerLink,
-    limitations, HasWavConv, Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, dist,
-    distEDFA, Cost, LatRouterPort, LatTransponder, dbConnection, K_paths=1
-):
-    global GlobalPrintOutEnabled
-
-    physicalLinks = []
-    RoutingOfVirtualLinksOverWavelengths = {}
-    routingResults = {}
-    blockedVLsInfo = {}  # Detailed diagnostics for blocked virtual links
-
-    # 1. Configure Fiber Mode (Case 1-3 vs Case 4-6)
-    unlimited_fibers = (limitations[0] == "UnlimitedFibersPerLink")
-    initial_fibers = 1 if unlimited_fibers else maxFibersPerLink
-
-    # Initialize NetworkWavelengthsMap: [link][fiber][wavelength]
-    NetworkWavelengthsMap = [
-        [['' for _ in range(maxWavelengthsPerFiber)] for _ in range(initial_fibers)]
-        for _ in range(len(L))
-    ]
-
-    # 2. Configure Effective Wavelength Converter Map
-    if limitations[1] == "NoWavContConstr":
-        effective_HasWavConv = [1] * len(N)   # Converters on every node
-    elif limitations[1] == "FullWavContConstr":
-        effective_HasWavConv = [0] * len(N)   # No converters anywhere
-    elif limitations[1] == "PartialWavContConstr":
-        effective_HasWavConv = list(HasWavConv)  # Sparse converters on selected nodes
-    else:
-        error("Invalid Wavelength Continuity Constraint!", 556)
-        exit(556)
-
-    # SOP - Initialize HTML Table
-    if GlobalPrintOutEnabled:
-        algo_label = (
-            "Using Dijkstra's shortest path algorithm"
-            if K_paths == 1
-            else f"Using Yen's {K_paths}-shortest paths algorithm"
-        )
-        print("<table class='data'>")
-        print(f"<tr><th colspan=14>Routing virtual (lightpath) links over the Physical Topology in the optical layer ({limitations[0]}, {limitations[1]})</th></tr>")
-        print(f"<tr><th colspan=14>{algo_label}</th></tr>")
-        print("<tr><th>Step</th><th>Virtual Link</th><th>Utilised capacity</th><th>Free capacity</th><th>Shortest path</th><th class='actions'>Physical Link(s)</th><th>Distance (km)</th><th>Wavelengths</th><th>Wavelength ID<br>(source,destination,fiber,wavelength)</th><th>Type</th><th>Node</th></tr>")
-    # EOP
-
-    virtlinkstep = 1
-
-    for vlink in VLs:
-        start_vertex_str = vlink[0]
-        end_vertex_str = vlink[1]
-        cap = vlink[3]
-
-        vlSrc = nodenumber(N, start_vertex_str)
-        vlDst = nodenumber(N, end_vertex_str)
-        vlNum = vlink[2]
-        virtlinkid = (vlSrc, vlDst, vlNum)
-        VLidTag = f"({vlSrc},{vlDst},{vlNum})"
-
-        # Step A: Compute candidate physical path(s)
-        if K_paths == 1:
-            sp_single = find_shortest_path_using_Dijkstra_and_transition_costs(
-                N, Nt, NmC, start_vertex_str, end_vertex_str
-            )
-            candidate_paths = [sp_single] if sp_single else []
-        else:
-            candidate_paths = find_k_shortest_paths(N, NmC, vlSrc, vlDst, K=K_paths)
-
-        assigned_successfully = False
-        failure_reason = "Blocked: InvalidPath"
-        failure_details = {
-            "reason": "InvalidPath",
-            "description": "No valid physical path found",
-            "physical_path_nodes": [],
-            "physical_path_str": "None",
-            "attempted_paths": [],
-            "saturating_links": [],
-            "continuity_failed_segment": []
-        }
-
-        # Step B: Attempt wavelength assignment along candidate path(s)
-        for path_idx, sp in enumerate(candidate_paths):
-            SPnodes = len(sp)
-            if SPnodes < 2:
-                continue
-
-            sp_str = path2str(sp, N)
-
-            # Segment the path at intermediate nodes that possess wavelength converters
-            segments = []
-            current_segment = []
-            valid_path = True
-
-            for i in range(SPnodes - 1):
-                src, dst = sp[i], sp[i + 1]
-                l_id = linknumber(L, src, dst)
-                if l_id is None:
-                    valid_path = False
-                    break
-                current_segment.append((src, dst, l_id))
-
-                # Split segment if intermediate node 'dst' has a wavelength converter
-                if i < SPnodes - 2 and effective_HasWavConv[dst] == 1:
-                    segments.append(current_segment)
-                    current_segment = []
-
-            if not valid_path:
-                failure_details["attempted_paths"].append(
-                    f"Path {path_idx + 1}: {sp_str} (Nodes: {sp}) -> InvalidPath"
-                )
-                continue
-            if current_segment:
-                segments.append(current_segment)
-
-            # Step C: Assign continuous wavelength per segment
-            path_blocked = False
-            reservations = []  # Track (l_id, f_idx, w_idx) for rollback on failure
-            PLiDs = []         # Final (src, dst, f_idx, w_idx) hops
-
-            for segment in segments:
-                linkIDs = [item[2] for item in segment]
-                assigned_w = None
-                assigned_fibers = []
-
-                # 1st attempt: First-Fit search for a common wavelength w across existing fibers
-                for w in range(maxWavelengthsPerFiber):
-                    temp_fibers = []
-                    can_fit_segment = True
-
-                    for l_id in linkIDs:
-                        found_fiber = -1
-                        for f_idx in range(len(NetworkWavelengthsMap[l_id])):
-                            if NetworkWavelengthsMap[l_id][f_idx][w] == '':
-                                found_fiber = f_idx
-                                break
-                        if found_fiber != -1:
-                            temp_fibers.append(found_fiber)
-                        else:
-                            can_fit_segment = False
-                            break
-
-                    if can_fit_segment:
-                        assigned_w = w
-                        assigned_fibers = temp_fibers
-                        break
-
-                # 2nd attempt (Unlimited Fibers ONLY): Dynamically add a new fiber on bottleneck links
-                if assigned_w is None and unlimited_fibers:
-                    assigned_w = 0
-                    assigned_fibers = []
-
-                    for l_id in linkIDs:
-                        found_fiber = -1
-                        for f_idx in range(len(NetworkWavelengthsMap[l_id])):
-                            if NetworkWavelengthsMap[l_id][f_idx][assigned_w] == '':
-                                found_fiber = f_idx
-                                break
-                        if found_fiber == -1:
-                            NetworkWavelengthsMap[l_id].append(['' for _ in range(maxWavelengthsPerFiber)])
-                            found_fiber = len(NetworkWavelengthsMap[l_id]) - 1
-                        assigned_fibers.append(found_fiber)
-
-                # If still None (Limited Fibers), diagnose the exact blocking reason
-                if assigned_w is None:
-                    path_blocked = True
-
-                    # Check if any link in this segment is 100% full across all fibers & wavelengths
-                    saturated_links = []
-                    for src, dst, l_id in segment:
-                        has_any_free_channel = any(
-                            NetworkWavelengthsMap[l_id][f_idx][w] == ''
-                            for f_idx in range(len(NetworkWavelengthsMap[l_id]))
-                            for w in range(maxWavelengthsPerFiber)
-                        )
-                        if not has_any_free_channel:
-                            saturated_links.append((l_id, N[src], N[dst]))
-
-                    failed_seg_info = [(N[s], N[d], lid) for s, d, lid in segment]
-
-                    if saturated_links:
-                        failure_reason = "Blocked: NoFreeFibers"
-                        desc = f"Not enough fibers/wavelengths on physical link(s) {saturated_links}"
-                        reason_code = "NoFreeFibers"
-                    else:
-                        failure_reason = "Blocked: WavContConstr"
-                        desc = f"Wavelength continuity constraint on segment {failed_seg_info}"
-                        reason_code = "WavContConstr"
-
-                    failure_details["reason"] = reason_code
-                    failure_details["description"] = desc
-                    failure_details["physical_path_nodes"] = sp
-                    failure_details["physical_path_str"] = sp_str
-                    failure_details["saturating_links"] = saturated_links
-                    failure_details["continuity_failed_segment"] = failed_seg_info
-                    failure_details["attempted_paths"].append(
-                        f"Path {path_idx + 1}: {sp_str} (Nodes: {sp}) -> {reason_code}"
-                    )
-                    break
-                else:
-                    # Reserve wavelength across the segment
-                    for i, (src, dst, l_id) in enumerate(segment):
-                        f_idx = assigned_fibers[i]
-                        NetworkWavelengthsMap[l_id][f_idx][assigned_w] = VLidTag
-                        reservations.append((l_id, f_idx, assigned_w))
-                        PLiDs.append((src, dst, f_idx, assigned_w))
-
-            if path_blocked:
-                # Rollback reservations made by earlier segments of this failed path attempt
-                for r_link, r_fiber, r_w in reservations:
-                    NetworkWavelengthsMap[r_link][r_fiber][r_w] = ''
-                continue
-            else:
-                assigned_successfully = True
-                break
-
-        # Step D: Commit Lightpath or Record Blocking
-        if not assigned_successfully:
-            routingResults[virtlinkid] = failure_reason
-            blockedVLsInfo[virtlinkid] = failure_details
-            addRoutingOfVirtualLinksOverPhysicalLinks(
-                RoutingOfVirtualLinksOverWavelengths, virtlinkid, [(-1, -1, -1, -1)]
-            )
-
-            if GlobalPrintOutEnabled:
-                if K_paths == 1 or len(failure_details["attempted_paths"]) <= 1:
-                    path_msg = (
-                        f"Selected physical path: {failure_details['physical_path_str']} "
-                        f"(Nodes: {failure_details['physical_path_nodes']})"
-                    )
-                else:
-                    path_msg = "Attempted physical paths: " + " ; ".join(failure_details["attempted_paths"])
-
-                print(
-                    f"<tr><td colspan=14>Blocked VL Step {virtlinkstep}: "
-                    f"({vlSrc},{vlDst},{vlNum}) {start_vertex_str}&rarr;{end_vertex_str} | "
-                    f"{path_msg} "
-                    f"[{failure_reason} - {failure_details.get('description', '')}]</td></tr>"
-                )
-        else:
-            routingResults[virtlinkid] = "Pass"
-            addRoutingOfVirtualLinksOverPhysicalLinks(
-                RoutingOfVirtualLinksOverWavelengths, virtlinkid, PLiDs
-            )
-
-            rowspan = str(SPnodes)
-            wvl = 1
-
-            # SOP - Start of Row HTML
-            if GlobalPrintOutEnabled:
-                print("<tr>")
-                print("<td rowspan='" + rowspan + "'>", virtlinkstep, "</td>")
-                print("<td rowspan='" + rowspan + "'>", start_vertex_str + "&rarr;" + end_vertex_str + "<br>(" + str(vlSrc) + "," + str(vlDst) + "," + str(vlNum) + ")</td>")
-                print("<td rowspan='" + rowspan + "'>", cap, "</td>")
-                print("<td rowspan='" + rowspan + "'>", roundatdecimals(maxGbpsPerWavelength - cap, 3), "</td>")
-                print("<td rowspan='" + rowspan + "'>Shortest path: " + path2str(sp, N) + "<br><br>Nodes: ", sp, "</td>")
-            # EOP
-
-            PhyHopSeqNum = 0
-            for index, hop_data in enumerate(PLiDs):
-                plSrc, plDst, fiberid, waveid = hop_data
-                physlinkid = linknumber(L, plSrc, plDst)
-
-                # SOP - Print Physical Hop HTML
-                if GlobalPrintOutEnabled:
-                    if index > 0:
-                        print("<tr>")
-                    print("<td class='actions'>Link", physlinkid, ": " + N[plSrc] + "&rarr;" + N[plDst] + "</td>")
-                    print("<td>", dist[physlinkid], "</td><td>", wvl, "</td>")
-                    print("<td>(", plSrc, ",", plDst, ",", fiberid, ",", waveid, ")</td>")
-                # EOP
-
-                if SPnodes > 2:
-                    if index == 0:
-                        PLtype = "First"
-                    elif index == len(PLiDs) - 1:
-                        PLtype = "Last"
-                    else:
-                        PLtype = "Middle"
-                else:
-                    PLtype = "Single"
-
-                # SOP - Print Type and Node
-                if GlobalPrintOutEnabled:
-                    if index == 0:
-                        print("<td>Source</td><td>", N[plSrc], "</td></tr>")
-                    else:
-                        print("<td>Middle</td><td>", N[plSrc], "</td></tr>")
-                # EOP
-
-                PhysicalLinkSource = L[physlinkid][0]
-                PhysicalLinkDirection = "fwd" if plSrc == PhysicalLinkSource else "rev"
-
-                # Insert ONLY valid, unblocked lightpaths into SQLite DB
-                insertRoutingVirtualLinksOverPhysicalTopology2sqlite(
-                    dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid,
-                    PLtype, PhyHopSeqNum, len(sp) - 1, sp, path2str(sp, N),
-                    PhysicalLinkDirection, plSrc, plDst, LatRouterPort, LatTransponder
-                )
-
-                PhyHopSeqNum += 1
-                updateTotals(Wmn, physlinkid, wvl)
-                updateTotals(CUmn, physlinkid, cap)
-                physicalLinks.append([plSrc, plDst, vlNum, roundatdecimals(maxGbpsPerWavelength - cap, 3)])
-
-            # SOP - Final Destination HTML Block
-            if GlobalPrintOutEnabled:
-                noWvl = 0
-                print("<tr><td class='actions'>-</td><td>-</td><td>", noWvl, "</td>")
-                print("<td>no wavelength id</td>")
-                print("<td>Destination</td><td>", N[sp[SPnodes - 1]], "</td></tr>")
-            # EOP
-
-        virtlinkstep += 1
-
-    # Sync fmn (fibers used per link) from actual occupied fibers in NetworkWavelengthsMap
-    for l_id in range(len(L)):
-        used_fibers_count = sum(
-            1 for fiber in NetworkWavelengthsMap[l_id]
-            if any(w_slot != '' for w_slot in fiber)
-        )
-        fmn[l_id] = [used_fibers_count] if used_fibers_count > 0 else [0]
-
-    # SOP - End of Table
-    if GlobalPrintOutEnabled:
-        print("</table>")
-    # EOP
-
-    return (
-        physicalLinks,
-        RoutingOfVirtualLinksOverWavelengths,
-        routingResults,
-        NetworkWavelengthsMap,
-        blockedVLsInfo
-    )
-'''
-
-#>>>>>> 25-10-2026 WA with limits consideration
-"""
-def not_this_WavelengthsAssignmentWithLimitsConsideration(VLs, N, Nt, maxGbpsPerWavelength, maxWavelengthsPerFiber, 
-                                                 Er, Et, Ee, Wmn, CUmn, fmn, Em, Nm, NmC, L, dist, distEDFA,
-                                                 Cost, wavelengthIDs, LatRouterPort, LatTransponder, dbConnection):
-    global GlobalPrintOutEnabled
-
-    physicalLinks = [] # list to keep all physical links used to route virtual links on the physical topology
-    RoutingOfVirtualLinksOverWavelengths = {}
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        print ("<table class='data'>")
-        print ("<tr><th colspan=14>Routing virtual (lightpath) links over the Physical Topology in the optical layer</th></tr>")
-        print("<tr><th>Step</th><th>Virtual Link</th><th>Utilised capacity</th><th>Free capacity</th><th>Shortest path</th><th class='actions'>Physical Link(s)</th><th>Distance (km)</th><th>Wavelengths</th><th>Wavelength ID<br>(source,destination,fiber,wavelength)</th><th>Type</th><th>Node</th></tr>") # <th>Power for router port</th><th>Power for transponder</th></tr>") #<th>Power for EDFA(s)</th></tr>")
-    #EOP
-
-    virtlinkstep = 1 #count=1
-    
-    for vlink in VLs:   #for each virtual link
-        start_vertex_str = vlink[0]
-        end_vertex_str = vlink[1]
-        sp = find_shortest_path_using_Dijkstra_and_transition_costs(N,Nt,NmC,start_vertex_str,end_vertex_str)
-
-        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~>
-
-        SPnodes=len(sp)   
-        rowspan = str(SPnodes)
-        cap = vlink[3]
-
-        vlSrc = nodenumber(N,vlink[0])
-        vlDst = nodenumber(N,vlink[1])
-        vlNum = vlink[2]
-        virtlinkid=(vlSrc, vlDst, vlNum)
-
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print("<tr>")
-            print("<td rowspan='"+rowspan+"'>",virtlinkstep,"</td>")   #<th>Virtual Link step number</th>
-            print("<td rowspan='"+rowspan+"'>",vlink[0]+"&rarr;"+vlink[1]+"<br>("+str(nodenumber(N,vlink[0]))+","+str(nodenumber(N,vlink[1]))+","+str(vlink[2])+")</td>")   #<th>Virtual Link</th>
-            print("<td rowspan='"+rowspan+"'>",vlink[3],"</td>")   #<th>Utilised capacity</th>
-            print("<td rowspan='"+rowspan+"'>",roundatdecimals(maxGbpsPerWavelength-cap,3),"</td>")   #<th>Free capacity</th>
-            print("<td rowspan='"+rowspan+"'>Shortest path: "+path2str(sp,N)) #print shortest path with nodes as 3 character tokens #<th>Shortest path</th>
-            print ("<br><br>Shortest path: ",sp) #print shortest path with nodes as 3 character tokens
-            print("</td>")
-        #EOP
-
-        wvl = 1
-        physlinkid = linknumber(L, sp[0],sp[1])
-
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print("<td class='actions'>Link",physlinkid,": "+N[sp[0]]+"&rarr;"+N[sp[1]]+"</td>")   #<th class='actions'>Physical Link(s)</th>
-            print("<td>",dist[physlinkid],"</td>") #<th>Distance (km)</th>
-            print("<td>",wvl,"</td>")   #<th>Wavelengths</th>
-        #EOP
-
-        fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
-        plSrc = sp[0]
-        plDst = sp[1]
-
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print("<td>")
-        #EOP
-
-            #print(f"<td>({src:d},{dst:d},{fiberid:d},{waveid:d})")   #<th>Wavelength ID</th>
-            #physicallinkid = (src, dst, fiberid, waveid)
-            #addRoutingOfVirtualLinksOverPhysicalLinks(RoutingOfVirtualLinksOverPhysicalLinks, virtlinkid, physicallinkid)
-            #print("<li>Virtual links' routing over the physical topology",RoutingOfVirtualLinksOverPhysicalLinks)
-        physicallinkid = (plSrc, plDst, fiberid, waveid)
-        addRoutingOfVirtualLinksOverPhysicalLinks(RoutingOfVirtualLinksOverWavelengths, virtlinkid, physicallinkid)
-        
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print("</td>")
-            print("<td>Source</td>")   #<th>Type</th>
-            print("<td>",N[sp[0]],"</td></tr>")   #<th>Node</th>
-        #EOP
-
-        if (SPnodes>2):         #if the physical path has more than one links
-            PLtype = "First"
-        else:                   #if the physical path has only one link
-            PLtype = "Single"
-
-        #5-9-2025 Physical hop sequence number aka PhyHopSeqNum is the sequence number of the hop the transmission for a Virtual Link follows
-        PhyHopSeqNum = 0
-        
-        #fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
-
-        if (fiberid!=-1) and (waveid!=-1):
-            PhysicalLinkSource = L[physlinkid][0]
-            PhysicalLinkCurrentSource = sp[0]
-            PhysicalLinkCurrentDestination = sp[1]
-            if (PhysicalLinkCurrentSource == PhysicalLinkSource):
-                PhysicalLinkDirection = "fwd" # forward #forward transmission direction on the physical link for the current transmission of traffic 
-            else:
-                PhysicalLinkDirection = "rev" # reverse #reverse transmission direction on the physical link for the current transmission of traffic 
-
-            #2DO use virtual link id (s,d,n) instead virtuallink step to save in DB
-            #Done
-            #2DO insertFiberWavelengthAssignments2sqlite(dbConnection, physlinkid,fiberid,waveid,virtlinkid, PLtype, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
-            #Done and renamed function to insertRoutingVirtualLinksOverPhysicalTopology2sqlite()
-
-            ### 20-9-2025 will not insert 2*router port latency because the way the latency is calculated has changed insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
-            insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, LatRouterPort, LatTransponder)
-            
-        updateTotals(Wmn, physlinkid, wvl)
-        updateTotals(CUmn, physlinkid, roundatdecimals(cap,3))
-
-        #25-9-2025 the following are the physicalLinks [src,dst,fiber,free capacity]
-        physicalLinks.append([sp[0],sp[1],vlink[2],roundatdecimals(maxGbpsPerWavelength-cap,3)])
-
-        if (SPnodes>2): #if the path has more than one links
-            z = 1
-            while (z < SPnodes-1):   #for each physical link that serves the virtual link --> print the actions
-                physlinkid = linknumber(L, sp[z],sp[z+1])
-                noEr = 0.0
-                noEe = 0.0
-                doubleEt = 2*Et
-                
-                #SOP
-                if (GlobalPrintOutEnabled==True) :
-                    print("<tr><td class='actions'>Link",physlinkid,": "+N[sp[z]]+"&rarr;"+N[sp[z+1]]+"</td>")
-                    print("<td>",dist[physlinkid],"</td><td>",wvl,"</td>")
-                #EOP
-                                    
-                fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
-                    
-                plSrc = sp[z]
-                plDst = sp[z+1]
-
-                #SOP
-                if (GlobalPrintOutEnabled==True) :
-                    print("<td>")
-                    #print(f"<td>({src:d},{dst:d},{fiberid:d},{waveid:d})")   #<th>Wavelength ID</th>
-                #EOP
-
-                physicallinkid = (plSrc, plDst, fiberid, waveid)
-                    
-                addRoutingOfVirtualLinksOverPhysicalLinks(RoutingOfVirtualLinksOverWavelengths, virtlinkid, physicallinkid)
-                    
-                #SOP
-                if (GlobalPrintOutEnabled==True) :
-                    #print("<li>Virtual links' routing over the physical topology",RoutingOfVirtualLinksOverPhysicalLinks)
-                    
-                    print("</td>")
-
-                    print("<td>Middle</td><td>",N[sp[z]],"</td></tr>")
-                #EOP
-                    
-                if (z==SPnodes-2):      #if this is the last link of the physical path 
-                    PLtype = "Last"
-                else:                   #if the physical path has more links
-                    PLtype = "Middle"
-                
-                #fiberid,waveid = assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, physlinkid)
-
-                if (fiberid!=-1) and (waveid!=-1):
-                    PhysicalLinkSource = L[physlinkid][0]
-                    PhysicalLinkCurrentSource = sp[z]
-                    PhysicalLinkCurrentDestination = sp[z+1]
-                    if (PhysicalLinkCurrentSource == PhysicalLinkSource):
-                        PhysicalLinkDirection = "fwd" # forward
-                    else:
-                        PhysicalLinkDirection = "rev" # reverse
-
-                    #insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, physlinkid,fiberid,waveid,virtlinkstep, PLtype, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
-                    #2DO use virtual link id (s,d,n) instead virtuallink step to save in DB
-                    #Done
-                    
-                    PhyHopSeqNum += 1 # increment the physical hop sequence number
-
-                    #insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
-                    #20-9-2025 not 2*router port latency any more insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, 2*LatRouterPort, LatTransponder)
-                    insertRoutingVirtualLinksOverPhysicalTopology2sqlite(dbConnection, vlSrc, vlDst, vlNum, plSrc, plDst, fiberid, waveid, PLtype, PhyHopSeqNum, len(sp)-1, sp, path2str(sp,N), PhysicalLinkDirection, PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, LatRouterPort, LatTransponder)
-                
-                updateTotals(Wmn, physlinkid, wvl)
-                updateTotals(CUmn, physlinkid, cap)
-               
-                #25-9-2025 the following are the physicalLinks [src,dst,fiber,free capacity]
-                physicalLinks.append([sp[z],sp[z+1],vlink[2],roundatdecimals(maxGbpsPerWavelength-cap,3)])
-
-                z = z + 1
-
-        noWvl = 0
-        noCap = 0.0
-
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print("<tr><td class='actions'>-</td><td>-</td><td>",noWvl,"</td>")
-            print("<td>no wavelength id</td>")
-            print("<td>Destination</td><td>",N[sp[SPnodes-1]],"</td></tr>")
-        #EOP
-
-        updateTotals(Wmn, physlinkid, noWvl)
-        updateTotals(CUmn, physlinkid, noCap)
-    
-        virtlinkstep += 1   #count = count + 1   # virtual links counter
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        print ("</table>")
-    #EOP
-
-    #RoutingOfVirtualLinksOverPhysicalLinks
-
-    return physicalLinks, RoutingOfVirtualLinksOverWavelengths
-"""
-
-
-
 
 
 #>>>>>> 14-7-2026 start of WA with limits consideration
@@ -13227,31 +11931,6 @@ def routeVirtualLinksOverPhysicalTopologyForHeaviestHottestAndComparison(VLs, N,
     #RoutingOfVirtualLinksOverPhysicalLinks
 
     return physicalLinks, RoutingOfVirtualLinksOverWavelengths
-
-
-
-
-
-
-
-
-#21-8-2026 old version addRoutingOfVirtualLinksOverPhysicalLinks()
-'''
-def addRoutingOfVirtualLinksOverPhysicalLinks(routingdict,VLid,PLid):
-    if VLid in routingdict:
-        val = routingdict[VLid]
-        val.append(PLid)
-        routingdict.update({VLid:val})
-    else:
-        #routingdict.update({VLid:[PLid]})
-        routingdict.update({VLid:PLid})
-
-    #SOP
-    #if (GlobalPrintOutEnabled==True) :
-        #16-7-2026
-        #print("<li>Appended the Physical Link:",PLid,"to the Virtual Link's",VLid,"routing over the physical topology.")
-    #EOP
-'''
 
 
 #21-8-2026 new version addRoutingOfVirtualLinksOverPhysicalLinks()
@@ -15138,236 +13817,6 @@ def setTextCaptions(LatencyTimeUnit4csv):
     
     return txtCaptions
 
-
-'''
-def old_readConfigNew(file):
-    cfgName = ""
-    cfgDescription = ""
-    cfgVersion = ""
-    cfgRuns = 0
-    cfgX = []
-    cfgNets=[]
-    cfgPrintout = ""
-    cfgKeepEveryNthReport = 0
-    cfgLamdagensaveload = ""
-    cfgLamdaFile = ""
-    cfgPdfOut = ""
-    cfgRunConfigs = []
-    cfgComputerName = ""
-    cfgProgFolder = ""
-    cfgDistributions = []    
-    cfgLimitConfigs = []
-    cfgLatencyComponent = []
-    cfgQHPpercentTrafficSplit = []
-    #cfgCheckForRevisits = ""
-    cfgConsiderTGRC = "" #TGRC=Traffic Grooming Rejection Criterion
-    cfgHardLatencyCap_Q_HP = 0.0
-    cfgHardLatencyCap_Q_LP = 0.0
-    cfgVirtWavCap = 0
-    cfgConsiderWCC = "" #WCC=Wavelength Continuity Constraint
-    
-    #numberofqueues = ""
-
-    fin = open(file,"r")
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    while (nextLine!="[Config_start]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine);     
-    if (nextLine=="[Name]"):
-        nextLine = fin.readline();  
-        nextLine = removeNewLine(nextLine); 
-        cfgName = nextLine
-    
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[Description]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgDescription = nextLine
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[Version]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgVersion = nextLine
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[Runs]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgRuns = int(nextLine)
-
-    while (nextLine!="[Xi where X={2, 4, 6, 8, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120, 160, 200, 320, 400, 640, 960, 1280}]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-
-    #nextLine = fin.readline(); 
-    #nextLine = removeNewLine(nextLine); 
-    #if (nextLine=="[Xi where X={2, 4, 6, 8, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120, 160, 200, 320, 640, 960, 1280}]"):
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine);
-    cfgX = nextLine.split(',')
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[Nets_start]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        while (nextLine!="[Nets_end]"):
-            cfgNets.append(nextLine)
-            nextLine = fin.readline();
-            nextLine = removeNewLine(nextLine); 
-    
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[Printout]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgPrintout = nextLine
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[KeepEveryNthReport]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgKeepEveryNthReport = int(nextLine)
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[Lambda]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgLamdagensaveload = nextLine
-    
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[LambdaTextFile]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgLamdaFile = nextLine
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[PDFout]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgPdfOut = nextLine
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[RunConfigurations(Program,Queues,Strategy)_start]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        while (nextLine!="[RunConfigurations(Program,Queues,Strategy)_end]"):
-            cfgRunConfigs.append(nextLine.split(','))
-            nextLine = fin.readline();
-            nextLine = removeNewLine(nextLine); 
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[ComputerName]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgComputerName = nextLine
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[ProgramFolder]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgProgFolder = nextLine
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[Distributions_start]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        while (nextLine!="[Distributions_end]"):
-            #nextLine = removeNewLine(nextLine); 
-            cfgDistributions.append(nextLine)
-            nextLine = fin.readline();
-            nextLine = removeNewLine(nextLine); 
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_start]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        while (nextLine!="[LimitConfig(FibersPerLink, WavelengthsPerFiber, WavelengthCapacity)_end]"):
-            cfgLimitConfigs.append(nextLine.split(','))
-            nextLine = fin.readline();
-            nextLine = removeNewLine(nextLine); 
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[LatencyComponentConfig(LRouterport,LTransponder)_start]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        while (nextLine!="[LatencyComponentConfig(LRouterport,LTransponder)_end]"):
-            cfgLatencyComponent.append(nextLine.split(','))
-            nextLine = fin.readline();
-            nextLine = removeNewLine(nextLine); 
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[QHP_percent_of_traffic_split]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine);
-        cfgQHPpercentTrafficSplit = nextLine.split(',')
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    #if (nextLine=="[CheckForRevisits]"):
-    if (nextLine=="[ConsiderTrafficGroomingRejectionCriterion]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgConsiderTGRC = nextLine #TGRC=Traffic Grooming Rejection Criterion
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[HardLatencyCap_Q_HP microsec]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgHardLatencyCap_Q_HP = float(nextLine)
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[HardLatencyCap_Q_LP microsec]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgHardLatencyCap_Q_LP = float(nextLine)
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[VirtualWavelengthCapacity]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgVirtWavCap = int(nextLine)
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[ConsiderWavelengthContinuityConstraint]"):
-        nextLine = fin.readline(); 
-        nextLine = removeNewLine(nextLine); 
-        cfgConsiderWCC = nextLine #WCC=WavelengthContinuityConstraint
-
-    nextLine = fin.readline(); 
-    nextLine = removeNewLine(nextLine); 
-    if (nextLine=="[Config_end]"):
-        fin.close()
-    
-    return cfgName, cfgDescription, cfgVersion, cfgRuns, cfgX, cfgNets, cfgPrintout, cfgKeepEveryNthReport, cfgLamdagensaveload, cfgLamdaFile, cfgPdfOut, cfgRunConfigs, cfgComputerName, cfgProgFolder, cfgDistributions, cfgLimitConfigs, cfgLatencyComponent, cfgQHPpercentTrafficSplit, cfgConsiderTGRC, cfgHardLatencyCap_Q_HP, cfgHardLatencyCap_Q_LP, cfgVirtWavCap, cfgConsiderWCC
-'''
-    
-
-
 def readConfigNew(file):
     cfgName = ""
     cfgDescription = ""
@@ -15392,11 +13841,10 @@ def readConfigNew(file):
     cfgHardLatencyCap_Q_HP = 0.0
     cfgHardLatencyCap_Q_LP = 0.0
     cfgVirtWavCap = 0
-
     #cfgConsiderWCC = "" #WCC=Wavelength Continuity Constraint
-
     cfgWavConvLatAndPowerConsum = []
     cfgNumShortestPathsConsider = 0
+    cfgVirtualTopologyGraphsExportMode = ""
 
     #numberofqueues = ""
 
@@ -15610,23 +14058,25 @@ def readConfigNew(file):
         #cfgNumShortestPathsConsider = int(nextLine) 
         cfgNumShortestPathsConsider = nextLine.split(',')
 
+    #17-11-2026
+    nextLine = fin.readline(); 
+    nextLine = removeNewLine(nextLine); 
+    if (nextLine=="[VirtualTopologyGraphsExportMode]"): 
+        nextLine = fin.readline(); 
+        nextLine = removeNewLine(nextLine); 
+        cfgVirtualTopologyGraphsExportMode = nextLine
+
+    #detect the end of the configuration file
     nextLine = fin.readline(); 
     nextLine = removeNewLine(nextLine); 
     if (nextLine=="[Config_end]"):
         fin.close()
 
-    #return cfgName, cfgDescription, cfgVersion, cfgRuns, cfgX, cfgNets, cfgPrintout, cfgKeepEveryNthReport,  \
-    #       cfgLamdagensaveload, cfgLamdaFile, cfgPdfOut, cfgRunConfigs, cfgComputerName, cfgProgFolder,       \
-    #       cfgDistributions, cfgLimitConfigs, cfgLatencyComponent, cfgQHPpercentTrafficSplit, cfgConsiderTGRC, \
-    #       cfgHardLatencyCap_Q_HP, cfgHardLatencyCap_Q_LP, cfgVirtWavCap, cfgConsiderWCC,                       \
-    #       cfgWavConvLatAndPowerConsum, cfgNumShortestPathsConsider
-
     return cfgName, cfgDescription, cfgVersion, cfgRuns, cfgX, cfgNets, cfgPrintout, cfgKeepEveryNthReport,  \
            cfgLamdagensaveload, cfgLamdaFile, cfgPdfOut, cfgRunConfigs, cfgComputerName, cfgProgFolder,       \
            cfgDistributions, cfgLimitConfigs, cfgLatencyComponent, cfgQHPpercentTrafficSplit, cfgConsiderTGRC, \
            cfgHardLatencyCap_Q_HP, cfgHardLatencyCap_Q_LP, cfgVirtWavCap,                                       \
-           cfgWavConvLatAndPowerConsum, cfgNumShortestPathsConsider
-
+           cfgWavConvLatAndPowerConsum, cfgNumShortestPathsConsider, cfgVirtualTopologyGraphsExportMode
 
 
 
@@ -15788,39 +14238,6 @@ def initialiseSet(struct,L,values):
             key = i 
             struct.update({key: values[i]})
 
-#def initialiseFiberids(fiberids,L):
-    """
-    # fiberids: dictionary of fiber ids for each link
-    # fiberids = {0:0, 1:0, ...}
-    # fiberids = {<linkid>:<fibers count for this link>, ...}
-    for i in range(len(L)):
-        fiberids.update({i: -1})
-    """
-
-#def assignFiberid(fiberIDs,linkid):
-    """
-    # maxFibersPerLink = -1       #no limit on the total number of fibers on each physical link
-    # maxFibersPerLink not considered yet as a limit!
-
-    if linkid in fiberIDs:
-        count = fiberIDs.get(linkid)
-        count += 1
-        fiberIDs.update({linkid:count})
-        return count
-    else:
-        print("assignFiberid Error: LinkID",linkid,"does not exist")
-        return -1
-    """
-
-#def getmaxFiberidForLink(fiberIDs,linkid):
-    """
-    if linkid in fiberIDs:
-        fiberid = fiberIDs.get(linkid)
-        return fiberid
-    else:
-        print("getmaxFiberidForLink Error: LinkID",linkid,"does not exist")
-        return -1
-    """
 
 def initialiseWavelegthids(wavelegthids,L):
     # wavelengthids: dictionary of wavelgth ids for each fiber of each link 
@@ -15829,32 +14246,6 @@ def initialiseWavelegthids(wavelegthids,L):
     # wavelengthids = {<linkid>:{<fiberid>:<wavelengths count for this fiber of the link>, ...}, ...}
     for i in range(len(L)):
         wavelegthids.update({i: {0:-1}})
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -16443,16 +14834,6 @@ def assignLimitedFibers_PartialWavContConstr(L, RoutingOfVirtualLinksOverWavelen
 
 #</25-9-2025>
 
-""" 
-#<24-9-2025>
-def linknumber(data, m, n):
-    # Return the number of a link, given its source and destination nodes
-    
-    for i in range(len(data)):
-        if ( (data[i][0]==m) and (data[i][1]==n) ) or ( (data[i][0]==n) and (data[i][1]==m) ):
-            return i
-    return None
-"""
 
 def find_the_same_free_wavelength_for_lightpath(link_ids, netmap):
     """Find a single wavelength index free on *all* links (but fibers may differ)."""
@@ -16530,8 +14911,6 @@ def release_fiber(link, fiber, wavelength, netmap):
 
 def vlIDtoTag(vlid):
     return f"({','.join(map(str, vlid))})"
-
-
 
 #10-4-2026
 def reserveWavelengthForLightpath(L, vlid, lightPath, NetworkWavelengthsMap, criterion, HasWavConv):
@@ -16954,103 +15333,6 @@ def assignWavelengthChannelsConsideringLimits_FollowingWavelengthsAssignment(L, 
 #end_of_def assignWavelengthChannelsConsideringLimits_FollowingWavelengthsAssignment()
 
 
-
-#24-9-2025
-# result = assignWavelengthChannelsConsideringLimits(NetworkWavelengthsMap) NOT USED
-'''
-def assignWavelengthChannelsConsideringLimits(NetworkWavelengthsMap, L, HasWavConv, ShortestPath, VLid):
-
-    #24-9-2025
-    #ShortestPath = [0,1,3,2]
-    #ShortestPath = [2,1,0]
-
-    PathWavConv = 1
-    
-    print("<table>")
-    print("<tr>")
-    print("<td>")
-    print("shortest path",ShortestPath)
-    pathlinks = path2links(ShortestPath)
-    print("<p>path links",pathlinks)
-    for lnk in pathlinks:
-        srcNode = lnk[0]
-        dstNode = lnk[1]
-        lnknum = linknumber(L,srcNode,dstNode)
-        PathWavConv *= HasWavConv[srcNode] * HasWavConv[dstNode]
-        print(f"<p>link number: {lnknum:d} - link:",lnk)
-        print(f"- src node:{srcNode:d} {'has' if HasWavConv[srcNode] else 'does not have':s} wavelength conversion ")
-        print(f"- dst node:{dstNode:d} {'has' if HasWavConv[dstNode] else 'does not have':s} wavelength conversion.")
-    
-    if PathWavConv == 1:
-        print(f"<p>All path nodes have wavelength conversion hardware - Wavelength continuity constraint will NOT be applied.")
-        WavelengthContinuity = 0
-    else:
-        print(f"<p>At least one node of the path does not have wavelength conversion hardware - Wavelength continuity constraint will be applied.")
-        WavelengthContinuity = 1
-        
-    
-    success, reason, LindID, FiberID, WavelengthID = reserveWavelengthChannels(ShortestPath, VLidm, (PathWavConv == 1), NetworkWavelengthsMap, L) #for a single lightpath
-    print("</td>")
-    print("</tr>")
-    print("<tr>")
-    print("<td>")
-    print_reservations(NetworkWavelengthsMap, L)
-    print("</td>")
-    print("</tr>")
-    print("</table>")
-    
-
-    #>>> 25-9-2025
-
-
-    # παλιά
-    # maxWavelengthsPerFiber = 16 # max 16 wavelengths are multiplexed in each fiber
-    # every 16 wavelengths a new fiber is assigned to the link
-
-    #23-9-2025
-
-    """αναθεση wavelength καναλιού σε κάθε link της διαδρομής
-
-    εδω θα γινεται η αναθεση wavelength καναλιού σε κάθε link της διαδρομής
-        συμφωνα με τους περιορισμους η μη
-            περιορισμενος αριθμος fiber / απεριοριστος αριθμος
-            wavelength continuity constraint (wavelength converters)
-                χωρις converters / converters σε μερικους κομβους / converters παντου
-    """
-    
-
-    """
-    if linkid in wavelengthIDs:
-        fibers = wavelengthIDs.get(linkid)
-        #assignFiberid(fibers,linkid)
-        #print("fibers",fibers)
-        #numberoffibers = len(fibers.keys())-1
-        #print("numberoffibers",numberoffibers)
-        
-        #getting the last key of the dictionary
-        templist = list(fibers.keys())
-        lastkey = templist[-1]
-
-        #print("lastkey",lastkey)
-        wavescount = fibers.get(lastkey)
-        #print("wavescount",wavescount)
-        wavescount +=1
-        if ( wavescount > (maxWavelengthsPerFiber-1) ):
-            lastkey += 1
-            wavescount = 0
-        fibers.update({lastkey:wavescount})
-        #print("returning for linkid",linkid,"fiberid",lastkey,"waveid",wavescount)
-        return lastkey, wavescount 
-    else:
-        print("assignWavelengthid Error: LinkID",linkid,"does not exist")
-        return -1, -1
-    """
-    return success, reason, LindID, FiberID, WavelengthID
-#end_of_def assignWavelengthChannelsConsideringLimits()
-'''
-
-
-
 def assignWavelengthid(maxWavelengthsPerFiber, wavelengthIDs, linkid):
     # maxWavelengthsPerFiber = 16 # max 16 wavelengths are multiplexed in each fiber
     # every 16 wavelengths a new fiber is assigned to the link
@@ -17096,410 +15378,6 @@ def calculateTotalCapacity(R):
     for rq in R:
         sum += rq[2]
     return sum
-
-'''
-def NotUsed_selectQueue(interval1, interval2):
-    while True:
-        t1=time.process_time_ns()
-        time.sleep(interval1)
-        t2=time.process_time_ns()
-        GlobalQ = 0
-        print("queue 0 selected for ",t2-t1,"nsec")
-        t1=time.process_time_ns()
-        time.sleep(interval2)
-        t2=time.process_time_ns()
-        GlobalQ = 1
-        print("queue 1 selected for ",t2-t1,"nsec")
-
-def NotUsed_selectQueue_ForUseWith_testingTAS_py(shared_array):
-    """Function to run in the separate process."""
-    """Process modifies elements in the shared array."""
-    
-    timestamp = time.time()
-
-    appDir = "C:\\SimLight"
-    stdoutOriginal, sys.stdout, graphsPath = Log2pathCSV(appDir, "SelectQueueProcessStart")
-    
-    print(f"{shared_array[3]:.0f}; Process selectQueue in {__name__:s} is running at; X; {timestamp:.9f}; X")
-    
-    sys.stdout.close()
-    sys.stdout=stdoutOriginal
-    
-    #select Queue 0 for during the next t0 seconds
-    t0 = shared_array[0]
-    #select Queue 1 for during the next t1 seconds
-    t1 = shared_array[1]
-
-    while True:
-        # select Queue 0
-        shared_array[2] = 0.0
-        time.sleep(t0)
-
-        # select Queue 1
-        shared_array[2] = 1.0
-        time.sleep(t1)
-
-def NotUsed_activateTimeAwareShaper_ForUseWith_testingTAS_py(id):
-    
-    # Create a shared array of integers (change 'd' for other data types)
-    shared_array = multiprocessing.Array('d', range(4))
-    # shared_array[0] = Time for Queue 0 selection
-    # shared_array[1] = Time for Queue 1 selection
-    # shared_array[2] = Currently selected Queue
-    # shared_array[3] = just a number (afxon arithmos)
-    
-    shared_array[0] = 0.7
-    shared_array[1] = 0.3
-    shared_array[2] = 0.0 
-    shared_array[3] = id # just a number (afxon arithmos)
-
-    # Create and start the process
-    process = multiprocessing.Process(target=selectQueue, args=(shared_array,))
-    process.start()
-
-    start_time = time.time()
-
-    print("ID; Line; Queue; Timestamp; Elapsed time (sec)")
-    
-    # You can do other things in the main program here
-    for i in range(1000000):
-        #time.sleep(0.2)  # Simulate some main program work
-        
-        # Access the modified array from shared memory
-        # print("Modified array:", shared_array[:])
-
-        Queue = shared_array[2]
-        
-        timestamp = time.time()
-        elapsedTime = timestamp - start_time
-        # start_time = current_time
-    
-        #print("Main program Jumpball=",Jumpball)
-        print(f"{id:4d}, {i:9d}; {Queue:.0f}; {timestamp:.9f}; {elapsedTime:.9f}")
-        # end for
-        # pass  # Do some time-consuming operations here        
-
-    return process
-
-def NotUsed_activateTimeAwareShaper(TimeForHighPriorityQueue, TimeForLowPriorityQueue):
-    
-    # Create a shared array of integers (change 'd' for other data types)
-    shared_array = multiprocessing.Array('d', range(3))
-    # shared_array[0] = Time for Queue 0 selection
-    # shared_array[1] = Time for Queue 1 selection
-    # shared_array[2] = Currently selected Queue
-        
-    shared_array[0] = TimeForHighPriorityQueue
-    shared_array[1] = TimeForLowPriorityQueue
-    shared_array[2] = 0.0 
-
-    # Create and start the process
-    process = multiprocessing.Process(target=selectQueue, args=(shared_array,))
-    process.start()
-
-    start_time = time.time()
-
-    print("ID; Line; Queue; Timestamp; Elapsed time (sec)")
-    
-    # You can do other things in the main program here
-    for i in range(1000000):
-        #time.sleep(0.2)  # Simulate some main program work
-        
-        # Access the modified array from shared memory
-        # print("Modified array:", shared_array[:])
-
-        Queue = shared_array[2]
-        
-        timestamp = time.time()
-        elapsedTime = timestamp - start_time
-        # start_time = current_time
-    
-        #print("Main program Jumpball=",Jumpball)
-        print(f"{id:4d}, {i:9d}; {Queue:.0f}; {timestamp:.9f}; {elapsedTime:.9f}")
-        # end for
-        # pass  # Do some time-consuming operations here        
-
-    return process
-
-def NotWorking_selectQueue(queue_selection_process_shared_array):  
-    """Function to run in the separate process."""
-    """Process modifies elements in the shared array."""
-
-    appDir = "C:\\SimLight"
-    stdoutOriginal, sys.stdout, graphsPath = Log2pathCSV(appDir, "SelectQueueProcessStart")
-
-    #timestamp = time.time()
-
-    #appDir = "C:\\SimLight"
-    #stdoutOriginal, sys.stdout, graphsPath = Log2pathCSV(appDir, "SelectQueueProcessStart")
-    
-    #print(f"{shared_array[3]:.0f}; Process selectQueue in {__name__:s} is running at; X; {timestamp:.9f}; X")
-    
-    #sys.stdout.close()
-    #sys.stdout=stdoutOriginal
-    
-    #select Queue 0 for during the next t0 seconds
-    t0 = queue_selection_process_shared_array[0]
-    #select Queue 1 for during the next t1 seconds
-    t1 = queue_selection_process_shared_array[1]
-    print ("<p>t0=",t0)
-    print ("<p>t1=",t1)
-    while True:
-        # select Queue 0
-        queue_selection_process_shared_array[2] = 0.0
-        print("<p>queue=",queue_selection_process_shared_array[2])
-        time.sleep(t0)
-
-        # select Queue 1
-        queue_selection_process_shared_array[2] = 1.0
-        print("<p>queue=",queue_selection_process_shared_array[2])
-        time.sleep(t1)
-
-    sys.stdout.close()
-    sys.stdout=stdoutOriginal
-
-def NotUsed_terminateTimeAwareShaper(p):
-    # Wait for the time_counter process to finish (optional)
-    #process.join()
-    p.terminate()
-'''
-
-
-""" this does not produce a very good range
-def generateTrafficRequestsVariableBalance(dbConnection, N, graphsPath, lenQs, X, xi, Queuelabel, queueID, distribution, Qpercent):
-
-    ### generate and save lamda matrix traffic request values for the video queue
-
-    requests=[] # the original requests
-    #decoratedrequests=[] # the requests extended by an extra field about the priority class (0, 1, 2) 
-                        # used for sorting by class ascending and then by traffic demand descending
-    lamda=[]
-    rqsts=[]
-    Xvalue = X[xi]
-    #orismos range random traffic requests
-    #distributionMeanValueX = int(X[xi]/lenQs)
-    #distributionMeanValueX = int(X[xi]*Qpercent)
-    #traffic_demand_range_from = int(10 / lenQs)
-    #traffic_demand_range_from = distributionMeanValueX-(distributionMeanValueX*Qpercent)
-    #traffic_demand_range_from = 10*Qpercent #[(10*Q_HP_percent), (2*X*Q_HP_percent-(10*Q_HP_percent))]
-    #traffic_demand_range_from = roundatdecimals(traffic_demand_range_from, 1)
-    #traffic_demand_range_to = ((2 * distributionMeanValueX) - (int(10 / lenQs)))
-    #traffic_demand_range_to = distributionMeanValueX+(distributionMeanValueX*Qpercent)
-    #traffic_demand_range_to = 2*distributionMeanValueX-(10*Qpercent)
-    #traffic_demand_range_to = (2*Xvalue*Qpercent-(10*Qpercent)) #[(10*Q_HP_percent), (2*X*Q_HP_percent-(10*Q_HP_percent))]
-    #traffic_demand_range_to = roundatdecimals(traffic_demand_range_to, 1)
-
-    distributionMeanValueX = int(X[xi]*Qpercent)
-    XQueVal = Xvalue * Qpercent
-    traffic_demand_range_from = roundatdecimals( (XQueVal / 2.0), 1)
-    traffic_demand_range_to   = roundatdecimals( (2 * XQueVal - XQueVal / 2.0), 1)
-
-    # save lamda to text file
-    if (sys.argv[5]=="gensave"):
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print ("<table class='table1c'>")
-            print ("<tr><th colspan='"+str(len(N))+"' style='background:orange;'>Generate and save lamda matrix traffic requests to the",sys.argv[6],"text file</th></tr>")
-            print ("<tr><th colspan=",len(N),">[lamda]: Traffic demand per node pair (requests) in Gbps","xi=",xi,", X[",xi,"]=",X[xi],"for ",lenQs,"Queue." if lenQs==1 else "Queues.")
-            
-            if distribution=="Poisson":
-                #Poisson distribution
-                print ("<br><em style='font-size:0.8em'>The traffic demand between each node pair is random following a Poisson distribution around a mean traffic data amount,")
-                print (" which is centered at an identical average. That is, given an average demand intensity X &isin; {20,40, . . . ,120} Gbps, ")
-                print ("the actual demand between a node pair is generated by a random function distributed following the Poisson process within the range ")    
-            elif distribution == "Uniform":
-                #Uniform distribution
-                print ("<br><em style='font-size:0.6em'>The traffic demand between each node pair is random following a Uniform distribution within a certain range,")
-                print (" which is centered at an identical average. That is, given an average demand intensity X &isin; {20,40, . . . ,120} Gb/s, ")
-                print (f"the actual demand between a node pair is generated by a random function uniformly distributed within the range ")
-
-            print (f"[{traffic_demand_range_from},{traffic_demand_range_to}] Gbps with mean value of the distribution X={distributionMeanValueX}.</em></th></tr>")
-            
-        #EOP
-
-        komvoi = len(N)
-        megethosdeigmatos = komvoi * komvoi - komvoi
-        if distribution=="Poisson":
-            #Poisson distribution
-            deigma = generateDistributedTrafficRequestValuesThatFollowThePoissonProcess(traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, megethosdeigmatos)
-        elif distribution == "Uniform":
-            #Uniform ditribution
-            deigma = generateUniformlyDistributedTrafficRequestValues(traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, megethosdeigmatos) 
-        stoixeioDeigmatos = 0
-
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            graphDistribution(N, traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, deigma, distribution, graphsPath+pathseparatortoken()+f"TR_sample_histogram_Q_{("HP" if queueID==0 else "LP"):s}.png")
-            print (f"<tr><th colspan='{str(len(N))}' style='background:orange;'>")
-            print (f"<img src='{graphsPath+pathseparatortoken()}TR_sample_histogram_Q_{("HP" if queueID==0 else "LP"):s}.png' style='display: block; margin-left: auto; margin-right: auto; width: 30%;' ")
-            print ("alt='Traffic requests sample data histogram'></th></tr>")
-        #EOP
-
-        for x in range(len(N)):
-            #SOP
-            if (GlobalPrintOutEnabled==True) :
-                print("<tr>")
-            #EOP
-            for y in range(len(N)):
-                if (x!=y):
-                    #SOP
-                    if (GlobalPrintOutEnabled==True) :
-                        print("<td>")
-                    #EOP
-                    rnd=1 #rnd=numpy.random.randint(0, 10) #0 to 10 requests per virtual link, randomly
-                        #originally I have created a version that the total traffic demand for a node pair might be the aggregation (sum) of a random number (up to 10) of sub-demands from regional routers
-                    
-                    rqsts = []
-                    rqsts.append(float(deigma[stoixeioDeigmatos]))
-                    stoixeioDeigmatos = stoixeioDeigmatos + 1
-
-                    #if distribution=="Poisson":
-                        #Poisson distribution
-                        #rqsts=generateDistributedTrafficRequestValuesThatFollowThePoissonProcess(traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, 1) #1 is the number of samples. If number greater than 1, it can be considered the grooming of Chatterjee et al.
-                    #elif distribution == "Uniform":
-                        #Uniform ditribution
-                        #rqsts=generateUniformlyDistributedTrafficRequestValues(traffic_demand_range_from, traffic_demand_range_to, distributionMeanValueX, 1) # X = [20, 40, 60, 80, 100, 120], one request
-                    
-                    #SOP
-                    if (GlobalPrintOutEnabled==True) :
-                        print(" m=",x,"n=",y)
-                    #EOP
-
-                    
-                    for i in range(len(rqsts)):
-                        requests.append([x, y, rqsts[i]])
-                    
-                    l=calculateLamdaMatrixSums(rqsts) #lamda is the sum of all requests for the same pair of nodes #can be considered the grooming of Chatterjee et al.
-
-                    #SOP
-                    if (GlobalPrintOutEnabled==True) :
-                        print("</td>")
-                    #EOP
-                else:
-                    l=0
-                    #SOP
-                    if (GlobalPrintOutEnabled==True) :
-                        print("<td>diagonal, no traffic for","m=",x,"n=",y,"</td>")
-                    #EOP
-                lamda.append([x, y, l])
-            #SOP
-            if (GlobalPrintOutEnabled==True) :
-                print("</tr>")
-            #EOP
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print ("</table>")
-        #EOP
-
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print ("<table class='table1c'>")
-            print ("<tr><th colspan="+str(len(N)+1)+">[lamda]: Traffic demand per node pair (requests) in Gbps","xi=",xi,", X[",xi,"]=",X[xi])
-            print ("<tr><td></td>")
-            for i in range(len(N)):
-                print("<td>%9s</td>" % N[i], end=" ")
-            print("</tr>")
-            for x in range(len(N)):
-                print("<tr>")
-                print ("<td>",N[x], "</td>", end="")
-                for y in range(len(N)):
-                    a=len(lamda)
-                    print("<td>%9.3f</td>" % (lamda[x*len(N)+y][2]), end=" ")
-                print("</tr>")
-            print ("</table>")
-        #EOP
-
-        fout = open(sys.argv[6],"a")
-                        # prefer to write lamda to the output text file since requests do not include the 0.0 capacity for nodes where i==Nj
-        for r in lamda: #lamda include the 0.0 capacity for nodes where i==j
-            #fout.write(str(r[0])+","+str(r[1])+","+"{:0.3f}".format(r[2])+"\n")
-            fout.write(Queuelabel+","+str(r[0])+","+str(r[1])+","+"{:0.3f}".format(r[2])+"\n")
-        fout.close()
-
-    elif (sys.argv[5]=="load"):   # load lamda from text file NEW reads the queue labels
-        fin = open(sys.argv[6],"r")
-        lamda = []
-        requests = []
-        nextLine = fin.readline();
-        while (nextLine!=""):
-            temp = nextLine.split(',');
-            if (temp[0] == Queuelabel):
-                lamda.append([int(temp[1]),int(temp[2]),float(temp[3])])   # the input text file has the lamda matrix which includes the 0.0 capacity for nodes where i==j    
-                if int(temp[1]) != int(temp[2]):                           # requests do not include the 0.0 capacity for nodes where i==j, hence remove 0.0 capacity where i==j
-                    requests.append([int(temp[1]),int(temp[2]),float(temp[3])])
-            nextLine = fin.readline();
-    
-        ''' OLD does not read the traffic reqquests file with queue labels
-        elif (sys.argv[5]=="load"):   # load lamda from text file
-            fin = open(sys.argv[6],"r")
-            lamda = []
-            requests = []
-            nextLine = fin.readline();
-            while (nextLine!=""):
-                temp = nextLine.split(',');
-                lamda.append([int(temp[0]),int(temp[1]),float(temp[2])])   # the input text file has the lamda matrix which includes the 0.0 capacity for nodes where i==j    
-                if int(temp[0]) != int(temp[1]):                           # requests do not include the 0.0 capacity for nodes where i==j, hence remove 0.0 capacity where i==j
-                    requests.append([int(temp[0]),int(temp[1]),float(temp[2])])
-                nextLine = fin.readline();
-        ''' 
-        
-        #SOP
-        if (GlobalPrintOutEnabled==True) :
-            print ("<table class='table1c'>")
-            print ("<tr><th style='background:cyan;'>Loaded lamda matrix traffic requests from the",sys.argv[6],"text file</th></tr>")
-            print ("</table>")
-        #EOP
-
-        if (GlobalPrintOutEnabled==True) :
-            print ("<table class='table1c'>")
-            print ("<tr><th colspan="+str(len(N)+1)+">[lamda]: Traffic demand per node pair (requests) in Gbps","xi=",xi,", X[",xi,"]=",X[xi])
-            print ("<tr><td></td>")
-            for i in range(len(N)):
-                print("<td>%9s</td>" % N[i], end=" ")
-            print("</tr>")
-        
-            for x in range(len(N)):
-                print("<tr>")
-                print ("<td>",N[x], "</td>", end="")
-                for y in range(len(N)):
-                    a=len(lamda)
-                    if (x==y):
-                        print("<td>%9.3f</td>" % (0.0), end=" ")
-                    else:
-                        print("<td>%9.3f</td>" % (lamda[x*len(N)+y][2]), end=" ") #error out of range when load #2DO
-                print("</tr>")
-            print ("</table>")
-        #EOP
-
-    sortTrafficRequestsDescending(requests) #the original sort order according to the Shen Tucker paper
-    #sortTrafficRequestsAscending(requests)
-    #sortDecoratedTrafficRequestsClassAscendingTrafficDemandDescending(decoratedrequests)
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        printTrafficRequests(requests,N,"For the "+Queuelabel+" Queue.")
-        #nextReqID = saveTrafficRequests2sqlite(dbConnection, requests, N, graphsPath, Queuelabel, queueID) #, startReqID)
-        #saveTrafficRequests2sqlite(dbConnection, requests, N, graphsPath, Queuelabel, queueID)
-        #saveTrafficRequests2csv(requests,N,graphsPath)
-    #EOP
-
-    saveTrafficRequests2sqlite(dbConnection, requests, N, graphsPath, Queuelabel, queueID)
-
-    return requests #, nextReqID
-"""
-
-''' 19-8-2026 spotted a flaw
-def generateSplitTrafficRanges(Xval, Qpercent):
-    if Xval < 20.0:
-        base = 1.0
-    else:
-        base = 10.0
-    distMeanX = int(Xval*Qpercent)
-    range_from = roundatdecimals( (base*Qpercent), 1)
-    range_to   = roundatdecimals( ((2*Xval-base)*Qpercent), 1)
-
-    return distMeanX, range_from, range_to
-'''
 
 #19-8-2026 new version
 def generateSplitTrafficRanges(Xval, Qpercent):
@@ -18662,163 +16540,6 @@ def VirtualPathLeadsToRevisitsOnPhysicalTopology(virtualpath, N, Nt, NmC):
 
     return HasRevisits
 
-'''
-#old version of resultsDBUpdateOfVLs_LPs()
-def resultsDBUpdateOfVLs_LPs(routingResult, dbConnection):   # results and db update for Virtual Links = Lightpaths
-
-    passLPs = []
-    blockedLPs = []
-
-    for vlid in routingResult:
-        if routingResult[vlid][0:4]=="Pass":
-            passLPs.append(vlid)
-        else:
-            blockedLPs.append(vlid)
-
-    #update RoutingTrafficRequestsOverVirtualTopology
-
-    if len(passLPs)>0:
-        sqlPass  = "UPDATE RoutingTrafficRequestsOverVirtualTopology "
-        sqlPass += "SET result = 'Pass' "
-        sqlPass += "WHERE (vlsrc, vldst, vlnum) IN ("
-        for vlid in passLPs:
-            sqlPass += f"({vlid[0]:d},{vlid[1]:d},{vlid[2]:d})," # (vlid[0],vlid[1],vlid[2]),
-        sqlPass = sqlPass[:-1]+")"
-
-        dbConnection.execute(sqlPass)
-        dbConnection.commit()
-
-    if len(blockedLPs)>0:
-        sqlBlock  = "UPDATE RoutingTrafficRequestsOverVirtualTopology "
-        sqlBlock += "SET result = 'Blocked' "
-        sqlBlock += "WHERE (vlsrc, vldst, vlnum) IN ("
-        for vlid in blockedLPs:
-            sqlBlock += f"({vlid[0]:d},{vlid[1]:d},{vlid[2]:d})," # (vlid[0],vlid[1],vlid[2]),
-        sqlBlock = sqlBlock[:-1]+")"
-
-        dbConnection.execute(sqlBlock)
-        dbConnection.commit()
-
-    #update VirtualLinks
-
-    if len(passLPs)>0:
-        sqlPass  = "UPDATE VirtualLinks "
-        sqlPass += "SET result = 'Pass' "
-        sqlPass += "WHERE (src, dst, num) IN ("
-        for vlid in passLPs:
-            sqlPass += f"({vlid[0]:d},{vlid[1]:d},{vlid[2]:d})," # (vlid[0],vlid[1],vlid[2]),
-        sqlPass = sqlPass[:-1]+")"
-
-        dbConnection.execute(sqlPass)
-        dbConnection.commit()
-
-    if len(blockedLPs)>0:
-        sqlBlock  = "UPDATE VirtualLinks "
-        sqlBlock += "SET result = 'Blocked' "
-        sqlBlock += "WHERE (src, dst, num) IN ("
-        for vlid in blockedLPs:
-            sqlBlock += f"({vlid[0]:d},{vlid[1]:d},{vlid[2]:d})," # (vlid[0],vlid[1],vlid[2]),
-        sqlBlock = sqlBlock[:-1]+")"
-
-        dbConnection.execute(sqlBlock)
-        dbConnection.commit()
-
-    return passLPs, blockedLPs
-'''
-
-'''
-#26-10-2026 (morning) new version of resultsDBUpdateOfVLs_LPs()
-def resultsDBUpdateOfVLs_LPs(routingResult, dbConnection, blockedVLsInfo=None):
-    """
-    Updates VirtualLinks and RoutingTrafficRequestsOverVirtualTopology with exact
-    pass/blocking reasons ('Pass', 'Blocked: NoFreeFibers', 'Blocked: WavContConstr')
-    and stores detailed bottleneck diagnostics in BlockedVirtualLinksDiagnostics.
-    """
-    passLPs = []
-    blockedLPs = []
-    blockedLPs_Fibers = []
-    blockedLPs_WCC = []
-
-    # Group virtual links by their exact result string
-    results_by_status = {}
-    for vlid, status in routingResult.items():
-        if status.startswith("Pass"):
-            passLPs.append(vlid)
-            norm_status = "Pass"
-        else:
-            blockedLPs.append(vlid)
-            norm_status = status
-            if "NoFreeFibers" in status:
-                blockedLPs_Fibers.append(vlid)
-            elif "WavContConstr" in status:
-                blockedLPs_WCC.append(vlid)
-
-        results_by_status.setdefault(norm_status, []).append(vlid)
-
-    # 1. Update RoutingTrafficRequestsOverVirtualTopology and VirtualLinks per status group
-    for status_str, vl_list in results_by_status.items():
-        if not vl_list:
-            continue
-        safe_status = status_str.replace("'", "''")
-        tuple_list_sql = ",".join(f"({vl[0]:d},{vl[1]:d},{vl[2]:d})" for vl in vl_list)
-
-        sql_rtrovt = (
-            f"UPDATE RoutingTrafficRequestsOverVirtualTopology "
-            f"SET result = '{safe_status}' "
-            f"WHERE (vlsrc, vldst, vlnum) IN ({tuple_list_sql});"
-        )
-        dbConnection.execute(sql_rtrovt)
-
-        sql_vls = (
-            f"UPDATE VirtualLinks "
-            f"SET result = '{safe_status}' "
-            f"WHERE (src, dst, num) IN ({tuple_list_sql});"
-        )
-        dbConnection.execute(sql_vls)
-
-    dbConnection.commit()
-
-    
-    # 2. Store detailed per-VL blocking diagnostics in a dedicated SQLite table
-    if blockedVLsInfo is not None:
-        dbConnection.execute("""
-            CREATE TABLE IF NOT EXISTS BlockedVirtualLinksDiagnostics (
-                vlsrc integer NOT NULL,
-                vldst integer NOT NULL,
-                vlnum integer NOT NULL,
-                blockingReason text NOT NULL,
-                description text NOT NULL,
-                saturatingPhysicalLinks text NOT NULL,
-                failedSegment text NOT NULL,
-                PRIMARY KEY (vlsrc, vldst, vlnum),
-                FOREIGN KEY (vlsrc, vldst, vlnum) REFERENCES VirtualLinks (src, dst, num)
-            );
-        """)
-        dbConnection.execute("DELETE FROM BlockedVirtualLinksDiagnostics;")
-
-        diag_rows = []
-        for (vlsrc, vldst, vlnum), info in blockedVLsInfo.items():
-            diag_rows.append((
-                vlsrc,
-                vldst,
-                vlnum,
-                info.get("reason", "Unknown"),
-                info.get("description", ""),
-                str(info.get("saturating_links", [])),
-                str(info.get("continuity_failed_segment", []))
-            ))
-
-        if diag_rows:
-            dbConnection.executemany(
-                """INSERT INTO BlockedVirtualLinksDiagnostics
-                   (vlsrc, vldst, vlnum, blockingReason, description, saturatingPhysicalLinks, failedSegment)
-                   VALUES (?, ?, ?, ?, ?, ?, ?);""",
-                diag_rows
-            )
-        dbConnection.commit()
-
-    return passLPs, blockedLPs, blockedLPs_Fibers, blockedLPs_WCC
-'''
 
 #26-10-2026 (evening) latest new version of resultsDBUpdateOfVLs_LPs()
 def resultsDBUpdateOfVLs_LPs(routingResult, dbConnection, blockedVLsInfo=None):
@@ -18851,7 +16572,7 @@ def resultsDBUpdateOfVLs_LPs(routingResult, dbConnection, blockedVLsInfo=None):
         dbConnection.execute(
             """INSERT OR IGNORE INTO VirtualLinks (src, dst, num, caputil, capfree, result)
                VALUES (?, ?, ?, 0.0, 0.0, ?);""",
-            (vlid[0], vlid[1], vlid[2], norm_status)
+            (int(vlid[0]), int(vlid[1]), int(vlid[2]), norm_status)   #14-11-2026 wrap the parameters in int(...) so sqlite3 never stores a numpy.float64 or numpy.int64 as a binary blob
         )
     dbConnection.commit()
 
@@ -18921,62 +16642,6 @@ def resultsDBUpdateOfVLs_LPs(routingResult, dbConnection, blockedVLsInfo=None):
         dbConnection.commit()
 
     return passLPs, blockedLPs, blockedLPs_Fibers, blockedLPs_WCC
-
-
-'''
-#old version of resultsDBUpdateOfTRs()
-def resultsDBUpdateOfTRs(dbConnection):   # results and db update for Traffic Requests
-
-    # prwta epilegw ta blocked TRs 
-    sqlBlock = "select distinct reqquenum, reqnum from RoutingTrafficRequestsOverVirtualTopology where result='Blocked'"
-    cursor = dbConnection.execute(sqlBlock)
-    dataset = cursor.fetchall()
-    blockedTRs = []
-    for row in dataset:
-        blockedTRs.append((row[0], row[1]))
-
-    # meta epilegw ws pass TRs, osa den einai blocked 
-    # giati an ta epilexw me kritirio tin timi 'Pass' tote to synoliko plithos bgainei megalytero apo to pragmatiko, dioti ena TR mpori na exei kai pass kai blocked routings logw twn traffic grooming
-    sqlPass = """
-                select distinct reqquenum, reqnum 
-                from RoutingTrafficRequestsOverVirtualTopology 
-                where (reqquenum, reqnum) not in 
-                    (select distinct reqquenum, reqnum 
-                     from RoutingTrafficRequestsOverVirtualTopology 
-                     where result='Blocked')
-              """
-    cursor = dbConnection.execute(sqlPass)
-    dataset = cursor.fetchall()
-    passTRs = []
-    for row in dataset:
-        passTRs.append((row[0], row[1]))
-
-    
-    #update TrafficRequests
-    if len(passTRs)>0:
-        sqlPass  = "UPDATE TrafficRequests "
-        sqlPass += "SET result = 'Pass' "
-        sqlPass += "WHERE (quenum, num) IN ("
-        for trq in passTRs:
-            sqlPass += f"({trq[0]:d},{trq[1]:d})," # (trq[0],trq[1]),
-        sqlPass = sqlPass[:-1]+")"
-
-        dbConnection.execute(sqlPass)
-        dbConnection.commit()
-
-    if len(blockedTRs)>0:
-        sqlBlock  = "UPDATE TrafficRequests "
-        sqlBlock += "SET result = 'Blocked' "
-        sqlBlock += "WHERE (quenum, num) IN ("
-        for trq in blockedTRs:
-            sqlBlock += f"({trq[0]:d},{trq[1]:d})," # (trq[0],trq[1]),
-        sqlBlock = sqlBlock[:-1]+")"
-
-        dbConnection.execute(sqlBlock)
-        dbConnection.commit()
-
-    return passTRs, blockedTRs
-'''
 
 #26-10-2026 new version of resultsDBUpdateOfTRs()
 def resultsDBUpdateOfTRs(dbConnection):
@@ -19244,88 +16909,11 @@ def OLDVERSION_updateDB_RoutingVirtualLinksOverPhysicalTopology(newRoutings, rou
             dbConnection.execute(sqlBlock)
             dbConnection.commit()
 
-'''
-#26-10-2026 replacing the 21-8-2026 version of updateDB_RoutingVirtualLinksOverPhysicalTopology()
-#21-8-2026 version
-def updateDB_RoutingVirtualLinksOverPhysicalTopology(newRoutings, routingResults, dbConnection):
-    """
-    Updates the SQLite database with the physical routes of virtual links.
-    Filters out blocked/ghost routes (containing -1) to prevent FOREIGN KEY constraint failures.
-    """
-    # Formulate the SQL statement for batch insertion based on your schema
-    sql5 = """INSERT INTO RoutingVirtualLinksOverPhysicalTopology 
-              (vlsrc, vldst, vlnum, plsrc, pldst, fiberid, waveid, type, NumberOfHops, 
-               ShortestpathAsInt, ShortestpathAsStr, PhysicalLinkDirection, 
-               PhysicalLinkCurrentSource, PhysicalLinkCurrentDestination, LatIP, LatTransp) 
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
-    
-    array = []
-    
-    # Iterate over all virtual links and their calculated physical paths
-    for vlid, physical_path in newRoutings.items():
-        # Unpack the virtual link ID tuple
-        vlsrc, vldst, vlnum = vlid
-        
-        # Ensure we only process routes that successfully passed constraints
-        if routingResults.get(vlid) == "Pass":
-
-            if len(physical_path) > 0 and isinstance(physical_path[0], list):
-                physical_path = physical_path[0]
-
-            num_hops = len(physical_path)
-            
-            for hop_index, hop in enumerate(physical_path):
-                # Extract hop data (plsrc, pldst, fiberid, waveid)
-                plsrc = hop[0]
-                pldst = hop[1]
-                
-                # CRITICAL FIX: Filter out blocked placeholder routes (-1)
-                if plsrc != -1 and pldst != -1:
-                    fiberid = hop[2] if len(hop) > 2 else 0
-                    waveid = hop[3] if len(hop) > 3 else 0
-                    
-                    # Determine the position of the hop (Type)
-                    if num_hops == 1:
-                        PLtype = "Single"
-                    elif hop_index == 0:
-                        PLtype = "First"
-                    elif hop_index == num_hops - 1:
-                        PLtype = "Last"
-                    else:
-                        PLtype = "Middle"
-                        
-                    # Format the path tracking strings
-                    shPathAsInt = str([h[0] for h in physical_path] + [physical_path[-1][1]]) 
-                    shPathAsStr = str(shPathAsInt) # Simplified for DB insertion
-                    
-                    # Default values for network logic tracking
-                    PhysicalLinkDirection = 1 
-                    LatIP = 0.0 
-                    LatTransp = 0.0 
-                    
-                    # Append the valid route to the batch array
-                    array.append((
-                        vlsrc, vldst, vlnum, plsrc, pldst, fiberid, waveid, 
-                        PLtype, num_hops, shPathAsInt, shPathAsStr, 
-                        PhysicalLinkDirection, plsrc, pldst, LatIP, LatTransp
-                    ))
-
-    # Execute the batch insert only if there are valid, physical routes
-    if len(array) > 0:
-        try:
-            dbConnection.executemany(sql5, array)
-            dbConnection.commit()
-        except Exception as e:
-            print(f"<div><li><b>Database Error during bulk update:</b> {e}</li></div>")
-'''
-
 #26-10-2026 new version of updateDB_RoutingVirtualLinksOverPhysicalTopology()
 def updateDB_RoutingVirtualLinksOverPhysicalTopology(newRoutings, routingResults, dbConnection):
-    """
-    1. Records all passed and blocked virtual-to-physical assignments (including exact
-       blocking reasons) in RoutingVirtualLinksOverPhysicalTopologyWithLimitResults.
-    2. Marks all valid lightpaths in RoutingVirtualLinksOverPhysicalTopology as 'Pass'.
-    """
+    #Records all passed and blocked virtual-to-physical assignments (including exact blocking reasons) in RoutingVirtualLinksOverPhysicalTopologyWithLimitResults.
+    #Marks all valid lightpaths in RoutingVirtualLinksOverPhysicalTopology as 'Pass'.
+    
     newRoutings = normalize_dict(newRoutings)
 
     array = []
@@ -19372,29 +16960,12 @@ def updateDB_RoutingVirtualLinksOverPhysicalTopology(newRoutings, routingResults
         dbConnection.commit()
 
 
-'''
-#old version
-def removeDB_BlockedVirtualLinksOverPhysicalTopology(newRoutings, routingResults, dbConnection):
-    
-    sqlBlock = "DELETE from RoutingVirtualLinksOverPhysicalTopology Where result = 'Blocked'"
-
-    dbConnection.execute(sqlBlock)
-    dbConnection.commit()
-'''
-
-
 #26-10-2026 new version of removeDB_BlockedVirtualLinksOverPhysicalTopology()
 def removeDB_BlockedVirtualLinksOverPhysicalTopology(newRoutings, routingResults, dbConnection):
     sqlBlock = "DELETE FROM RoutingVirtualLinksOverPhysicalTopology WHERE result LIKE 'Blocked%';"
     dbConnection.execute(sqlBlock)
     dbConnection.commit()
 
-'''
-def removeDB_BlockedVirtualLinksOverPhysicalTopology(newRoutings, routingResults, dbConnection):
-    sqlBlock = "DELETE FROM RoutingVirtualLinksOverPhysicalTopology WHERE result LIKE 'Blocked%';"
-    dbConnection.execute(sqlBlock)
-    dbConnection.commit()
-'''
 
 def updateDB_RoutingVirtualLinksOverPhysicalTopology_Copy(newRoutings, routingResults, dbConnection):
 
@@ -19482,81 +17053,6 @@ def calculateWmnFromSQLite(dbConnection,L):
          """
     cursor = dbConnection.execute(sql)
     dataset = cursor.fetchall()
-
-'''
-not used
-def calculatePhysicalLinkStatisticsAndPowerParametersBeforeLimitations(N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn, LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection):
-    # used for power calculation
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :   
-        print ("<table class='data'>")
-        print ("<tr><th colspan=9>Statistics about Physical Links before applying limitations</th></tr>")
-        print ("<tr><th>Physical Link</th><th>Wavelengths w<sub>mn</sub></th>")
-        print ("<th>Fibers f<sub>mn</sub></th><th>Distance L<sub>mn</sub> (km)</th>")
-        print ("<th>Capacity requested (Gbps)</th><th>Free capacity (Gbps)</th>")
-        print ("<th>Reserved capacity for wavelengths (Gbps)</th>")
-        print ("<th>Wavelegth Utilisation (%)<br><span style='font-size:0.6em;'>Capacity requested / Capacity of the wavelengths</span></th>")
-        print ("<th>Fiber Link Utilisation (%)<br><span style='font-size:0.6em;'>Capacity requested / Capacity of the fibers</span></th></tr>")
-    #EOP
-
-    #Statistics about Physical Links
-
-    wUtotal = 0.0 # wavelength utilisation total
-    fUtotal = 0.0 # fiber utilisation total
-
-    keys = list(Wmn.keys())
-    keys.sort()
-    for key in keys:
-        wl = Wmn.get(key)
-        #fibers = int((wl/maxWavelengthsPerFiber)+1)
-        fibers=numpy.ceil(wl/maxWavelengthsPerFiber) 
-        CU = roundatdecimals(CUmn.get(key),3)                                                                        # CU : capacity utilised
-        CR = wl * maxGbpsPerWavelength                                                                               # CR : capacity required
-        CF = roundatdecimals((CR - CU), 3)                                                                           # CF : capacity free
-        wU = roundatdecimals((CU / CR * 100.0), 1) if CR>0 else 0                                                    # wU : wavelength utilisation percentage # prevent division by zero
-        fU = roundatdecimals((CU / (fibers * maxFiberCapacity) * 100.0), 1) if (fibers * maxFiberCapacity)>0 else 0  # fU : fiber link utilisation percentage # prevent division by zero
-
-        wUtotal += wU
-        fUtotal += fU
-
-        updateTotals(fmn, key, fibers)
-        distance = Lmn.get(key)
-
-        #SOP
-        if (GlobalPrintOutEnabled==True) :    
-            print("<tr><td>",N[L[key][0]]+"-"+N[L[key][1]],"</td><td>",wl,"</td><td>",fibers,"</td><td>",distance,"</td><td>",CU,"</td><td>",CF,"</td><td>",CR,"</td><td>",wU,"</td><td>",fU,"</td></tr>")
-        #EOP
-
-    wUaverage = wUtotal / len(keys) if len(keys)>0 else 0.0 # prevent division by zero
-    fUaverage = fUtotal / len(keys) if len(keys)>0 else 0.0 # prevent division by zero
-
-    wUaverage = roundatdecimals(wUaverage,1)
-    fUaverage = roundatdecimals(fUaverage,1)
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        print("</table>")
-    #EOP
-
-    ##########used for power calculation
-    ##########key = linknumber(L, sp[0],sp[1])
-    ##########numOfEDFAs = int ( ( dist[key] / distEDFA - 1.0 ) + 2.0 )
-
-    for physicallink in L:
-        key = linknumber(L,physicallink[0],physicallink[1])
-        LmnValue = Lmn.get(key)
-        value = numpy.ceil(LmnValue / S - 1.0) + 2 if S>0 else 0  # prevent division by zero
-        accumulatePowerParameters(Amn, key, value)
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        printAmn(Amn, N, L)
-    #EOP
-
-    return wUaverage, fUaverage
-'''
-
 
 
 
@@ -19655,87 +17151,6 @@ def calculatePhysicalLinkStatisticsAndPowerParametersAfterLimitations(N, L, S, W
 
 
 
-'''
-#26-10-2026 new version
-def calculatePhysicalLinkStatisticsAndPowerParametersAfterLimitations(
-    N, L, S, Wmn, CUmn, Lmn, fmn, Em, El, Amn,
-    LatRouterPort, LatTransponder, LatEDFA, LatFiberKilometer, dbConnection
-):  # used for power calculation
-    global GlobalPrintOutEnabled
-
-    # Reset fmn and Amn in-place to plain 0.0 floats so old values (or lists) are not accumulated
-    fmn.clear()
-    Amn.clear()
-    initialiseSet(fmn, L, [])
-    initialiseSet(Amn, L, [])
-
-    #SOP
-    if (GlobalPrintOutEnabled == True):
-        print("<table class='data'>")
-        print("<tr><th colspan=9>Statistics about Physical Links After Wavelength Assignment with Limitations</th></tr>")
-        print("<tr><th>Physical Link</th><th>Wavelengths w<sub>mn</sub></th>")
-        print("<th>Fibers f<sub>mn</sub></th><th>Distance L<sub>mn</sub> (km)</th>")
-        print("<th>Capacity requested (Gbps)</th><th>Free capacity (Gbps)</th>")
-        print("<th>Reserved capacity for wavelengths (Gbps)</th>")
-        print("<th>Wavelegth Utilisation (%)<br><span style='font-size:0.6em;'>Capacity requested / Capacity of the wavelengths</span></th>")
-        print("<th>Fiber Link Utilisation (%)<br><span style='font-size:0.6em;'>Capacity requested / Capacity of the fibers</span></th></tr>")
-    #EOP
-
-    # Statistics about Physical Links
-    wUtotal = 0.0  # wavelength utilisation total
-    fUtotal = 0.0  # fiber utilisation total
-
-    keys = list(Wmn.keys())
-    keys.sort()
-    for key in keys:
-        wl = float(Wmn.get(key, 0.0))
-        fibers = float(numpy.ceil(wl / maxWavelengthsPerFiber)) if maxWavelengthsPerFiber > 0 else 0.0
-
-        raw_cu = CUmn.get(key, 0.0)
-        CU = roundatdecimals(float(raw_cu if raw_cu is not None else 0.0), 3)        # CU : capacity utilised
-        CR = float(wl * maxGbpsPerWavelength)                                        # CR : capacity required
-        CF = roundatdecimals((CR - CU), 3)                                           # CF : capacity free
-        wU = roundatdecimals((CU / CR * 100.0), 1) if CR > 0 else 0.0                # wU : wavelength utilisation percentage
-        fU = roundatdecimals((CU / (fibers * maxFiberCapacity) * 100.0), 1) if (fibers * maxFiberCapacity) > 0 else 0.0  # fU : fiber link utilisation percentage
-
-        wUtotal += wU
-        fUtotal += fU
-
-        # Store plain Python float directly (prevents double accumulation and [2.] NumPy array output)
-        fmn.update({key: fibers})
-        distance = Lmn.get(key)
-
-        #SOP
-        if (GlobalPrintOutEnabled == True):
-            print("<tr><td>", N[L[key][0]] + "-" + N[L[key][1]], "</td><td>", wl, "</td><td>", fibers, "</td><td>", distance, "</td><td>", CU, "</td><td>", CF, "</td><td>", CR, "</td><td>", wU, "</td><td>", fU, "</td></tr>")
-        #EOP
-
-    wUaverage = wUtotal / len(keys) if len(keys) > 0 else 0.0  # prevent division by zero
-    fUaverage = fUtotal / len(keys) if len(keys) > 0 else 0.0  # prevent division by zero
-
-    wUaverage = roundatdecimals(wUaverage, 1)
-    fUaverage = roundatdecimals(fUaverage, 1)
-
-    #SOP
-    if (GlobalPrintOutEnabled == True):
-        print("</table>")
-    #EOP
-
-    # Calculate number of EDFAs (Amn) per fiber on each physical link
-    for physicallink in L:
-        key = linknumber(L, physicallink[0], physicallink[1])
-        LmnValue = float(Lmn.get(key, 0.0))
-        value = float(numpy.ceil(LmnValue / S - 1.0) + 2.0) if S > 0 else 0.0  # prevent division by zero
-        Amn.update({key: value})
-
-    #SOP
-    if (GlobalPrintOutEnabled == True):
-        printAmn(Amn, N, L)
-    #EOP
-
-    return wUaverage, fUaverage
-'''
-
 #26-10-2026 the latest version
 def getWmnFromDB(Wmn, L, dbConnection):
     Wmn = {i: 0.0 for i in range(len(L))}
@@ -19747,36 +17162,6 @@ def getWmnFromDB(Wmn, L, dbConnection):
         if key is not None:
             Wmn[key] = roundatdecimals(Wmn.get(key, 0.0) + float(row[2]), 0)   # sum both (m,n) and (n,m)
     return Wmn
-
-
-'''
-#26-10-2026 new version considering only the Pass 
-def getWmnFromDB(Wmn, L, dbConnection):
-    Wmn = {}
-    sql = "SELECT plsrc, pldst, count(waveid) FROM RoutingVirtualLinksOverPhysicalTopology WHERE result = 'Pass' GROUP BY plsrc, pldst;"
-    cursor = dbConnection.execute(sql)
-    dataset = cursor.fetchall()
-    for row in dataset:
-        key = linknumber(L, row[0], row[1])
-        Wmn[key] = roundatdecimals(float(row[2]), 0)   # number of wavelengths on physical link (m,n)
-    return Wmn
-'''
-
-'''
-#old version
-def getWmnFromDB(Wmn, L, dbConnection):
-
-    Wmn = {}
-
-    sql = "SELECT plsrc, pldst, count(waveid) FROM RoutingVirtualLinksOverPhysicalTopology GROUP BY plsrc, pldst;"
-    cursor = dbConnection.execute(sql)
-    dataset = cursor.fetchall()
-    for row in dataset:
-        key = linknumber(L, row[0], row[1])
-        Wmn[key] = roundatdecimals(float(row[2]),0)   # number of wavelengths on physical link (m,n)
-    
-    return Wmn
-'''
 
 
 #26-10-2026 the latest version
@@ -19791,37 +17176,6 @@ def getCUmnFromDB(CUmn, L, dbConnection):
             CUmn[key] = roundatdecimals(CUmn.get(key, 0.0) + float(row[2]), 3)  # sum both (m,n) and (n,m)
     return CUmn
 
-'''
-#previous version
-def getCUmnFromDB(CUmn, L, dbConnection):
-
-    CUmn = {}
-
-    sql = "SELECT plsrc, pldst, sum(routeTReqOverVTutilCap) FROM route_traffic_requests_over_virtual_and_physical_topology GROUP BY plsrc, pldst;"
-    cursor = dbConnection.execute(sql)
-    dataset = cursor.fetchall()
-    for row in dataset:
-        key = linknumber(L, row[0], row[1])
-        CUmn[key] = roundatdecimals(row[2],3)   # number of wavelengths on physical link (m,n)
-    
-    return CUmn
-'''
-
-'''
-#old version of getSigmaCijFromDB()
-def getSigmaCijFromDB(SigmaCij, N, dbConnection):
-
-    SigmaCij = {}
-
-    sql = "SELECT vlsrc, count(vlnum) FROM routingTrafficRequestsOverVirtualTopology where type = 'New' and result<>'Blocked' GROUP BY vlsrc;"
-    cursor = dbConnection.execute(sql)
-    dataset = cursor.fetchall()
-    for row in dataset:
-        srcnode = row[0]
-        SigmaCij[srcnode] = roundatdecimals(row[1],3)   # number of wavelengths on physical link (m,n)
-    
-    return SigmaCij
-'''
 
 #26-10-2026 new version of getSigmaCijFromDB()
 def getSigmaCijFromDB(SigmaCij, N, dbConnection):
@@ -20198,269 +17552,6 @@ def evaluatePowerConsumptionPerQueue(
     #EOP
 
     return PowerQ_HP, PowerQ_LP
-
-''' old version
-#7-2-2026
-def evaluatePowerConsumptionPerQueue(dbConnection, Di, Di_Q0, Di_Q1, Er, Et, Ee, SigmaCij, N, L):
-
-    """
-    --Query to get Di_Q_HP drom DB
-    select src, sum(cap) from TrafficRequests
-    where quenum=0
-    group by src
-    order by src
-    """
-
-    """
-    --Query to get SigmaCij_Q_HP from DB
-    select vlsrc, count(*) 
-    from RoutingTrafficRequestsOverVirtualTopology
-    where reqquenum = 0
-    and result = "Pass"
-    and   type = "New"
-    group by vlsrc
-    order by vlsrc
-    """
-
-    """
-    --Query to get fibers that carry HP traffic from DB
-    select 
-	TReqQueNum,	
-	TReqResult,	
-	routeTReqOverVTtype,		
-	PLsrc,					
-	PLdst,
-	routeVLoverPT_fiberID,	
-	routeVLoverPT_waveID,	
-	routeVLoverPT_shPathAsInt,
-	(PLlatEDFA * 10) as Asd,
-	"HPFinit" as tag
-    from 
-        route_traffic_requests_over_virtual_and_physical_topology
-    where 
-        TReqQueNum=0 
-        AND
-        TReqResult = "Pass"
-        AND
-        routeTReqOverVTtype = "New"
-        AND
-        routeVLoverPT_waveID=0
-    order by PLsrc,	PLdst, routeVLoverPT_fiberID, routeVLoverPT_waveID	
-    """
-
-    PowerQ_HP = 0.0
-    PowerQ_LP = 0.0
-    PowerQ_HP_IP = 0.0
-    PowerQ_LP_IP = 0.0
-    PowerQ_HP_WDM = 0.0
-    PowerQ_LP_WDM = 0.0
-    PowerQ_HP_fbr = 0.0
-    PowerQ_LP_fbr = 0.0
-
-    #print ("<li>Nodes N",N)
-    #print ("<li>Links L",L)
-    #print ("<li>Delta i",Di)
-    #print ("<li>Delta i QHP Q0",Di_Q0)
-    #print ("<li>Delta i QLP Q1",Di_Q1)
-    #print ("<li>SigmaCij",SigmaCij)
-    SigmaCij_Q0 = getSigmaCijPerQueue(dbConnection, "HP")
-    #print ("<li>SigmaCij QHP Q0",SigmaCij_Q0)
-    SigmaCij_Q1 = getSigmaCijPerQueue(dbConnection, "LP")
-    #print ("<li>SigmaCij QLP Q1",SigmaCij_Q1)
-
-    Wmn_Q0 = getWmnPerQueue(dbConnection, "HP")
-    #print ("<li>Wmn QHP Q0",Wmn_Q0)
-    Wmn_Q1 = getWmnPerQueue(dbConnection, "LP")
-    #print ("<li>Wmn QLP Q0",Wmn_Q1)
-
-    sqlGetHP_LPs = """
-                    select 
-                        TReqQueNum,	
-                        TReqResult,	
-                        routeTReqOverVTtype,		
-                        VLsrc,					
-                        VLdst,		
-                        VLnum,		
-                        VLresult,			
-                        routeVLoverPT_NumOfHops,
-                        routeVLoverPT_shPathAsInt
-                    from 
-                        route_traffic_requests_over_virtual_and_physical_topology
-                    where 
-                        TReqQueNum=0 
-                        AND
-                        TReqResult = "Pass"
-                        AND
-                        routeTReqOverVTtype = "New"
-                    group by vlsrc, vldst,vlnum
-                    order by VLsrc,	VLdst, VLnum
-                   """
-    
-    sqlGetHP_finit = """
-                        select 
-                            TReqQueNum,	
-                            TReqResult,	
-                            routeTReqOverVTtype,		
-                            PLsrc,					
-                            PLdst,
-                            routeVLoverPT_fiberID,	
-                            routeVLoverPT_waveID,	
-                            routeVLoverPT_shPathAsInt,
-                            (PLlatEDFA * 10) as Asd
-                        from 
-                            route_traffic_requests_over_virtual_and_physical_topology
-                        where 
-                            TReqQueNum=0 
-                            AND
-                            TReqResult = "Pass"
-                            AND
-                            routeTReqOverVTtype = "New"
-                            AND
-                            routeVLoverPT_waveID=0
-                        order by PLsrc,	PLdst, routeVLoverPT_fiberID, routeVLoverPT_waveID
-                     """
-
-    sqlGetLP_LPs = """
-                    select 
-                        TReqQueNum,	
-                        TReqResult,	
-                        routeTReqOverVTtype,		
-                        VLsrc,					
-                        VLdst,		
-                        VLnum,		
-                        VLresult,			
-                        routeVLoverPT_NumOfHops,
-                        routeVLoverPT_shPathAsInt
-                    from 
-                        route_traffic_requests_over_virtual_and_physical_topology
-                    where 
-                        TReqQueNum=1 
-                        AND
-                        TReqResult = "Pass"
-                        AND
-                        routeTReqOverVTtype = "New"
-                    group by vlsrc, vldst,vlnum
-                    order by VLsrc,	VLdst, VLnum
-                   """
-
-    sqlGetLP_finit = """
-                        select 
-                            TReqQueNum,	
-                            TReqResult,	
-                            routeTReqOverVTtype,		
-                            PLsrc,					
-                            PLdst,
-                            routeVLoverPT_fiberID,	
-                            routeVLoverPT_waveID,	
-                            routeVLoverPT_shPathAsInt,
-                            (PLlatEDFA * 10) as Asd
-                        from 
-                            route_traffic_requests_over_virtual_and_physical_topology
-                        where 
-                            TReqQueNum=1 
-                            AND
-                            TReqResult = "Pass"
-                            AND
-                            routeTReqOverVTtype = "New"
-                            AND
-                            routeVLoverPT_waveID=0
-                        order by PLsrc,	PLdst, routeVLoverPT_fiberID, routeVLoverPT_waveID
-                     """
- 
-    #OK calculate power of IP router ports
-
-    # I use the Di keys in case Di_Q0 or Di_Q0 or SigmaCij_Q0 or SigmaCij_Q1 
-    # does not have one key because there is no data for a node of the network
-    #keys = list(Di.keys()) 
-    keys = list(range(len(N)))
-    #print ("<li>keys",keys)
-    for key in keys:
-        temp1 = Di_Q0.get(key)
-        tempDiQ   = temp1 if temp1!=None else 0.0 
-
-        temp2 = SigmaCij_Q0.get(key)
-        tempSCijQ = temp2 if temp2!=None else 0.0
-
-        PowerQ_HP_IP += (tempDiQ + tempSCijQ) * Er
-        #print (f"<li>node {key}:PowerQ_HP_IP += (tempDiQ + tempSCijQ) * Er = {PowerQ_HP_IP} <- ({tempDiQ} + {tempSCijQ}) * {Er}")
-
-    for key in keys:
-        temp1 = Di_Q1.get(key)
-        tempDiQ   = temp1 if temp1!=None else 0.0 
-
-        temp2 = SigmaCij_Q1.get(key)
-        tempSCijQ = temp2 if temp2!=None else 0.0
-
-        PowerQ_LP_IP += (tempDiQ + tempSCijQ) * Er
-        #print (f"<li>node {key}:PowerQ_LP_IP += (tempDiQ + tempSCijQ) * Er = {PowerQ_LP_IP} <- ({tempDiQ} + {tempSCijQ}) * {Er}")
-
-    # calculate power of WDM
-    keys=[]
-    keys = list(map(tuple, L))
-    #print ("<li>keys",keys)
-
-    for key in keys:
-        temp1 = Wmn_Q0.get(key)
-        tempWmnQ   = temp1 if temp1!=None else 0.0 
-
-        PowerQ_HP_WDM += tempWmnQ * Et
-        #print (f"<li>node {key}:PowerQ_HP_WDM += tempWmnQ * Et = {PowerQ_HP_WDM} <- {tempWmnQ} * {Et}")
-
-    for key in keys:
-        temp1 = Wmn_Q1.get(key)
-        tempWmnQ   = temp1 if temp1!=None else 0.0 
-
-        PowerQ_LP_WDM += tempWmnQ * Et
-        #print (f"<li>node {key}:PowerQ_LP_WDM += tempWmnQ * Et = {PowerQ_LP_WDM} <- {tempWmnQ} * {Et}")
-
-    #OK calculate power of EDFAs
-    cursor = dbConnection.execute(sqlGetHP_finit)
-    for row in cursor:
-        Asd = float(row[8])
-        PowerQ_HP_fbr += Asd * Ee
-
-    cursor = dbConnection.execute(sqlGetLP_finit)
-    for row in cursor:
-        Asd = float(row[8])
-        PowerQ_LP_fbr += Asd * Ee
-
-    #old calculation of IPand WDM
-    #cursor = dbConnection.execute(sqlGetLP_LPs)
-    #dataset = cursor.fetchall()
-    #PowerQ_LP_IP += len(dataset) * ( (2 * Er) )
-    #PowerQ_LP_WDM += len(dataset) * ( (2 * Et) )
-
-    PowerQ_HP_IP  = roundatdecimals(PowerQ_HP_IP/1000, 3)
-    PowerQ_HP_WDM = roundatdecimals(PowerQ_HP_WDM/1000, 3)
-    PowerQ_HP_fbr = roundatdecimals(PowerQ_HP_fbr/1000, 3)
-
-    PowerQ_LP_IP  = roundatdecimals(PowerQ_LP_IP/1000, 3)
-    PowerQ_LP_WDM = roundatdecimals(PowerQ_LP_WDM/1000, 3)
-    PowerQ_LP_fbr = roundatdecimals(PowerQ_LP_fbr/1000, 3)
-
-    PowerQ_HP = roundatdecimals(PowerQ_HP_IP + PowerQ_HP_WDM + PowerQ_HP_fbr, 3)
-    PowerQ_LP = roundatdecimals(PowerQ_LP_IP + PowerQ_LP_WDM + PowerQ_LP_fbr, 3)
-
-    #SOP
-    if (GlobalPrintOutEnabled==True) :
-        print ("<table class='tablePow'>")
-        print ("<tr><th colspan=5>Evaluation of power consumption in the network per traffic class</th></tr>")
-        print ("<tr><td colspan=5>",mathPowerFormulaPerQueue(),"</td></tr>")
-        print ("<tr><th colspan=5>Total power consumption",roundatdecimals( (PowerQ_HP+PowerQ_LP), 3),"kWatts</th></tr>")
-        #print ("</table>")
-
-        print (f"""
-            <!--<table class='tablePow'>-->
-            <tr><th>Queue</th><th>Power IP</th><th>Power WDM</th><th>Power EDFA</th><th>Power Total</th></tr>
-            <tr><td>HP</td><td>{PowerQ_HP_IP}</td><td>{PowerQ_HP_WDM}</td><td>{PowerQ_HP_fbr}</td><td>{PowerQ_HP}</td></tr>
-            <tr><td>LP</td><td>{PowerQ_LP_IP}</td><td>{PowerQ_LP_WDM}</td><td>{PowerQ_LP_fbr}</td><td>{PowerQ_LP}</td></tr>
-            </table>
-            """)
-    #EOP
-
-    return PowerQ_HP, PowerQ_LP
-'''
-
 
 def convertVTtoOldFormatForRoutingOverPhysicalTopology(VirtualLinkTotals, N):
     VirtualLinks = []
@@ -20863,40 +17954,6 @@ def latencyPerQueueNewFormula(sqliteConnection):
             avg_by_queue[q_idx] = roundatdecimals(float(row[2]), 3)
 
     return [avg_by_queue[0], avg_by_queue[1]]
-
-''' #27-10-2026 old version
-def latencyPerQueueNewFormula(sqliteConnection):
-    #18-5-2026
-    query="""
-        SELECT 
-            TReqQueNum,
-            COUNT(TReqReqNum) AS NumberOfRequests,
-            AVG(TrafficRequestLatency) AS AvgQueueLatency,
-            MAX(TrafficRequestLatency) AS MaxQueueLatency,
-            MIN(TrafficRequestLatency) AS MinQueueLatency
-        FROM 
-            LatencyOfTrafficRequest
-        GROUP BY 
-            TReqQueNum
-        ORDER BY 
-            TReqQueNum ASC;
-    """
-
-    cursor = sqliteConnection.execute(query)
-    
-    data = []
-
-    dataset = cursor.fetchall() 
-    for row in dataset:
-        #print ("<li>row=",row)
-        #key = row[0]
-        value = row[2]
-        data.append(roundatdecimals(value,3)) #dict.update({key:value})
-
-    #print("<li>latency per Queue",data)
-
-    return data
-'''
 
 def getTimeStampString():
     current_time = datetime.now()

@@ -4,7 +4,7 @@ CaseStudy6Npaper
 [Description]
 CaseStudy6Npaper
 [Version]
-333
+336
 [Runs]
 1
 [Xindex(Xi): 0  1  2  3   4   5   6   7   8   9  10  11   12   13   14   15   16   17   18   19,   20 ]
@@ -20,7 +20,7 @@ detailreport
 [KeepEveryNthReport]
 1
 [Lambda]
-load
+gensave
 [LambdaTextFile]
 TRNSF.txt
 [PDFout]
@@ -58,4 +58,6 @@ Yes
 [WavelengthConverterLatency_msec,WavelengthConverterPowerConsumption_Watt)_end]
 [NumberOfShortestPathsConsiderDuringWavAssign]
 1
+[VirtualTopologyGraphsExportMode]
+slider_html
 [Config_end]

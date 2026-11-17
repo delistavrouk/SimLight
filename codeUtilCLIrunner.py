@@ -26,17 +26,10 @@ dynamic_folder = os.getcwd()
 
 # configuration parameters ----------------------------------------------
 
-#name, description, version, runs, X, nets, printout, keepeveryNreport, lamdagensaveload, lamdafile, pdfout,   \
-#runConfigs, computername, progfolder, distributions, LimitConfigs, LatencyComponents, QHPpercentTrafficSplit,  \
-#CheckForRevisits, HardLatencyCap_Q_HP, HardLatencyCap_Q_LP, virtWavCap, considerWCC, WavConvLatPow,             \
-#KShortestPaths = readConfigNew("config.txt")
-
+#17-11-2026
 name, description, version, runs, X, nets, printout, keepeveryNreport, lamdagensaveload, lamdafile, pdfout,   \
 runConfigs, computername, progfolder, distributions, LimitConfigs, LatencyComponents, QHPpercentTrafficSplit,  \
-CheckForRevisits, HardLatencyCap_Q_HP, HardLatencyCap_Q_LP, virtWavCap, WavConvLatPow, KShortestPaths = readConfigNew("config.txt")
-
-
-#print (f">>> lamdafile = {lamdafile}")
+CheckForRevisits, HardLatencyCap_Q_HP, HardLatencyCap_Q_LP, virtWavCap, WavConvLatPow, KShortestPaths, VTGraphsExportMode = readConfigNew("config.txt")
 
 #22-6-2026 do not consider the progfolder but the current working directory instead
 progfolder = dynamic_folder
@@ -116,10 +109,10 @@ for countprogramruns in range(runs):
                                             lamdaoutput = f"Traffic-Requests-for_{program}_{getTimeStampString()}_Net({net})_Run({countallprogramsruns}_NumOfQueues({queue})_{lamdafile}"
                                         elif lamdagensaveload=="load":
                                             lamdaoutput = f"{lamdafile}"
-                                        #cmd = f"python {program} {net} {x} {csv} {printout} {lamdagensaveload} {lamdaoutput} {pdfout} {queue} {keepreport} {computername} {progfolder} {distribution} {strategy} {fibersperlink} {wavelengthsperfiber} {wavelengthcapacity} {latRouterPort} {latTransponder} {QHPpercent} {CheckForRevisits} {HardLatencyCap_Q_HP} {HardLatencyCap_Q_LP} {virtWavCap} {considerWCC} {WALat} {WAPow} {KShortestPaths}"
-                                        cmd = f"python {program} {net} {x} {csv} {printout} {lamdagensaveload} {lamdaoutput} {pdfout} {queue} {keepreport} {computername} {progfolder} {distribution} {strategy} {fibersperlink} {wavelengthsperfiber} {wavelengthcapacity} {latRouterPort} {latTransponder} {QHPpercent} {CheckForRevisits} {HardLatencyCap_Q_HP} {HardLatencyCap_Q_LP} {virtWavCap} {WALat} {WAPow} {K}"
+
+                                        cmd = f"python {program} {net} {x} {csv} {printout} {lamdagensaveload} {lamdaoutput} {pdfout} {queue} {keepreport} {computername} {progfolder} {distribution} {strategy} {fibersperlink} {wavelengthsperfiber} {wavelengthcapacity} {latRouterPort} {latTransponder} {QHPpercent} {CheckForRevisits} {HardLatencyCap_Q_HP} {HardLatencyCap_Q_LP} {virtWavCap} {WALat} {WAPow} {K} {VTGraphsExportMode}"
                                         msg = f"Run {countallprogramsruns} of {totalruns}: ~ Command: \"{cmd}\""
                                         print (msg); logging.info(msg)
-                                        #subprocess.run(cmd)  
+                                        
                                         subprocess.run(cmd.split())                                  
                                         print (decor); logging.info(decor)
