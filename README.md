@@ -1,16 +1,16 @@
 A simulation of RWA for IPoWDM optical backbone networks by Konstantinos Delistavrou.
 
-codeHybridBypass.py: is the implementation of Hybrid bypass a new latency- and power-aware RWA algorithm for IPoWDM networks utilizing queues of high- and low-priority traffic demands. 
+codeHybridBypass.py: is the implementation of Hybrid Bypass, a new latency- and power-aware RWA algorithm for IPoWDM networks utilizing queues of high- and low-priority traffic demands. 
 
-codeDirectBypass.py: is the implementation of Direct Bypass, the power efficient algorithm by G. Shen & R. S. Tucker [1]  that does not apply traffic grooming and serves traffic in a single queue.
+codeDirectBypass.py: is the implementation of Direct Bypass, the power-efficient algorithm by G. Shen & R. S. Tucker [1]  that does not apply traffic grooming and serves traffic in a single queue.
 
-codeMultiHopBypass.py: Multi-hop Bypass is the implementation of the power efficient algorithm by G. Shen & R. S. Tucker [1] that applies traffic grooming and serves traffic in a single queue.
+codeMultiHopBypass.py: Multi-hop Bypass is the implementation of the power-efficient algorithm by G. Shen & R. S. Tucker [1] that applies traffic grooming and serves traffic in a single queue.
 
-codeHottestFirstAndComparison.py: is the implementation of Hottest-first and Comparison power and latency aware algorithm by C. Lee and J.-K. K. Rhee [2]
+codeHottestFirstAndComparison.py: is the implementation of the Hottest-first and Comparison power- and latency-aware algorithm by C. Lee and J.-K. K. Rhee [2]
 
 codeGusLibQueues.py is a library file
 
-For each algorithm you need to utilize a network topology definition (as an input file)
+For each algorithm, you need to utilize a network topology definition (as an input file)
 
 N6L8_STnet_AllWavConv.txt: a small-scale network [1] with wavelength converters ([HasWavConv] has 1s)
 N6L8_STnet_NoWavConv.txt: a small-scale network [1] without wavelength converters ([HasWavConv] has 0s)
@@ -19,7 +19,7 @@ N14L21_NSFnet_NoWavConv.txt: a medium-scale network [1] without wavelength conve
 N24L43_USnet_AllWavConv.txt: a large-scale network [1] with wavelength converters ([HasWavConv] has 1s)
 N24L43_USnet_NoWavConv.txt: a large-scale network [1] with wavelength converters ([HasWavConv] has 0s)
 
-The simulator exports results in a CSV file, an errors log, the traffic requests (if generated randomly), a folder with on demand elements that include (not for codeHottestFirstAndComparison.py which returns only a partial report): detailed report in HTML or PDF form, DB file, virtual topology of every step of routing, physical topology, queues serve pattern, demands distribution graph.
+The simulator exports results in a CSV file, an error log, the traffic requests (if generated randomly), a folder with on-demand elements that include (not for codeHottestFirstAndComparison.py which returns only a partial report): a detailed report in HTML or PDF form, DB file, virtual topology of every step of routing, physical topology, vector service pattern, demands distribution graph.
 
 Use the data in the exported CSV files to replace measurements in the supplied GNU Octave script files for the realization of all graphs. 
 
@@ -27,7 +27,7 @@ You may run each algorithm (a) via the command line, or (b) use codeUtilCLIrunne
 
 Option (a):
 
-Information about the command line parameters is provided in the [HTML page about command line parameters](READABOUTPARAMETERS.html).
+Information about the command line parameters is provided in the [HTML page about command line parameters](https://delistavrouk.github.io/SimLight/READABOUTPARAMETERS.html).
 
 Examples of command lines to run the programs:
 
@@ -41,7 +41,7 @@ Examples of command lines to run the programs:
 
 Option (b):
 
-For batch mode use the config.txt file to set runtime configuration and number of execution repetitions. Then run on the command line prompt "python codeUtilCLIrunner.py"
+For batch mode, use the config.txt file to set runtime configuration and number of execution repetitions. Then run on the command line prompt: "python codeUtilCLIrunner.py"
 
 Dependencies for running each simulated algorithm are described in the corresponding source files, including:
 - numpy
@@ -51,9 +51,9 @@ Dependencies for running each simulated algorithm are described in the correspon
 - pdfkit (requires an HTML to PDF conversion engine, e.g., wkhtmltopdf from https://wkhtmltopdf.org/)
 
 [id1]: ## "spam proof e-mail address, type it yourself"
-For assistance feel free to contact me at [delistaνrου(α)υοm.edυ.gr][id1]
+For assistance, feel free to contact me at [delistaνrου(α)υοm.edυ.gr][id1]
 
-This repository holds a snapshot of the stable version 3, while development actively continues!
+This repository holds a snapshot of the stable version 3, while development continues!
 
 Hybrid Bypass has been updated in November 2026 to:
 - support generation of random traffic based on four distribution processes: Uniform, Poisson, Weibull, Pareto
@@ -73,5 +73,5 @@ Enjoy!
 [1] G. Shen and R. S. Tucker, “Energy-minimized design for IP over WDM networks,” Journal of Optical
 Communications and Networking, vol. 1, no. 1, pp. 176–186, 2009.
 
-[2] C. Lee and J.-K. K. Rhee, “Traffic grooming for ip-over-wdm networks: Energy and delay perspectives,” Journal
+[2] C. Lee and J.-K. K. Rhee, “Traffic grooming for IP-over-WDM networks: Energy and delay perspectives,” Journal
 of Optical Communications and Networking, vol. 6, no. 2, pp. 96–103, 2014.
